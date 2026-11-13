@@ -1,0 +1,1 @@
+{"data":{"r0":{"i0":{"__typename":"Issue","state":"OPEN"},"i1":{"__typename":"PullRequest","state":"OPEN","reviewDecision":"REVIEW_REQUIRED","commits":{"nodes":[{"commit":{"statusCheckRollup":{"state":"SUCCESS"}}}]}}},"reviews":{"nodes":[{"number":77,"title":"Add widget sizes","repository":{"name":"widgets","owner":{"login":"acme"}}}]}}}
