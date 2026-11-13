@@ -292,7 +292,11 @@ var forgeSpinnerFrames = []string{"⣾", "⣽", "⣻", "⢿", "⡿", "⣟", "⣯
 // forgeFreshText is the Project line's right side (spec #18 §3): the open
 // count when known, then the spinner while fetching, ⚠ stale after a failed
 // refetch, or the data's age. Empty before the first fetch.
-func (h *Home) forgeFreshText() string {
+func (h *Home) forgeFreshText() string { return h.forgeFreshTextOf(true) }
+
+// forgeFreshTextOf is forgeFreshText, without the age unless age is set
+// (a narrow Project line keeps the filter chip whole first).
+func (h *Home) forgeFreshTextOf(age bool) string {
 	_, e, ok := h.forgeVisibleEntry()
 	if !ok {
 		return ""
@@ -307,12 +311,12 @@ func (h *Home) forgeFreshText() string {
 		parts = append(parts, lipgloss.NewStyle().Foreground(ColorCyan).Render(forgeSpinnerFrames[h.animationFrame%len(forgeSpinnerFrames)]))
 	case e.Stale():
 		parts = append(parts, lipgloss.NewStyle().Foreground(ColorYellow).Render("⚠ stale"))
-	case e.HasData():
-		age := humanizeSince(h.forgeNow().Sub(e.FetchedAt))
+	case e.HasData() && age:
+		text := humanizeSince(h.forgeNow().Sub(e.FetchedAt))
 		if len(parts) == 0 {
-			age = "updated " + age
+			text = "updated " + text
 		}
-		parts = append(parts, dim.Render(age))
+		parts = append(parts, dim.Render(text))
 	}
 	return strings.Join(parts, dim.Render(" · "))
 }

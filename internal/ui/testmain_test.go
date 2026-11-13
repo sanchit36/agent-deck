@@ -24,18 +24,6 @@ func TestMain(m *testing.M) {
 // the isolated TMUX_TMPDIR and HOME temp dirs are removed (2026-06-07
 // pty-exhaustion incident class).
 func runTestMain(m *testing.M) int {
-	// Disable Go toolchain telemetry for every `go` invocation this test
-	// binary makes (build caches probe, `go build` of the CLI under a
-	// TempDir HOME). The telemetry writer forks a detached child that
-	// writes to $HOME/.config/go/telemetry/local asynchronously; when HOME
-	// is a t.TempDir(), that child can still be writing when the test ends,
-	// racing t.TempDir()'s RemoveAll cleanup ("directory not empty"). Set
-	// via os.Setenv (not t.Setenv) so it lands in os.Environ() before
-	// resolveWatcherBuildCaches runs below and is inherited by every
-	// exec.Command("go", ...) built from os.Environ() for the life of this
-	// binary, including watcherBuildEnvironment's builds.
-	os.Setenv("GOTELEMETRY", "off")
-
 	// Attach-helper mode for the fake SSH endpoint in
 	// embedded_remote_leading_output_test.go: the binary stands in for the
 	// remote `agent-deck session attach` inside the embedded PTY. Must run
@@ -52,6 +40,18 @@ func runTestMain(m *testing.M) int {
 	// config. See internal/testutil/homeenv.go for the postmortem.
 	cleanupHome := testutil.IsolateHome()
 	defer cleanupHome()
+
+	// Go telemetry off for the go commands tests run under a t.TempDir
+	// HOME (the build-cache probe, `go build` of the CLI): in its default
+	// local mode go forks a detached sidecar that keeps writing to
+	// $HOME/.config/go/telemetry after go exits, racing t.TempDir's
+	// RemoveAll ("directory not empty"). See withGoTelemetryOff.
+	cleanupGoConfig, err := makeWatcherGoConfigDir()
+	if err != nil {
+		fmt.Fprintln(os.Stderr, err)
+		return 1
+	}
+	defer cleanupGoConfig()
 
 	// Isolate the tmux socket. UI tests drive session-lifecycle flows end-to-end;
 	// without isolation they spawn tmux on the user's default socket and

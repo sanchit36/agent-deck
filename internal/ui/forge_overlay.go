@@ -429,6 +429,22 @@ func (h *Home) handleForgeOverlayKey(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 	return h, nil
 }
 
+// handleForgeOverlayClick switches tab on a click on the tab row (row 1).
+// An Issue's overlay has Conversation only.
+func (h *Home) handleForgeOverlayClick(x, y int) {
+	o := &h.forge.overlay
+	if y != 1 {
+		return
+	}
+	for _, s := range forgeOverlayTabSegments(o.pr, o.tab) {
+		if x >= s.x0 && x < s.x1 {
+			o.tab = s.tab
+			h.clampForgeOverlay()
+			return
+		}
+	}
+}
+
 // handleForgeOverlayWheel scrolls the overlay a few rows per notch.
 func (h *Home) handleForgeOverlayWheel(up bool) {
 	if up {
@@ -643,6 +659,36 @@ func forgeReviewChrome(state string) (string, string) {
 	return "", "reviewed"
 }
 
+// forgeOverlayTabSegment is one tab chip of the overlay's tab row (row 1)
+// and the columns [x0, x1) it covers.
+type forgeOverlayTabSegment struct {
+	tab    forgeOverlayTab
+	text   string
+	x0, x1 int
+}
+
+// forgeOverlayTabSegments lays out the tab row: a leading space, then each
+// tab (`[ Name ]` when active, `  Name  ` otherwise) and a space. An
+// Issue's overlay has Conversation only.
+func forgeOverlayTabSegments(pr bool, active forgeOverlayTab) []forgeOverlayTabSegment {
+	tabs := []forgeOverlayTab{forgeOverlayConversation}
+	if pr {
+		tabs = append(tabs, forgeOverlayFiles)
+	}
+	segs := make([]forgeOverlayTabSegment, 0, len(tabs))
+	x := 1
+	for _, t := range tabs {
+		text := "  " + t.String() + "  "
+		if t == active {
+			text = "[ " + t.String() + " ]"
+		}
+		w := lipgloss.Width(text)
+		segs = append(segs, forgeOverlayTabSegment{tab: t, text: text, x0: x, x1: x + w})
+		x += w + 1
+	}
+	return segs
+}
+
 // renderForgeOverlay draws the overlay full screen. No I/O: it reads the
 // cache and the overlay's state.
 func (h *Home) renderForgeOverlay() string {
@@ -664,18 +710,14 @@ func (h *Home) renderForgeOverlay() string {
 	out = append(out, truncateDisplay(header, width, "…"))
 
 	// Tab row.
-	tabs := []forgeOverlayTab{forgeOverlayConversation}
-	if o.pr {
-		tabs = append(tabs, forgeOverlayFiles)
-	}
 	active := lipgloss.NewStyle().Foreground(ColorAccent).Bold(true)
 	var tabRow strings.Builder
 	tabRow.WriteString(" ")
-	for _, t := range tabs {
-		if t == o.tab {
-			tabRow.WriteString(active.Render("[ " + t.String() + " ]"))
+	for _, s := range forgeOverlayTabSegments(o.pr, o.tab) {
+		if s.tab == o.tab {
+			tabRow.WriteString(active.Render(s.text))
 		} else {
-			tabRow.WriteString(dim.Render("  " + t.String() + "  "))
+			tabRow.WriteString(dim.Render(s.text))
 		}
 		tabRow.WriteString(" ")
 	}

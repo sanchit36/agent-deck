@@ -12,6 +12,13 @@ import (
 // Template with (spec #18 §12, §13): the body always, the comments and the
 // PR's review threads only when the template uses them ($comments,
 // $review).
+//
+// It stays apart from ConversationQuery on purpose: a prompt wants the
+// latest 50 comments, no review summaries, inline review threads with
+// file and line, and nothing it does not use, while the overlay wants the
+// first 100 comments and review summaries with minimized state and only
+// counts inline comments. One query for both would change what either
+// fetches or fills in.
 const ItemTextQuery = `query($owner:String!,$name:String!,$number:Int!,$comments:Boolean!,$review:Boolean!){` +
 	`repository(owner:$owner,name:$name){issueOrPullRequest(number:$number){__typename ` +
 	`...on Issue{body comments(last:50) @include(if:$comments){nodes{author{login} body createdAt}}} ` +

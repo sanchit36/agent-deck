@@ -4,7 +4,7 @@
 ──────────────────────────────────────────────────────────────────────
 me/widgets ▾  is:open                             6 of 1075 · just now
 ▌ ○ gh run view --job --log-failed fails on required shared-workflow …
-▌   #14822 · henrymodisett · 15m  bug, priority-3, gh-run  ◉ triage r…
+▌   #14822 · henrymodisett · 15m  ◉ triage run +1  bug, priority-3, g…
                                                                       
   ○ gh auth saves plain text token, even though I have keyring        
 ──────────────────────────────────────────────────────────────────────
@@ -21,4 +21,4 @@ assignee  none
 comments  5                                                           
 sessions  ◉ triage run, repro  a attach                               
 ──────────────────────────────────────────────────────────────────────
-[/] tabs  enter view  n new  a attach  o open  S settings  ? help     
+enter view  n new  a attach  / filter  r refresh  S settings  ? help  

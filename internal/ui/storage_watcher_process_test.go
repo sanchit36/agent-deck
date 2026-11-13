@@ -103,10 +103,12 @@ func watcherBuildEnvironment(base []string) []string {
 			env = append(env, value)
 		}
 	}
-	return append(env, "GOCACHE="+watcherBuildCaches["GOCACHE"], "GOMODCACHE="+watcherBuildCaches["GOMODCACHE"])
+	return withGoTelemetryOff(append(env, "GOCACHE="+watcherBuildCaches["GOCACHE"], "GOMODCACHE="+watcherBuildCaches["GOMODCACHE"]))
 }
-func TestStorageWatcherBuildCacheDefaultsSurviveHomeIsolation(t *testing.T) {
-	harness := t.TempDir()
+
+// watcherHarnessEnv is this process's environment with HOME at harness and
+// the Go tool caches left to their defaults under it.
+func watcherHarnessEnv(harness string) []string {
 	var env []string
 	for _, value := range os.Environ() {
 		key, _, _ := strings.Cut(value, "=")
@@ -116,7 +118,83 @@ func TestStorageWatcherBuildCacheDefaultsSurviveHomeIsolation(t *testing.T) {
 		}
 		env = append(env, value)
 	}
-	env = append(env, "HOME="+harness, "GOPATH="+filepath.Join(harness, "go"))
+	return withGoTelemetryOff(append(env, "HOME="+harness, "GOPATH="+filepath.Join(harness, "go")))
+}
+
+// watcherGoConfigDir is an XDG_CONFIG_HOME whose go/telemetry/mode is
+// "off", made by TestMain. The mode file is Go telemetry's only switch:
+// GOTELEMETRY is a read-only go env value, so setting it does nothing.
+var watcherGoConfigDir string
+
+// makeWatcherGoConfigDir makes watcherGoConfigDir outside any test's HOME;
+// cleanup removes it.
+func makeWatcherGoConfigDir() (cleanup func(), err error) {
+	dir, err := os.MkdirTemp("", "agentdeck-go-config-")
+	if err != nil {
+		return func() {}, fmt.Errorf("creating the go config dir for tests: %w", err)
+	}
+	cleanup = func() { _ = os.RemoveAll(dir) }
+	mode := filepath.Join(dir, "go", "telemetry", "mode")
+	if err := os.MkdirAll(filepath.Dir(mode), 0o755); err != nil {
+		cleanup()
+		return func() {}, fmt.Errorf("creating the go telemetry dir for tests: %w", err)
+	}
+	if err := os.WriteFile(mode, []byte("off"), 0o644); err != nil {
+		cleanup()
+		return func() {}, fmt.Errorf("turning go telemetry off for tests: %w", err)
+	}
+	watcherGoConfigDir = dir
+	return cleanup, nil
+}
+
+// withGoTelemetryOff points env's go config dir at watcherGoConfigDir so a
+// go command run with it records no telemetry and starts no telemetry
+// sidecar under a test HOME, where the sidecar would race t.TempDir's
+// cleanup. It relies on XDG_CONFIG_HOME, which os.UserConfigDir honours on
+// Linux (where these tests run, in a container).
+func withGoTelemetryOff(env []string) []string {
+	if watcherGoConfigDir == "" {
+		return env
+	}
+	out := make([]string, 0, len(env)+1)
+	for _, value := range env {
+		if !strings.HasPrefix(value, "XDG_CONFIG_HOME=") {
+			out = append(out, value)
+		}
+	}
+	return append(out, "XDG_CONFIG_HOME="+watcherGoConfigDir)
+}
+
+// TestWatcherGoCommandsRunWithTelemetryOff: the go commands these tests run
+// under a t.TempDir HOME have Go telemetry off. In its default local mode
+// the go command writes counters under $HOME/.config/go/telemetry and may
+// start a detached sidecar that keeps writing there after go exits, which
+// races t.TempDir's cleanup ("directory not empty").
+func TestWatcherGoCommandsRunWithTelemetryOff(t *testing.T) {
+	home := t.TempDir()
+	build := []string{"HOME=" + home}
+	for _, value := range os.Environ() {
+		if !strings.HasPrefix(value, "HOME=") {
+			build = append(build, value)
+		}
+	}
+	for name, env := range map[string][]string{
+		"cache probe": watcherHarnessEnv(home),
+		"build":       watcherBuildEnvironment(build),
+	} {
+		cmd := exec.Command("go", "env", "GOTELEMETRY")
+		cmd.Env = env
+		out, err := cmd.Output()
+		require.NoError(t, err, name)
+		require.Equal(t, "off", strings.TrimSpace(string(out)), name)
+	}
+	_, err := os.Stat(filepath.Join(home, ".config", "go", "telemetry"))
+	require.True(t, os.IsNotExist(err), "go wrote telemetry under the test HOME")
+}
+
+func TestStorageWatcherBuildCacheDefaultsSurviveHomeIsolation(t *testing.T) {
+	harness := t.TempDir()
+	env := watcherHarnessEnv(harness)
 	caches, err := resolveWatcherBuildCaches(env)
 	require.NoError(t, err)
 	require.Equal(t, filepath.Join(harness, "go", "pkg", "mod"), caches["GOMODCACHE"])

@@ -21,4 +21,4 @@ author{login} labels(first:20){nodes{name}}
 assignees(first:10){nodes{login}} comments{totalCount}                
 timelineItems(last:10,itemTypes:[ISSUE_COMMENT,CLOSED_EVENT,REOPENED_E
 ──────────────────────────────────────────────────────────────────────
-[/] tabs  enter view  n new  o open  y copy url  S settings  ? help   
+[/] tabs  enter view  n new  / filter  r refresh  S settings  ? help  
