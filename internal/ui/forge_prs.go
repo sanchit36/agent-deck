@@ -117,10 +117,12 @@ func prRows(l github.PRList, now time.Time) []forgeRow {
 				{glyph: checkGlyph(p.Checks), color: checkGlyphColor(p.Checks), label: "ci"},
 				{glyph: reviewGlyph(p.Review), color: reviewGlyphColor(p.Review), label: "review"},
 			},
-			url:       p.URL,
-			number:    p.Number,
-			updatedAt: p.UpdatedAt,
-			state:     prStateWord(p),
+			url:        p.URL,
+			number:     p.Number,
+			updatedAt:  p.UpdatedAt,
+			state:      prStateWord(p),
+			headBranch: p.HeadBranch,
+			baseBranch: p.BaseBranch,
 		})
 	}
 	return rows

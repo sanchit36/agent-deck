@@ -116,24 +116,34 @@ func (h *Home) forgeOpenLaunch() tea.Cmd {
 	}
 
 	f := &forgeLaunchField{kind: h.forgeLinkKind(), repo: k.Repo, number: r.number, repoRoot: root}
+	// The list row fills what it has; the cached detail, when there is
+	// one, replaces it.
 	f.vars = prompttemplate.Vars{
 		Kind: prompttemplate.KindIssue, Number: r.number, Title: r.title, URL: r.url,
 		Repo: k.Repo.Owner + "/" + k.Repo.Name, Host: k.Repo.HostOrDefault(),
+		Labels: r.tags, Author: r.author,
 	}
-	if e, ok := h.forgeCache().Get(k); ok {
-		switch d := e.Value.(type) {
-		case github.IssueDetail:
-			f.vars.Title, f.vars.URL, f.vars.Labels, f.vars.Author = d.Title, d.URL, d.Labels, d.Author
-		case github.PRDetail:
-			f.vars.Title, f.vars.URL, f.vars.Labels, f.vars.Author = d.Title, d.URL, d.Labels, d.Author
-			f.headBranch, f.baseBranch = d.HeadBranch, d.BaseBranch
-		}
-	}
-	title := forgeLaunchTitle(fmt.Sprintf("#%d", r.number), f.vars.Title)
+	f.headBranch, f.baseBranch = r.headBranch, r.baseBranch
 	if f.kind == session.LinkPR {
 		f.vars.Kind = prompttemplate.KindPR
-		f.vars.HeadBranch, f.vars.BaseBranch = f.headBranch, f.baseBranch
+	}
+	cached := false
+	if e, ok := h.forgeCache().Get(k); ok && e.HasData() {
+		cached = f.applyDetail(e.Value)
+	}
+	f.vars.HeadBranch, f.vars.BaseBranch = f.headBranch, f.baseBranch
+	title := forgeLaunchTitle(fmt.Sprintf("#%d", r.number), f.vars.Title)
+	if f.kind == session.LinkPR {
 		title = forgeLaunchTitle(fmt.Sprintf("PR#%d", r.number), f.vars.Title)
+	}
+	// A PR row has no labels: its detail is fetched for the launch (or
+	// the fetch already in flight is awaited), and enter waits for it.
+	var detailCmd tea.Cmd
+	if f.kind == session.LinkPR && !cached {
+		detailCmd = h.forgeFetch(k)
+		if e, ok := h.forgeCache().Get(k); ok && e.Fetching {
+			f.detailKey, f.detailPending = k, true
+		}
 	}
 
 	cfg := loadForgeConfig()
@@ -144,18 +154,12 @@ func (h *Home) forgeOpenLaunch() tea.Cmd {
 			ts, _ = cfg.BuildPromptTemplates(dir, home)
 		}
 	}
+	f.templateList = ts
 	f.templates = make(map[string]prompttemplate.Template, len(ts))
 	for _, t := range ts {
 		f.templates[t.Name] = t
 	}
-	sel := prompttemplate.Select(ts, f.vars.Kind, f.vars.Repo, f.vars.Labels)
-	f.order, f.matches = sel.Order, sel.Matches
-	at := 0
-	if i := indexOf(f.order, sel.Chosen); i >= 0 {
-		at = i
-	}
-	f.selectAt(at)
-	f.open = (sel.Chosen == "" && len(f.order) > 0) || f.loadErr != nil
+	f.selectTemplates()
 
 	d := h.newDialog
 	h.pendingRemoteName = ""
@@ -180,6 +184,32 @@ func (h *Home) forgeOpenLaunch() tea.Cmd {
 			d.focusIndex = i
 			d.updateFocus()
 		}
+	}
+	return tea.Batch(detailCmd, h.forgeLaunchFetch())
+}
+
+// forgeLaunchDetailFetched fills the launch dialog from the PR detail it
+// was waiting for: labels reselect the template unless the user changed
+// it, and a launch that waited for the detail goes on. A failed fetch
+// leaves the list row's data.
+func (h *Home) forgeLaunchDetailFetched(msg forgeFetchedMsg) tea.Cmd {
+	d := h.newDialog
+	f := d.forge
+	if f == nil || !d.IsVisible() || !f.detailPending || msg.key != f.detailKey {
+		return nil
+	}
+	f.detailPending = false
+	wait := f.waitDetail
+	f.waitDetail = false
+	if msg.err == nil && f.applyDetail(msg.value) {
+		f.vars.HeadBranch, f.vars.BaseBranch = f.headBranch, f.baseBranch
+		d.branchInput.SetValue(f.headBranch)
+		if !f.touched && !f.edited {
+			f.selectTemplates()
+		}
+	}
+	if wait {
+		return h.submitForgeLaunch()
 	}
 	return h.forgeLaunchFetch()
 }
@@ -245,6 +275,11 @@ func (h *Home) submitForgeLaunch() tea.Cmd {
 			d.focusIndex = i
 			d.updateFocus()
 		}
+		return nil
+	}
+	if f.detailPending {
+		// The detail's gh call times out on its own (20 s).
+		f.waitDetail = true
 		return nil
 	}
 	usesText := !f.edited && f.at < len(f.order)

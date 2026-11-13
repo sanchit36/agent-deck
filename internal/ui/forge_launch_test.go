@@ -33,6 +33,12 @@ func serveItemText(fake *githubtest.Fake, f githubtest.Fixture) {
 // served from fixture text, and local as its checkouts.
 func launchHome(t *testing.T, extra string, pr bool, local map[string]github.Local, text string, instances ...*session.Instance) (*Home, *githubtest.Fake) {
 	t.Helper()
+	return launchHomeAt(t, 120, 40, extra, pr, local, text, instances...)
+}
+
+// launchHomeAt is launchHome at w x ht.
+func launchHomeAt(t *testing.T, w, ht int, extra string, pr bool, local map[string]github.Local, text string, instances ...*session.Instance) (*Home, *githubtest.Fake) {
+	t.Helper()
 	fake := githubtest.NewFake()
 	serveIssueList(fake, githubtest.MustLoad(t, githubtest.IssueList))
 	servePRList(fake, githubtest.MustLoad(t, githubtest.PRList))
@@ -41,7 +47,7 @@ func launchHome(t *testing.T, extra string, pr bool, local map[string]github.Loc
 	if text != "" {
 		serveItemText(fake, githubtest.MustLoad(t, text))
 	}
-	home := forgeFrameHome(t, 120, 40, false, gateOn+extra)
+	home := forgeFrameHome(t, w, ht, false, gateOn+extra)
 	home.forge.resolver = github.NewResolver(github.NewClient(fake), forgeLocal(local))
 	home.forge.client = github.NewClient(fake)
 	home.forge.fetchers = defaultForgeFetchers()
@@ -290,6 +296,85 @@ func TestForgeLaunchMissingTemplateFile(t *testing.T) {
 	if !h.newDialog.IsVisible() || h.newDialog.forge.launching {
 		t.Fatal("launched with a missing template file")
 	}
+}
+
+// TestForgeLaunchBeforeDetailLoads: n before the detail is cached (the
+// single column fetches it only for the full-screen detail) fills from the
+// list row: an Issue's labels pick its template; a PR's head names the
+// branch and its base is where the worktree starts. A PR's detail is
+// fetched for the launch.
+func TestForgeLaunchBeforeDetailLoads(t *testing.T) {
+	t.Run("issue", func(t *testing.T) {
+		h, fake := launchHomeAt(t, 45, 20, bugTemplate, false, widgetsCheckout, githubtest.ItemTextIssue)
+		if detailCalls(fake, 14822) != 0 {
+			t.Fatal("the single column fetched the detail before n")
+		}
+		h = launchDrive(t, h, runeKey('n'))
+		f := h.newDialog.forge
+		if f == nil {
+			t.Fatal("n did not open the launch dialog")
+		}
+		if f.name() != "bug" {
+			t.Fatalf("template %q, want the label match bug", f.name())
+		}
+		if f.vars.Author != "henrymodisett" || !slices.Equal(f.vars.Labels, []string{"bug", "priority-3", "gh-run"}) {
+			t.Fatalf("author %q labels %v", f.vars.Author, f.vars.Labels)
+		}
+		if _, _, _, branch, _ := h.newDialog.GetValuesWithWorktree(); branch != "feature/14822-gh-run-view-job-log-failed-fails-on" {
+			t.Fatalf("branch %q", branch)
+		}
+	})
+	t.Run("pr", func(t *testing.T) {
+		h, fake := launchHomeAt(t, 45, 20, "", true, widgetsCheckout, githubtest.ItemTextPR)
+		if detailCalls(fake, 14927) != 0 {
+			t.Fatal("the single column fetched the detail before n")
+		}
+		h = launchDrive(t, h, runeKey('n'))
+		f := h.newDialog.forge
+		if f == nil {
+			t.Fatal("n did not open the launch dialog")
+		}
+		if _, _, _, branch, _ := h.newDialog.GetValuesWithWorktree(); branch != "williammartin-multiaccount-draft-08-evaluation" {
+			t.Fatalf("branch %q, want the PR head", branch)
+		}
+		if f.baseBranch != "williammartin-multiaccount-draft-07-explain" || f.vars.BaseBranch != f.baseBranch || f.vars.Author != "williammartin" {
+			t.Fatalf("base %q var %q author %q", f.baseBranch, f.vars.BaseBranch, f.vars.Author)
+		}
+		if n := detailCalls(fake, 14927); n != 1 {
+			t.Fatalf("%d detail fetches, want 1 for the launch", n)
+		}
+		if f.detailPending {
+			t.Fatal("still waiting for the detail after it arrived")
+		}
+	})
+	t.Run("enter waits for the pr detail", func(t *testing.T) {
+		_, local := launchRepoCheckout(t)
+		h, _ := launchHomeAt(t, 45, 20, "", true, local, githubtest.ItemTextPR)
+		starts := 0
+		h.forge.launcher = forgeLauncher{
+			start:   func(*session.Instance, string) error { starts++; return nil },
+			running: func(*session.Instance) bool { return true },
+		}
+		model, pending := h.Update(runeKey('n'))
+		h = model.(*Home)
+		if !h.newDialog.forge.detailPending {
+			t.Fatal("the PR detail is not being fetched for the launch")
+		}
+		model, cmd := h.Update(tea.KeyMsg{Type: tea.KeyCtrlS})
+		h = model.(*Home)
+		if cmd != nil || !h.newDialog.forge.waitDetail || h.newDialog.forge.launching {
+			t.Fatalf("enter did not wait for the detail: waiting %v launching %v", h.newDialog.forge.waitDetail, h.newDialog.forge.launching)
+		}
+		if !strings.Contains(stripAnsi(h.newDialog.View()), "waiting for the PR details") {
+			t.Fatalf("no waiting note:\n%s", stripAnsi(h.newDialog.View()))
+		}
+		// The detail lands; the launch goes on (gh pr checkout is not
+		// served, so it fails, but it ran).
+		h = launchCmds(t, h, pending)
+		if h.newDialog.forge.waitDetail || h.newDialog.validationErr == "" {
+			t.Fatalf("the launch did not go on after the detail: waiting %v err %q", h.newDialog.forge.waitDetail, h.newDialog.validationErr)
+		}
+	})
 }
 
 // TestForgeLaunchCommentsFailureAsks: when the comments do not load,

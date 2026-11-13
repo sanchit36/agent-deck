@@ -50,6 +50,9 @@ type forgeRow struct {
 	// state is the state word the overlay's header shows (open, closed,
 	// draft, merged).
 	state string
+	// headBranch merges into baseBranch (PRs): what a launch fills from
+	// before the detail is cached.
+	headBranch, baseBranch string
 }
 
 // forgeMark is a coloured one-cell glyph and its dim label.

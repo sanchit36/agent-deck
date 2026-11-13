@@ -271,7 +271,7 @@ func (h *Home) applyForgeFetched(msg forgeFetchedMsg) tea.Cmd {
 	}
 	h.applyForgeFilterFetched(msg)
 	h.syncForgeLists()
-	open := tea.Batch(h.syncForgeDetail(), h.forgeFilesFetch())
+	open := tea.Batch(h.syncForgeDetail(), h.forgeFilesFetch(), h.forgeLaunchDetailFetched(msg))
 	if _, ok := msg.value.(github.PRDetail); ok && msg.err == nil && msg.key == h.forge.detail {
 		open = tea.Batch(open, h.forgePRLocalDue(true))
 	}

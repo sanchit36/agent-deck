@@ -8,6 +8,7 @@ import (
 	"github.com/charmbracelet/lipgloss"
 
 	"github.com/asheshgoplani/agent-deck/internal/github"
+	"github.com/asheshgoplani/agent-deck/internal/github/freshness"
 	"github.com/asheshgoplani/agent-deck/internal/github/prompttemplate"
 	"github.com/asheshgoplani/agent-deck/internal/session"
 )
@@ -67,7 +68,50 @@ type forgeLaunchField struct {
 	// launching is true from enter until the launch reports.
 	launching bool
 
+	// detailKey is the PR detail the launch fetched because it was not
+	// cached (the fill falls back to the list row until it lands);
+	// detailPending while it is in flight. enter waits for it.
+	detailKey     freshness.Key
+	detailPending bool
+	// waitDetail: enter was pressed while the detail loaded; launch when
+	// it lands.
+	waitDetail bool
+	// touched: the user changed the template, so a late detail does not
+	// reselect it by its labels.
+	touched bool
+
+	// templateList is every template, for selectTemplates.
+	templateList    []prompttemplate.Template
 	configDir, home string
+}
+
+// applyDetail fills the variables from a cached or fetched detail and
+// reports whether v was one.
+func (f *forgeLaunchField) applyDetail(v any) bool {
+	switch d := v.(type) {
+	case github.IssueDetail:
+		f.vars.Title, f.vars.URL, f.vars.Labels, f.vars.Author = d.Title, d.URL, d.Labels, d.Author
+	case github.PRDetail:
+		f.vars.Title, f.vars.URL, f.vars.Labels, f.vars.Author = d.Title, d.URL, d.Labels, d.Author
+		f.headBranch, f.baseBranch = d.HeadBranch, d.BaseBranch
+	default:
+		return false
+	}
+	return true
+}
+
+// selectTemplates picks the template by §12's matching on the item's
+// kind, Project and labels, and opens the picker when nothing was chosen
+// or the chosen one cannot be read.
+func (f *forgeLaunchField) selectTemplates() {
+	sel := prompttemplate.Select(f.templateList, f.vars.Kind, f.vars.Repo, f.vars.Labels)
+	f.order, f.matches = sel.Order, sel.Matches
+	at := 0
+	if i := indexOf(f.order, sel.Chosen); i >= 0 {
+		at = i
+	}
+	f.selectAt(at)
+	f.open = (sel.Chosen == "" && len(f.order) > 0) || f.loadErr != nil
 }
 
 // name is the selected template's name, or none.
@@ -141,12 +185,14 @@ func (f *forgeLaunchField) cycle(dir int) {
 	}
 	f.edited, f.editedText, f.discardDir = false, "", 0
 	f.askEmpty, f.fetchErr = false, nil
+	f.touched = true
 	f.selectAt(f.at + dir)
 }
 
 // setEdited takes the editor's text as the message.
 func (f *forgeLaunchField) setEdited(text string) {
 	f.edited, f.editedText, f.discardDir = true, strings.TrimRight(text, "\n"), 0
+	f.touched = true
 }
 
 func (f *forgeLaunchField) label() string {
@@ -240,6 +286,8 @@ func (d *NewDialog) renderForgeTemplate(content *strings.Builder, cur focusTarge
 		note = warn.Render("  press again to discard the edit")
 	case f.askEmpty:
 		note = warn.Render(truncateDisplay("  comments did not load: enter to launch with them empty", inner, "…"))
+	case f.waitDetail:
+		note = dim.Render("  waiting for the PR details…")
 	case f.waitLaunch:
 		note = dim.Render("  waiting for comments…")
 	case f.fetching:
