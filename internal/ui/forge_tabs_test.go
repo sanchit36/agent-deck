@@ -120,7 +120,7 @@ func TestForgeTabStripGolden(t *testing.T) {
 func TestForgeStripKeepsPanelHeight(t *testing.T) {
 	for _, sz := range forgeFrameSizes {
 		for _, embedded := range []bool{false, true} {
-			off := forgeFrameHome(t, sz[0], sz[1], embedded, "")
+			off := forgeFrameHome(t, sz[0], sz[1], embedded, gateOff)
 			on := forgeHome(t, sz[0], sz[1], embedded, nil, nil)
 			if off.getListContentStartY() != on.getListContentStartY() {
 				t.Fatalf("%v embedded=%v: list start %d -> %d", sz, embedded, off.getListContentStartY(), on.getListContentStartY())

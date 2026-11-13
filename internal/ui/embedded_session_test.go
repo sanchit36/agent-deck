@@ -518,7 +518,7 @@ func TestEmbeddedCtrlAltBTogglesSidebarAndPreservesSession(t *testing.T) {
 		t.Fatal("sidebar toggle detached the embedded session")
 	}
 	hiddenFrame := ansi.Strip(home.View())
-	if strings.Contains(hiddenFrame, "AGENTS  GROUPED") {
+	if sidebarTitleShown(hiddenFrame) {
 		t.Fatalf("sidebar title remained visible after collapse:\n%s", hiddenFrame)
 	}
 	if !strings.Contains(hiddenFrame, "show sidebar") {
@@ -530,9 +530,16 @@ func TestEmbeddedCtrlAltBTogglesSidebarAndPreservesSession(t *testing.T) {
 	if home.embeddedSidebarHidden {
 		t.Fatal("second Ctrl+Alt+B signal did not restore the sidebar")
 	}
-	if !strings.Contains(ansi.Strip(home.View()), "AGENTS  GROUPED") {
+	if !sidebarTitleShown(ansi.Strip(home.View())) {
 		t.Fatal("restored frame is missing the agent sidebar")
 	}
+}
+
+// sidebarTitleShown reports whether the embedded sidebar's title row is in
+// frame: its view-mode title, or the tab strip that replaces it while
+// [github] enabled is on.
+func sidebarTitleShown(frame string) bool {
+	return strings.Contains(frame, "AGENTS  GROUPED") || strings.Contains(frame, "AGENTS │ ISSUES")
 }
 
 func TestEmbeddedWindowRowTargetsTheSelectedWindow(t *testing.T) {

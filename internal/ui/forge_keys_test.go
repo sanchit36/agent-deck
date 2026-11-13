@@ -1,12 +1,16 @@
 package ui
 
 import (
+	"strings"
 	"testing"
 
 	tea "github.com/charmbracelet/bubbletea"
 )
 
 const gateOn = "[github]\nenabled = true\n"
+
+// gateOff is the off switch: the only config that hides the forge.
+const gateOff = "[github]\nenabled = false\n"
 
 func press(t *testing.T, h *Home, keys ...tea.KeyMsg) *Home {
 	t.Helper()
@@ -116,6 +120,25 @@ func TestForgeTabKeyYieldsToUserBinding(t *testing.T) {
 	h = press(t, h, runeKey('['))
 	if h.forge.tab != tabPRs {
 		t.Fatalf("[ = %v, want PRs", h.forge.tab)
+	}
+}
+
+// TestForgeGateOnByDefault: a config without a [github] section shows the
+// tab strip and the tab keys work (spec #18 §0: the integration ships on);
+// enabled = false is the off switch.
+func TestForgeGateOnByDefault(t *testing.T) {
+	h := forgeFrameHome(t, 120, 30, false, "")
+	if !h.forge.enabled {
+		t.Fatal("no [github] section: gate off, want on")
+	}
+	if frame := stripAnsi(h.View()); !strings.Contains(frame, "ISSUES") || !strings.Contains(frame, "PRS") {
+		t.Fatalf("no [github] section: no tab strip in\n%s", frame)
+	}
+	if h = press(t, h, runeKey(']')); h.forge.tab != tabIssues {
+		t.Fatalf("] = %v, want Issues", h.forge.tab)
+	}
+	if off := forgeFrameHome(t, 120, 30, false, gateOff); off.forge.enabled {
+		t.Fatal("enabled = false left the gate on")
 	}
 }
 

@@ -39,7 +39,7 @@ func BenchmarkForgeHomeView(b *testing.B) {
 		config string
 		tab    leftTab
 	}{
-		{"gate=off", "", tabSessions},
+		{"gate=off", gateOff, tabSessions},
 		{"gate=on/sessions", gateOn, tabSessions},
 		{"gate=on/issues", gateOn, tabIssues},
 	} {
@@ -65,7 +65,7 @@ func BenchmarkForgeHomeView(b *testing.B) {
 // and on (Sessions tab), so the forge handler's cost before the global
 // switch shows.
 func BenchmarkForgeKeyNav(b *testing.B) {
-	for _, tc := range []struct{ name, config string }{{"gate=off", ""}, {"gate=on", gateOn}} {
+	for _, tc := range []struct{ name, config string }{{"gate=off", gateOff}, {"gate=on", gateOn}} {
 		b.Run(tc.name, func(b *testing.B) {
 			h := forgeBenchHome(b, tc.config)
 			b.ReportAllocs()

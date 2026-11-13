@@ -374,8 +374,10 @@ type UserConfig struct {
 // GitHubSettings is the [github] section: the GitHub integration in the TUI.
 type GitHubSettings struct {
 	// Enabled turns on the Issues and PRs tabs, their keys and every gh call
-	// they make. Default false: no tab strip, no forge keys, no gh calls.
-	Enabled bool `toml:"enabled,omitempty"`
+	// they make. Default true (nil = true); false is the off switch: no tab
+	// strip, no forge keys, no poller, no gh calls. Read through
+	// GitHubEnabled.
+	Enabled *bool `toml:"enabled,omitempty"`
 
 	// RefreshInterval is how often, in seconds, the visible Issues or PRs
 	// list refetches while the TUI is in the foreground. Default 60; values
@@ -451,9 +453,10 @@ const (
 	minGitHubRefreshInterval     = 30 * time.Second
 )
 
-// GitHubEnabled reports whether [github] enabled is on. A nil config is off.
+// GitHubEnabled reports whether [github] enabled is on: true unless it is
+// set to false. A nil config has the default (on).
 func (c *UserConfig) GitHubEnabled() bool {
-	return c != nil && c.GitHub.Enabled
+	return c == nil || c.GitHub.Enabled == nil || *c.GitHub.Enabled
 }
 
 // GitHubRefreshInterval is [github] refresh_interval as a duration: 60 s
@@ -475,7 +478,7 @@ func (c *UserConfig) GitHubSignals() bool {
 	if !c.GitHubEnabled() || c.GitHubRefreshInterval() == 0 {
 		return false
 	}
-	return c.GitHub.Signals == nil || *c.GitHub.Signals
+	return c == nil || c.GitHub.Signals == nil || *c.GitHub.Signals
 }
 
 // BuildPromptTemplates merges [prompt_templates] over the built-ins and

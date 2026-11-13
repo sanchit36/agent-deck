@@ -11,8 +11,9 @@ import (
 // forgeFrameSizes are the dual, stacked and single-column layouts.
 var forgeFrameSizes = [][2]int{{120, 30}, {70, 24}, {45, 20}}
 
-// forgeFrameHome is a Home with one group of two sessions at w x h, built
-// without the [github] section so the gate is off unless a test turns it on.
+// forgeFrameHome is a Home with one group of two sessions at w x h under
+// configTOML. Without a [github] section the gate is on (its default);
+// gateOff turns it off.
 func forgeFrameHome(t *testing.T, w, h int, embedded bool, configTOML string) *Home {
 	t.Helper()
 	forceTrueColorProfile()
@@ -49,7 +50,7 @@ var forgeTabKeys = []tea.KeyMsg{
 	{Type: tea.KeyRunes, Runes: []rune{'p'}, Alt: true},
 }
 
-// TestForgeGateOffFrameGolden: with [github] enabled unset, the home frame
+// TestForgeGateOffFrameGolden: with [github] enabled = false, the home frame
 // is the one recorded before the forge existed, at dual, stacked and
 // single widths, classic and embedded, and the forge's tab keys leave it
 // byte-identical.
@@ -62,7 +63,7 @@ func TestForgeGateOffFrameGolden(t *testing.T) {
 				name += "_embedded"
 			}
 			t.Run(name, func(t *testing.T) {
-				home := forgeFrameHome(t, w, h, embedded, "")
+				home := forgeFrameHome(t, w, h, embedded, gateOff)
 				before := home.View()
 				assertFrameGolden(t, name+".golden", stripAnsi(before))
 				for _, k := range forgeTabKeys {

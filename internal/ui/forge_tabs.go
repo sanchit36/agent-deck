@@ -18,7 +18,7 @@ import (
 )
 
 // leftTab is the left panel's tab: Sessions (Agents in the embedded layout),
-// Issues or PRs (spec #18 §3). Only [github] enabled = true shows the strip.
+// Issues or PRs (spec #18 §3). [github] enabled = false hides the strip.
 type leftTab int
 
 const (
