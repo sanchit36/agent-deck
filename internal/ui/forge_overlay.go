@@ -747,7 +747,7 @@ func (h *Home) renderForgeOverlay() string {
 	var total, offset, page int
 	if o.tab == forgeOverlayFiles {
 		out = append(out, h.renderForgeFiles(body)...)
-		total, offset, page = len(h.forgeFilesRows().rows), o.scroll[o.tab].offset, h.forgeOverlayPage()
+		total, offset, page = h.forgeFilesPosition()
 	} else {
 		lines := h.forgeOverlayLines()
 		offset = max(0, min(o.scroll[o.tab].offset, len(lines)-1))
@@ -783,7 +783,7 @@ func (h *Home) forgeOverlayStatus(total, offset, body int) string {
 			switch {
 			case e.Fetching && (e.HasData() || h.forge.overlay.files.sha != ""):
 				parts = append(parts, lipgloss.NewStyle().Foreground(ColorCyan).Render(forgeSpinnerFrames[h.animationFrame%len(forgeSpinnerFrames)]))
-			case e.Stale():
+			case e.Stale() || (e.Err != nil && h.forge.overlay.tab == forgeOverlayFiles && h.forge.overlay.files.sha != ""):
 				parts = append(parts, lipgloss.NewStyle().Foreground(ColorYellow).Render("⚠ stale: "+forgeFailureFor(e.Err, k, h.forgeNow()).lines[0]))
 			}
 		}

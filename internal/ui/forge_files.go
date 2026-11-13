@@ -313,7 +313,7 @@ func forgeDiffRowsFor(file github.DiffFile, expanded bool) forgeDiffRows {
 			why = "generated file"
 		}
 		r.collapsed = true
-		r.rows = []forgeDiffRow{{kind: diffRowNote, note: fmt.Sprintf("▸ %s · %s changed lines · enter expands", why, forgeThousands(file.Changed()))}}
+		r.rows = []forgeDiffRow{{kind: diffRowNote, note: fmt.Sprintf("▸ %s · %s · enter expands", why, forgeChangedLines(file.Changed()))}}
 		return r
 	case len(file.Hunks) == 0:
 		note := "no content changes"
@@ -371,6 +371,14 @@ func forgeDiffText(s string) string {
 		}
 	}
 	return b.String()
+}
+
+// forgeChangedLines is "n changed line(s)".
+func forgeChangedLines(n int) string {
+	if n == 1 {
+		return "1 changed line"
+	}
+	return forgeThousands(n) + " changed lines"
 }
 
 // forgeThousands spells n with thousands separators.
@@ -436,7 +444,7 @@ func (h *Home) renderForgeFiles(height int) []string {
 	l := h.forgeFilesLayoutFor(d)
 	var out []string
 	if l.warn {
-		warn := fmt.Sprintf("⚠ large PR: %s changed lines in %s files", forgeThousands(d.Changed()), forgeThousands(len(d.Files)))
+		warn := fmt.Sprintf("⚠ large PR: %s in %s files", forgeChangedLines(d.Changed()), forgeThousands(len(d.Files)))
 		out = append(out, lipgloss.NewStyle().Foreground(ColorYellow).Render(truncateDisplay(" "+warn, width, "…")))
 	}
 	rows := height - len(out)
@@ -511,6 +519,11 @@ func (h *Home) renderForgeFileList(d github.Diff, width, height int, focused boo
 		f := d.Files[i]
 		glyph, color := forgeFileGlyph(f)
 		stats := fmt.Sprintf("+%d −%d", f.Additions, f.Deletions)
+		styledStats := green.Render(fmt.Sprintf("+%d", f.Additions)) + " " + red.Render(fmt.Sprintf("−%d", f.Deletions))
+		if f.Binary {
+			stats = "bin"
+			styledStats = dim.Render(stats)
+		}
 		marker := " "
 		if i == o.files.file {
 			marker = "▌"
@@ -541,7 +554,7 @@ func (h *Home) renderForgeFileList(d github.Diff, width, height int, focused boo
 		}
 		left := marker + lipgloss.NewStyle().Foreground(color).Render(glyph) + " " + shown
 		gap := max(1, width-lipgloss.Width(left)-lipgloss.Width(stats)-1)
-		row := left + strings.Repeat(" ", gap) + green.Render(fmt.Sprintf("+%d", f.Additions)) + " " + red.Render(fmt.Sprintf("−%d", f.Deletions))
+		row := left + strings.Repeat(" ", gap) + styledStats
 		out = append(out, truncateDisplay(row, width, "…"))
 	}
 	for len(out) < height {
@@ -648,6 +661,17 @@ func forgeCutCells(s string, n int) string {
 		return s
 	}
 	return ansi.Truncate(s, n, "")
+}
+
+// forgeFilesPosition is what the footer's position counts: the list's
+// rows while it shows full screen, else the selected file's diff rows.
+func (h *Home) forgeFilesPosition() (total, offset, page int) {
+	o := &h.forge.overlay
+	l := h.forgeFilesLayoutNow()
+	if d, ok := h.forgeFilesDiff(); ok && l.listFullWidth {
+		return len(d.Files), o.files.listTop, l.listRows
+	}
+	return len(h.forgeFilesRows().rows), o.scroll[forgeOverlayFiles].offset, l.diffRows
 }
 
 // forgeFilesMaxOffset is the furthest the selected file's diff scrolls.
