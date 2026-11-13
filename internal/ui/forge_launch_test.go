@@ -344,7 +344,7 @@ func TestForgeLaunchTemplateFileReadAtLaunch(t *testing.T) {
 		if err := os.WriteFile(file, []byte("second {number}"), 0o600); err != nil {
 			t.Fatal(err)
 		}
-		h = launchDrive(t, h, tea.KeyMsg{Type: tea.KeyCtrlS})
+		launchDrive(t, h, tea.KeyMsg{Type: tea.KeyCtrlS})
 		if !slices.Equal(sent, []string{"second 14822"}) {
 			t.Fatalf("sent %q, want the file as it is at launch", sent)
 		}
