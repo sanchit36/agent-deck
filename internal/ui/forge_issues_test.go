@@ -166,8 +166,9 @@ type seenVersion time.Time
 
 func (v seenVersion) Version() time.Time { return time.Time(v) }
 
-// TestForgeIssuesGolden freezes the Issues list, the Issues-disabled empty
-// state and an empty list at dual, stacked and single widths.
+// TestForgeIssuesGolden freezes the Issues list (with the selected row's
+// detail served), the Issues-disabled empty state and an empty list at
+// dual, stacked and single widths.
 func TestForgeIssuesGolden(t *testing.T) {
 	for _, sz := range forgeFrameSizes {
 		for _, c := range []struct{ name, fixture string }{
@@ -177,7 +178,12 @@ func TestForgeIssuesGolden(t *testing.T) {
 		} {
 			name := fmt.Sprintf("forge_issues_%dx%d_%s", sz[0], sz[1], c.name)
 			t.Run(name, func(t *testing.T) {
-				h, _ := issuesHome(t, sz[0], sz[1], c.fixture)
+				var h *Home
+				if c.name == "rows" {
+					h, _ = detailIssuesHome(t, sz[0], sz[1])
+				} else {
+					h, _ = issuesHome(t, sz[0], sz[1], c.fixture)
+				}
 				if c.name == "none" {
 					k, _ := h.forgeListKey()
 					h = drive(t, h, forgeFetchedMsg{key: k, value: github.IssueList{}})

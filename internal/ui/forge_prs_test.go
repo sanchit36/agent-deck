@@ -373,8 +373,9 @@ func TestForgePRsOpenCopyRow(t *testing.T) {
 	}
 }
 
-// TestForgePRsGolden freezes the PRs list (one row linked to a session)
-// and an empty list at dual, stacked and single widths.
+// TestForgePRsGolden freezes the PRs list (one row linked to a session,
+// selected, with its detail served) and an empty list at dual, stacked and
+// single widths.
 func TestForgePRsGolden(t *testing.T) {
 	for _, sz := range forgeFrameSizes {
 		for _, name := range []string{"rows", "none"} {
@@ -382,8 +383,11 @@ func TestForgePRsGolden(t *testing.T) {
 			t.Run(golden, func(t *testing.T) {
 				a := &session.Instance{ID: "a", Title: "fix login", GroupPath: "widgets", ProjectPath: "/src/widgets"}
 				a.SetLink(session.LinkPR, session.Link{Host: "github.com", Owner: "me", Name: "widgets", Number: 14927})
-				h, _ := prsHome(t, sz[0], sz[1], githubtest.PRList, a)
-				if name == "none" {
+				var h *Home
+				if name == "rows" {
+					h, _ = detailPRsHome(t, sz[0], sz[1], a)
+				} else {
+					h, _ = prsHome(t, sz[0], sz[1], githubtest.PRList, a)
 					h = drive(t, h, forgeFetchedMsg{key: widgetsPRs, value: github.PRList{}})
 				}
 				frame := h.View()
