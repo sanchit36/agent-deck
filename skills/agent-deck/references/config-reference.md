@@ -1058,11 +1058,27 @@ fire on their Russian ЙЦУКЕН twin.
 | `forge_filter` | `/` | Issues, PRs | open the query bar (GitHub search syntax) |
 | `forge_attach` | `a` | Issues, PRs | attach to the session linked to the selected row (a picker when several are) |
 | `forge_view` | `enter` | Issues, PRs | open the selected row in the overlay (single column: the first press opens its detail full screen, `esc` returns) |
-| `forge_new` | `n` | Issues, PRs, overlay | start a session on the selected row: the chooser first when sessions are linked to it, then the prefilled new-session dialog (on the Files tab `n` moves by hunk and `S` starts the session) |
+| `forge_new` | `n` | Issues, PRs, overlay | start a session on the selected row: the chooser first when sessions are linked to it, then the prefilled new-session dialog (on the Files tab too, unless a Files key has its key: then `forge_files_new` does it) |
 | `forge_merge` | `m` | PRs, overlay | merge the selected PR through the merge dialog (never bypasses branch protection) |
 | `forge_conversation` | `c` | overlay | Conversation tab |
 | `forge_files` | `d` | PRs, overlay | open the selected PR on its Files tab; in the overlay, the Files tab (PRs) |
+| `forge_conversation_alt` | `1` | overlay | Conversation tab (a second key) |
+| `forge_files_alt` | `2` | overlay | Files tab (a second key; PRs) |
 | `forge_expand` | `e` | overlay | expand every minimized comment, or collapse them all |
+| `forge_next_hunk` | `n` | Files | next hunk, crossing into the next file that shows hunks |
+| `forge_prev_hunk` | `N` | Files | previous hunk |
+| `forge_next_file` | `]` | Files | next file |
+| `forge_prev_file` | `[` | Files | previous file |
+| `forge_file_list` | `f` | Files | file list full screen (under 90 columns) |
+| `forge_focus` | `tab` | Files | move the keys between the file list and the diff (90 columns and up) |
+| `forge_split` | `s` | Files | toggle the split (old \| new) view |
+| `forge_pager_file` | `\|` | Files | the selected file's diff in the pager |
+| `forge_pager_pr` | `\` | Files | the whole PR's diff in the pager |
+| `forge_files_new` | `S` | Files | start a session on the PR while a Files key has `forge_new`'s key (by default `n` is `forge_next_hunk`); when `forge_new` is bound to a key no Files action uses, that key starts the session on Files and this one does nothing |
+
+The Files keys are seen before the overlay's while the Files tab shows, so
+they may reuse an overlay or list key (`]`/`[` are also `forge_next_tab` /
+`forge_prev_tab` on the lists); in TOML write `\` as `"\\"`.
 
 ## [display] Section
 

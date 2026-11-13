@@ -229,6 +229,18 @@ func (h *Home) forgeKey(action string) string {
 	return strings.TrimSpace(h.forge.bindings[action])
 }
 
+// forgeKeyPair is the bound keys of two actions as a help row shows them,
+// "a / b", leaving out an unbound one.
+func (h *Home) forgeKeyPair(a, b string) string {
+	var keys []string
+	for _, action := range []string{a, b} {
+		if k := h.forgeKey(action); k != "" {
+			keys = append(keys, k)
+		}
+	}
+	return strings.Join(keys, " / ")
+}
+
 // switchForgeTab shows tab t and, for a forge tab, starts resolving the
 // cursor group's Project if it has not been.
 func (h *Home) switchForgeTab(t leftTab) tea.Cmd {
@@ -1071,15 +1083,15 @@ func (h *Home) forgeHelpRows() [][2]string {
 		{joinHotkeyLabels(h.forgeKey(hotkeyForgeConversation), h.forgeKey(hotkeyForgeFiles)), "Open item: Conversation / Files"},
 		{h.forgeKey(hotkeyForgeExpand), "Open item: expand hidden comments"},
 		{"Esc / q", "Open item: close"},
-		{"Tab", "Files: focus the file list / the diff"},
-		{"n / N", "Files: next / previous hunk"},
-		{"] / [", "Files: next / previous file"},
+		{h.forgeKey(hotkeyForgeFocus), "Files: focus the file list / the diff"},
+		{h.forgeKeyPair(hotkeyForgeNextHunk, hotkeyForgePrevHunk), "Files: next / previous hunk"},
+		{h.forgeKeyPair(hotkeyForgeNextFile, hotkeyForgePrevFile), "Files: next / previous file"},
 		{"Enter", "Files: expand a collapsed file"},
 		{"h / l", "Files: pan long lines"},
-		{"f", "Files: file list (under 90 columns)"},
-		{"s", "Files: split view, old | new (120+ columns)"},
-		{"| / \\", "Files: the file's / the PR's diff in the pager"},
-		{"S", "Files: start a session on the PR"},
+		{h.forgeKey(hotkeyForgeFileList), "Files: file list (under 90 columns)"},
+		{h.forgeKey(hotkeyForgeSplit), "Files: split view, old | new (120+ columns)"},
+		{h.forgeKeyPair(hotkeyForgePagerFile, hotkeyForgePagerPR), "Files: the file's / the PR's diff in the pager"},
+		{h.forgeFilesNewKey(), "Files: start a session on the PR"},
 		{"", ""},
 		{h.actionKey(hotkeyHelp), "This help"},
 		{h.actionKey(hotkeyQuit), "Quit"},

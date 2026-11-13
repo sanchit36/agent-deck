@@ -327,7 +327,7 @@ the new diff while the old one stays on screen).
 
 | Overlay key | Action |
 |-----|--------|
-| `c` / `d`, `1` / `2` | Conversation / Files tab (Files: PRs only; **rebindable**: `forge_conversation`, `forge_files`) |
+| `c` / `d`, `1` / `2` | Conversation / Files tab (Files: PRs only; **rebindable**: `forge_conversation`, `forge_files`, `forge_conversation_alt`, `forge_files_alt`) |
 | `j`/`k`, `↑`/`↓`, `Ctrl+D`/`Ctrl+U`, `Space`/`PgDn`, `PgUp`, mouse wheel | Scroll |
 | `g`/`G`, `Home`/`End` | Top / bottom |
 | `h`/`l`, `←`/`→` | Pan code blocks and tables |
@@ -338,16 +338,16 @@ the new diff while the old one stays on screen).
 
 | Files key | Action |
 |-----|--------|
-| `Tab` | Move the keys between the file list and the diff (90 columns and up) |
+| `Tab` | Move the keys between the file list and the diff (90 columns and up; **rebindable**: `forge_focus`) |
 | `j`/`k`, `↑`/`↓`, `Ctrl+D`/`Ctrl+U`, `Space`/`PgDn`, `PgUp`, `g`/`G`, mouse wheel | Scroll the diff; with the list focused (or full screen), move the file cursor |
-| `n` / `N` | Next / previous hunk, crossing into the next or previous file that shows hunks (so `S` starts a session here) |
-| `]` / `[` | Next / previous file |
+| `n` / `N` | Next / previous hunk, crossing into the next or previous file that shows hunks (so `S` starts a session here; **rebindable**: `forge_next_hunk`, `forge_prev_hunk`) |
+| `]` / `[` | Next / previous file (**rebindable**: `forge_next_file`, `forge_prev_file`) |
 | `Enter` | Expand or collapse a collapsed file; on the focused list, back to the diff; on the full-screen list, show the picked file |
 | `h`/`l`, `←`/`→` | Pan long lines |
-| `f` | File list full screen (under 90 columns); `Esc` closes it |
-| `s` | Split view: old \| new side by side, each removed line beside the added line it pairs with inside a change block, blank cells where one side has fewer lines; `s` again goes back to unified. It needs 120 columns: narrower, the diff stays unified and a line says why |
-| `\|` / `\` | Send the selected file's diff (`\|`) or the whole PR's (`\`) on stdin to `[github] diff_pager` (empty: `delta` when it is on `PATH`, else `$PAGER`, else `less -R`); the terminal is the pager's until you quit it, then the overlay is back as it was |
-| `S` | Start a session on the PR, as `n` on the list |
+| `f` | File list full screen (under 90 columns); `Esc` closes it (**rebindable**: `forge_file_list`) |
+| `s` | Split view: old \| new side by side, each removed line beside the added line it pairs with inside a change block, blank cells where one side has fewer lines; `s` again goes back to unified. It needs 120 columns: narrower, the diff stays unified and a line says why (**rebindable**: `forge_split`) |
+| `\|` / `\` | Send the selected file's diff (`\|`) or the whole PR's (`\`) on stdin to `[github] diff_pager` (empty: `delta` when it is on `PATH`, else `$PAGER`, else `less -R`); the terminal is the pager's until you quit it, then the overlay is back as it was (**rebindable**: `forge_pager_file`, `forge_pager_pr`) |
+| `S` | Start a session on the PR, as `n` on the list (**rebindable**: `forge_files_new`; it follows `forge_new`: rebind `forge_new` to a key no Files action uses and that key starts the session here instead of `S`) |
 
 The right end of the Project line says how fresh the list is: `updated 2m ago`
 (`N open · 2m ago` once the count is known, or `100 of 342 · 2m ago` when

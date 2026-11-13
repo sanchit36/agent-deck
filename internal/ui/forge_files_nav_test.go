@@ -239,9 +239,11 @@ func TestForgeFilesNewSession(t *testing.T) {
 }
 
 // TestForgeFilesKeySpace is the duplicate-key test for the Files tab
-// (spec #18 §4): its own keys come first, so they may only shadow the
-// overlay's launch key (n, which is S there); no other overlay key, and
-// no two Files keys, may share a key.
+// (spec #18 §4), Cyrillic twins included: every Files key is a named
+// forge_* action with a default, and its keys come first, so they may only
+// shadow the overlay's launch key (n is next hunk there, so
+// forge_files_new's S starts the session); no other overlay key, and no
+// two Files keys, may share a key.
 func TestForgeFilesKeySpace(t *testing.T) {
 	seen := map[string]string{}
 	claim := func(key, owner string) {
@@ -253,8 +255,18 @@ func TestForgeFilesKeySpace(t *testing.T) {
 			seen[alias] = owner
 		}
 	}
-	for key, owner := range forgeFilesFixedKeys {
-		claim(key, "files:"+owner)
+	for _, action := range forgeFilesActionOrder {
+		key := defaultForgeHotkeyBindings[action]
+		if key == "" {
+			t.Errorf("Files action %q has no default key", action)
+		}
+		if !strings.HasPrefix(action, "forge_") {
+			t.Errorf("Files action %q is not prefixed forge_", action)
+		}
+		if _, clash := defaultHotkeyBindings[action]; clash {
+			t.Errorf("Files action %q is also a global action", action)
+		}
+		claim(key, action)
 	}
 	for _, action := range forgeOverlayActionOrder {
 		if action == hotkeyForgeNew {
@@ -266,7 +278,140 @@ func TestForgeFilesKeySpace(t *testing.T) {
 		claim(key, "fixed:"+owner)
 	}
 	claim("ctrl+c", "quit")
-	if forgeFilesFixedKeys[defaultForgeHotkeyBindings[hotkeyForgeNew]] != "next hunk" {
+	lookup := buildForgeFilesLookup(defaultForgeHotkeyBindings)
+	if lookup[defaultForgeHotkeyBindings[hotkeyForgeNew]] != hotkeyForgeNextHunk {
 		t.Error("the overlay's launch key is not the Files tab's next hunk")
 	}
+	if lookup["S"] != hotkeyForgeFilesNew || lookup["Ы"] != hotkeyForgeFilesNew {
+		t.Errorf("S / Ы on Files = %q / %q, want %s", lookup["S"], lookup["Ы"], hotkeyForgeFilesNew)
+	}
+	if lookup["т"] != hotkeyForgeNextHunk {
+		t.Errorf("т (the twin of n) on Files = %q, want %s", lookup["т"], hotkeyForgeNextHunk)
+	}
+}
+
+// filesHomeWith opens navDiff's Files tab at w×ht with the forge_*
+// [hotkeys] overrides applied.
+func filesHomeWith(t *testing.T, w, ht int, overrides map[string]string) *Home {
+	t.Helper()
+	h, fake := diffHome(t, w, ht, navDiff)
+	serveItemText(fake, githubtest.MustLoad(t, githubtest.ItemTextPR))
+	h.setForgeEnabled(true, overrides)
+	return openFiles(t, h)
+}
+
+// TestForgeFilesKeysRebind: the Files keys are [hotkeys] actions: a
+// rebound key does the action and the old one stops, "" unbinds, and the
+// hint footer and the help show the bound keys.
+func TestForgeFilesKeysRebind(t *testing.T) {
+	h := filesHomeWith(t, 120, 12, map[string]string{
+		"forge_next_file": "}", "forge_prev_file": "{",
+		"forge_next_hunk": "x", "forge_split": "v", "forge_focus": "",
+		"forge_pager_file": "ctrl+g",
+	})
+	o := &h.forge.overlay
+	h = drive(t, h, runeKey(']'))
+	if o.files.file != 0 {
+		t.Fatalf("] still moves by file after forge_next_file = }: file %d", o.files.file)
+	}
+	h = drive(t, h, runeKey('}'))
+	if o.files.file != 1 {
+		t.Fatalf("} did not move to the next file: file %d", o.files.file)
+	}
+	h = drive(t, h, runeKey('{'))
+	if o.files.file != 0 {
+		t.Fatalf("{ did not move back a file: file %d", o.files.file)
+	}
+	h = drive(t, h, runeKey('x'))
+	if o.files.file != 0 || o.scroll[forgeOverlayFiles].offset != 4 {
+		t.Fatalf("x did not move to the next hunk: file %d offset %d", o.files.file, o.scroll[forgeOverlayFiles].offset)
+	}
+	h = drive(t, h, runeKey('v'))
+	if !o.files.split {
+		t.Fatal("v did not toggle the split view")
+	}
+	h = drive(t, h, runeKey('s'))
+	if !o.files.split {
+		t.Fatal("s still toggles the split view after forge_split = v")
+	}
+	h = drive(t, h, tea.KeyMsg{Type: tea.KeyTab})
+	if o.files.listFocus {
+		t.Fatal("tab still moves the focus after forge_focus = \"\"")
+	}
+	hints := stripAnsi(h.forgeOverlayHints(400))
+	for _, want := range []string{"x/N hunk", "}/{ file", "v unified", "ctrl+g/\\ pager"} {
+		if !strings.Contains(hints, want) {
+			t.Errorf("hint footer %q lacks %q", hints, want)
+		}
+	}
+	if strings.Contains(hints, "focus") {
+		t.Errorf("hint footer %q shows the unbound focus key", hints)
+	}
+	help := map[string]string{}
+	for _, r := range h.forgeHelpRows() {
+		help[r[1]] = r[0]
+	}
+	for desc, want := range map[string]string{
+		"Files: next / previous hunk":                    "x / N",
+		"Files: next / previous file":                    "} / {",
+		"Files: split view, old | new (120+ columns)":    "v",
+		"Files: the file's / the PR's diff in the pager": "ctrl+g / \\",
+		"Files: focus the file list / the diff":          "",
+	} {
+		if help[desc] != want {
+			t.Errorf("help row %q = %q, want %q", desc, help[desc], want)
+		}
+	}
+}
+
+// TestForgeFilesNewFollowsForgeNew: on Files the new-session key is
+// forge_new's own key unless a Files action has it (by default n is next
+// hunk); then it is forge_files_new (default S).
+func TestForgeFilesNewFollowsForgeNew(t *testing.T) {
+	newKey := func(h *Home) string {
+		for _, r := range h.forgeHelpRows() {
+			if r[1] == "Files: start a session on the PR" {
+				return r[0]
+			}
+		}
+		return ""
+	}
+	hints := func(h *Home) string { return stripAnsi(h.forgeOverlayHints(400)) }
+
+	t.Run("default: S", func(t *testing.T) {
+		h := filesHomeWith(t, 120, 30, nil)
+		if got := newKey(h); got != "S" || !strings.Contains(hints(h), "S new session") {
+			t.Fatalf("help %q, hints %q", got, hints(h))
+		}
+	})
+
+	t.Run("forge_new rebound to a free key", func(t *testing.T) {
+		h := filesHomeWith(t, 120, 30, map[string]string{"forge_new": "x"})
+		if got := newKey(h); got != "x" || !strings.Contains(hints(h), "x new session") {
+			t.Fatalf("help %q, hints %q", got, hints(h))
+		}
+		h = launchDrive(t, h, runeKey('S'))
+		if h.newDialog.IsVisible() || !h.forgeOverlayVisible() {
+			t.Fatal("S still starts a session while forge_new = x reaches Files")
+		}
+		h = launchDrive(t, h, runeKey('x'))
+		if !h.newDialog.IsVisible() || h.newDialog.forge == nil || h.newDialog.forge.number != 14927 {
+			t.Fatal("x (forge_new) on Files did not open the launch dialog for #14927")
+		}
+	})
+
+	t.Run("forge_new on a Files key keeps forge_files_new", func(t *testing.T) {
+		h := filesHomeWith(t, 120, 30, map[string]string{"forge_new": "N", "forge_files_new": "ctrl+o"})
+		if got := newKey(h); got != "ctrl+o" {
+			t.Fatalf("help %q, want ctrl+o", got)
+		}
+		h = launchDrive(t, h, runeKey('N'))
+		if h.newDialog.IsVisible() {
+			t.Fatal("N started a session on Files instead of moving by hunk")
+		}
+		h = launchDrive(t, h, tea.KeyMsg{Type: tea.KeyCtrlO})
+		if !h.newDialog.IsVisible() {
+			t.Fatal("ctrl+o (forge_files_new) on Files did not open the launch dialog")
+		}
+	})
 }

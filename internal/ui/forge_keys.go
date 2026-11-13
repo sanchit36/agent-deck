@@ -90,9 +90,22 @@ var defaultForgeHotkeyBindings = map[string]string{
 	hotkeyForgeNew:         "n",
 	hotkeyForgeMerge:       "m",
 	// The overlay's own key space (forge_overlay.go).
-	hotkeyForgeConversation: "c",
-	hotkeyForgeFiles:        "d",
-	hotkeyForgeExpand:       "e",
+	hotkeyForgeConversation:    "c",
+	hotkeyForgeFiles:           "d",
+	hotkeyForgeConversationAlt: "1",
+	hotkeyForgeFilesAlt:        "2",
+	hotkeyForgeExpand:          "e",
+	// The Files tab's key space (forge_files.go).
+	hotkeyForgeNextHunk:  "n",
+	hotkeyForgePrevHunk:  "N",
+	hotkeyForgeNextFile:  "]",
+	hotkeyForgePrevFile:  "[",
+	hotkeyForgeFileList:  "f",
+	hotkeyForgeFocus:     "tab",
+	hotkeyForgeSplit:     "s",
+	hotkeyForgePagerFile: "|",
+	hotkeyForgePagerPR:   "\\",
+	hotkeyForgeFilesNew:  "S",
 }
 
 // forgeFallThroughKeys are the overview keys (canonical, as normalizeMainKey
@@ -168,15 +181,22 @@ func resolveForgeHotkeys(overrides map[string]string) map[string]string {
 // buildHotkeyLookup, explicit spellings claim their keys before any layout
 // twin, so a derived twin never shadows a binding the user wrote.
 func buildForgeHotkeyLookup(bindings map[string]string) map[string]string {
-	lookup := make(map[string]string, len(bindings)*3)
-	for _, action := range forgeHotkeyActionOrder {
+	return buildForgeActionLookup(forgeHotkeyActionOrder, bindings)
+}
+
+// buildForgeActionLookup maps each pressed key to its action in one key
+// space (order): explicit spellings claim their keys, earlier actions
+// first, before any layout twin.
+func buildForgeActionLookup(order []string, bindings map[string]string) map[string]string {
+	lookup := make(map[string]string, len(order)*3)
+	for _, action := range order {
 		for _, alias := range explicitHotkeyAliases(bindings[action]) {
 			if _, taken := lookup[alias]; !taken {
 				lookup[alias] = action
 			}
 		}
 	}
-	for _, action := range forgeHotkeyActionOrder {
+	for _, action := range order {
 		for _, alias := range layoutHotkeyAliases(bindings[action]) {
 			if _, taken := lookup[alias]; !taken {
 				lookup[alias] = action

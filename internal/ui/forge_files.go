@@ -52,17 +52,71 @@ const forgeFilesSplitWidth = 120
 // forgeDiffTabWidth is the tab stop diff text is expanded to.
 const forgeDiffTabWidth = 4
 
-// forgeFilesFixedKeys are the Files tab's own keys, by what they do. They
-// are seen before the overlay's [hotkeys] actions while the tab shows: n
-// moves by hunk here, so S starts a session (spec #18 §4).
-var forgeFilesFixedKeys = map[string]string{
-	"n": "next hunk", "N": "prev hunk",
-	"]": "next file", "[": "prev file",
-	"f":   "file list",
-	"tab": "focus",
-	"S":   "new session",
-	"s":   "split",
-	"|":   "pager file", "\\": "pager pr",
+// Files tab actions ([hotkeys] names, spec #18 §4). They are seen before
+// the overlay's actions while the tab shows.
+const (
+	// hotkeyForgeNextHunk and hotkeyForgePrevHunk move by hunk across
+	// files.
+	hotkeyForgeNextHunk = "forge_next_hunk"
+	hotkeyForgePrevHunk = "forge_prev_hunk"
+	// hotkeyForgeNextFile and hotkeyForgePrevFile move by file.
+	hotkeyForgeNextFile = "forge_next_file"
+	hotkeyForgePrevFile = "forge_prev_file"
+	// hotkeyForgeFileList opens the file list full screen (narrow only).
+	hotkeyForgeFileList = "forge_file_list"
+	// hotkeyForgeFocus moves the keys between the list and the diff (wide
+	// only).
+	hotkeyForgeFocus = "forge_focus"
+	// hotkeyForgeSplit toggles the side-by-side view.
+	hotkeyForgeSplit = "forge_split"
+	// hotkeyForgePagerFile and hotkeyForgePagerPR hand the file's or the
+	// whole PR's diff to the pager.
+	hotkeyForgePagerFile = "forge_pager_file"
+	hotkeyForgePagerPR   = "forge_pager_pr"
+	// hotkeyForgeFilesNew starts a session on the PR from the Files tab
+	// while a Files action has forge_new's key (by default n is next hunk
+	// there); otherwise forge_new's own key does it (forgeFilesNewAction).
+	hotkeyForgeFilesNew = "forge_files_new"
+)
+
+// forgeFilesActionOrder is the Files tab's key space of [hotkeys] actions.
+var forgeFilesActionOrder = []string{
+	hotkeyForgeNextHunk,
+	hotkeyForgePrevHunk,
+	hotkeyForgeNextFile,
+	hotkeyForgePrevFile,
+	hotkeyForgeFileList,
+	hotkeyForgeFocus,
+	hotkeyForgeSplit,
+	hotkeyForgePagerFile,
+	hotkeyForgePagerPR,
+	hotkeyForgeFilesNew,
+}
+
+// buildForgeFilesLookup maps each pressed key to its Files action. The new
+// session key follows forge_new: forge_files_new is in the key space only
+// while a Files action has forge_new's key; otherwise forge_new's key
+// reaches the overlay's forge_new, and that is the one key that starts a
+// session on Files.
+func buildForgeFilesLookup(bindings map[string]string) map[string]string {
+	order := forgeFilesActionOrder[:len(forgeFilesActionOrder)-1]
+	lookup := buildForgeActionLookup(order, bindings)
+	if forgeFilesNewAction(lookup, bindings) == hotkeyForgeFilesNew {
+		lookup = buildForgeActionLookup(forgeFilesActionOrder, bindings)
+	}
+	return lookup
+}
+
+// forgeFilesNewAction is the action that starts a session on Files:
+// forge_files_new when an action of lookup (the Files key space) has
+// forge_new's key, else forge_new.
+func forgeFilesNewAction(lookup, bindings map[string]string) string {
+	for _, alias := range explicitHotkeyAliases(bindings[hotkeyForgeNew]) {
+		if a := lookup[alias]; a != "" && a != hotkeyForgeFilesNew {
+			return hotkeyForgeFilesNew
+		}
+	}
+	return hotkeyForgeNew
 }
 
 // forgeFilesView is the Files tab's state; the zero value is a fresh tab.
@@ -515,7 +569,10 @@ func (h *Home) renderForgeFiles(height int) []string {
 		out = append(out, lipgloss.NewStyle().Foreground(ColorYellow).Render(truncateDisplay(" "+warn, width, "…")))
 	}
 	if l.splitNote {
-		note := fmt.Sprintf("split view needs %d+ columns (this is %d) · showing unified · s turns split off", forgeFilesSplitWidth, width)
+		note := fmt.Sprintf("split view needs %d+ columns (this is %d) · showing unified", forgeFilesSplitWidth, width)
+		if k := h.forgeKey(hotkeyForgeSplit); k != "" {
+			note += " · " + k + " turns split off"
+		}
 		out = append(out, dim.Render(truncateDisplay(" "+note, width, "…")))
 	}
 	rows := height - len(out)
@@ -646,8 +703,8 @@ func (h *Home) renderForgeFileDiff(d github.Diff, l forgeFilesLayout, height int
 	right := lipgloss.NewStyle().Foreground(ColorGreen).Render(fmt.Sprintf("+%d", file.Additions)) + " " +
 		lipgloss.NewStyle().Foreground(ColorRed).Render(fmt.Sprintf("−%d", file.Deletions)) +
 		dim.Render(fmt.Sprintf("  file %d/%d", o.files.file+1, len(d.Files)))
-	if l.narrow {
-		right += dim.Render(" · f list")
+	if k := h.forgeKey(hotkeyForgeFileList); l.narrow && k != "" {
+		right += dim.Render(" · " + k + " list")
 	}
 	right += " "
 	room := max(1, width-lipgloss.Width(right)-4)
@@ -965,46 +1022,46 @@ func (h *Home) handleForgeFilesKey(raw string) (bool, tea.Cmd) {
 	f := &o.files
 	f.pagerErr = ""
 	d, has := h.forgeFilesDiff()
-	switch forgeFilesFixedKeys[raw] {
-	case "next hunk":
+	switch o.filesLookup[raw] {
+	case hotkeyForgeNextHunk:
 		h.moveForgeHunk(1)
 		return true, nil
-	case "prev hunk":
+	case hotkeyForgePrevHunk:
 		h.moveForgeHunk(-1)
 		return true, nil
-	case "next file":
+	case hotkeyForgeNextFile:
 		if has && f.file+1 < len(d.Files) {
 			h.selectForgeFile(f.file + 1)
 		}
 		return true, nil
-	case "prev file":
+	case hotkeyForgePrevFile:
 		if has && f.file > 0 {
 			h.selectForgeFile(f.file - 1)
 		}
 		return true, nil
-	case "file list":
+	case hotkeyForgeFileList:
 		if h.forgeFilesLayoutNow().narrow {
 			f.listFull = !f.listFull
 			h.clampForgeFiles()
 		}
 		return true, nil
-	case "focus":
+	case hotkeyForgeFocus:
 		if !h.forgeFilesLayoutNow().narrow {
 			f.listFocus = !f.listFocus
 		}
 		return true, nil
-	case "new session":
+	case hotkeyForgeFilesNew:
 		cmd := h.forgeNew()
 		if h.forge.sessionPick != nil || h.newDialog.IsVisible() {
 			h.closeForgeOverlay()
 		}
 		return true, cmd
-	case "split":
+	case hotkeyForgeSplit:
 		h.toggleForgeFilesSplit()
 		return true, nil
-	case "pager file":
+	case hotkeyForgePagerFile:
 		return true, h.forgeOpenPager(false)
-	case "pager pr":
+	case hotkeyForgePagerPR:
 		return true, h.forgeOpenPager(true)
 	}
 	listMode := h.forgeFilesListMode()
@@ -1055,23 +1112,31 @@ func (h *Home) handleForgeFilesKey(raw string) (bool, tea.Cmd) {
 
 // forgeFilesHints is the Files tab's part of the overlay's hint footer.
 func (h *Home) forgeFilesHints(add func(key, label string)) {
+	key := h.forgeKey
 	l := h.forgeFilesLayoutNow()
 	if l.narrow {
-		add("f", "files")
+		add(key(hotkeyForgeFileList), "files")
 	} else {
-		add("tab", "focus")
+		add(key(hotkeyForgeFocus), "focus")
 	}
-	add("n/N", "hunk")
-	add("]/[", "file")
+	add(joinHotkeyLabels(key(hotkeyForgeNextHunk), key(hotkeyForgePrevHunk)), "hunk")
+	add(joinHotkeyLabels(key(hotkeyForgeNextFile), key(hotkeyForgePrevFile)), "file")
 	if h.forgeFilesRows().collapsed {
 		add("enter", "expand")
 	}
 	add("h/l", "pan")
 	if l.split {
-		add("s", "unified")
+		add(key(hotkeyForgeSplit), "unified")
 	} else {
-		add("s", "split")
+		add(key(hotkeyForgeSplit), "split")
 	}
-	add("|/\\", "pager")
-	add("S", "new session")
+	add(joinHotkeyLabels(key(hotkeyForgePagerFile), key(hotkeyForgePagerPR)), "pager")
+	add(h.forgeFilesNewKey(), "new session")
+}
+
+// forgeFilesNewKey is the key that starts a session on the Files tab
+// (buildForgeFilesLookup).
+func (h *Home) forgeFilesNewKey() string {
+	files := buildForgeFilesLookup(h.forge.bindings)
+	return h.forgeKey(forgeFilesNewAction(files, h.forge.bindings))
 }
