@@ -400,6 +400,21 @@ type GitHubSettings struct {
 	// (e.g. "is:open review-requested:@me"). Default "is:open" (empty =
 	// default). Read through GitHubPRFilter.
 	PRFilter string `toml:"pr_filter,omitempty"`
+
+	// DiffPager is the shell command the Files tab's | (the file) and \
+	// (the whole PR) feed the diff on stdin, e.g. "delta --side-by-side".
+	// Default "" (auto): delta when it is on PATH, else $PAGER, else
+	// "less -R". Read through GitHubDiffPager.
+	DiffPager string `toml:"diff_pager,omitempty"`
+}
+
+// GitHubDiffPager is [github] diff_pager, trimmed; "" (auto) when unset or
+// blank.
+func (c *UserConfig) GitHubDiffPager() string {
+	if c == nil {
+		return ""
+	}
+	return strings.TrimSpace(c.GitHub.DiffPager)
 }
 
 // defaultGitHubFilter is the starting filter of both forge tabs.

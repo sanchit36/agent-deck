@@ -141,3 +141,28 @@ func TestUserConfigGitHubFilters(t *testing.T) {
 		t.Fatal("nil config has a filter other than is:open")
 	}
 }
+
+// TestUserConfigGitHubDiffPager pins [github] diff_pager (spec #18 §10):
+// the pager command the Files tab's | and \ feed, trimmed; empty when
+// unset or blank (the UI then picks delta, $PAGER or less -R).
+func TestUserConfigGitHubDiffPager(t *testing.T) {
+	for _, tc := range []struct{ name, src, want string }{
+		{"unset", ``, ""},
+		{"blank", "[github]\ndiff_pager = \"  \"\n", ""},
+		{"set", "[github]\ndiff_pager = \" delta --side-by-side \"\n", "delta --side-by-side"},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			var cfg UserConfig
+			if _, err := toml.Decode(tc.src, &cfg); err != nil {
+				t.Fatalf("decode: %v", err)
+			}
+			if got := cfg.GitHubDiffPager(); got != tc.want {
+				t.Fatalf("GitHubDiffPager() = %q, want %q", got, tc.want)
+			}
+		})
+	}
+	var nilCfg *UserConfig
+	if nilCfg.GitHubDiffPager() != "" {
+		t.Fatal("nil config has a diff pager")
+	}
+}
