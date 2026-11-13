@@ -383,3 +383,47 @@ func TestForgePRsGolden(t *testing.T) {
 		}
 	}
 }
+
+// paneLine is the first line of pane holding s.
+func paneLine(pane, s string) string {
+	for _, l := range strings.Split(pane, "\n") {
+		if strings.Contains(l, s) {
+			return l
+		}
+	}
+	return ""
+}
+
+// TestForgePRRowNarrowKeepsLinkedMark: in the dual layout's ~42-column
+// list pane the ◉ mark survives: the ci and review labels compact to their
+// glyphs first, then the author gives way. Wide rows are unchanged, and an
+// unlinked row keeps both glyphs instead of a cut label.
+func TestForgePRRowNarrowKeepsLinkedMark(t *testing.T) {
+	a := &session.Instance{ID: "a", Title: "fix login", GroupPath: "widgets", ProjectPath: "/src/widgets"}
+	a.SetLink(session.LinkPR, session.Link{Host: "github.com", Owner: "me", Name: "widgets", Number: 14927})
+	h, _ := prsHome(t, 120, 30, githubtest.PRList, a)
+	cases := []struct {
+		width   int
+		number  string
+		want    string
+		without string
+	}{
+		{200, "#14927", "#14927 · williammartin · 2h  ✗ ci  ? review  ◉ fix login", ""},
+		{50, "#14927", "#14927 · williammartin · 2h  ✗ ?  ◉ fix login", "ci"},
+		{42, "#14927", "#14927 · 2h  ✗ ?  ◉ fix login", "williammartin"},
+		{42, "#15046", "#15046 · compiler-segfault · 9h  ✓ ?", "…"},
+		{200, "#15046", "#15046 · compiler-segfault · 9h  ✓ ci  ? review", ""},
+	}
+	for _, c := range cases {
+		line := paneLine(stripAnsi(h.renderForgeList(c.width, 40)), c.number)
+		if !strings.Contains(line, c.want) {
+			t.Errorf("width %d: %s row %q, want it to hold %q", c.width, c.number, line, c.want)
+		}
+		if c.without != "" && strings.Contains(line, c.without) {
+			t.Errorf("width %d: %s row %q holds %q", c.width, c.number, line, c.without)
+		}
+		if w := lipgloss.Width(line); w > c.width {
+			t.Errorf("width %d: row is %d wide", c.width, w)
+		}
+	}
+}

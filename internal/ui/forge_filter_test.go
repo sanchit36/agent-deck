@@ -12,6 +12,7 @@ import (
 	"github.com/asheshgoplani/agent-deck/internal/github/githubtest"
 	"github.com/asheshgoplani/agent-deck/internal/session"
 	tea "github.com/charmbracelet/bubbletea"
+	"github.com/charmbracelet/lipgloss"
 )
 
 // Filtering (spec #18 §6) tests: the query bar, where each query runs, the
@@ -451,6 +452,32 @@ func TestForgeFilterGolden(t *testing.T) {
 				}
 				assertFrameGolden(t, name+".golden", stripAnsi(frame))
 			})
+		}
+	}
+}
+
+// TestForgeProjectLineNarrowKeepsFilterChip: in the ~42-column list pane
+// the freshness age gives way before the filter chip is cut; the Project
+// chip is never cut.
+func TestForgeProjectLineNarrowKeepsFilterChip(t *testing.T) {
+	h, fake := issuesHome(t, 120, 30, githubtest.IssueList)
+	serveSearch(fake, github.IssueSearchQuery, "repo:me/widgets is:issue is:closed sort:updated-desc", githubtest.MustLoad(t, githubtest.IssueSearch))
+	h = filterQuery(t, h, "is:closed")
+	for _, c := range []struct {
+		width int
+		want  []string
+	}{
+		{80, []string{"me/widgets ▾  is:closed", "4 of 2002 · just now"}},
+		{42, []string{"me/widgets ▾  is:closed", "4 of 2002"}},
+	} {
+		line := stripAnsi(h.renderForgeProjectLine(c.width))
+		for _, w := range c.want {
+			if !strings.Contains(line, w) {
+				t.Errorf("width %d: Project line %q lacks %q", c.width, line, w)
+			}
+		}
+		if lw := lipgloss.Width(line); lw > c.width {
+			t.Errorf("width %d: Project line is %d wide", c.width, lw)
 		}
 	}
 }

@@ -4,16 +4,16 @@
 ────────────────────────────────────────── │ ───────────────────────────────────────────────────────────────────────────
 me/widgets ▾  is:open   6 of 59 · just now │ ● chore(deps): Bump golang.org/x/term from 0.47.0 to 0.48.0                
 ▌ ● chore(deps): Bump golang.org/x/term f… │                                                                            
-▌   #15048 · dependabot · 30m  ✓ ci  ? re… │ ⚠ gh failed: githubtest: no fixture for gh api --hostname github.com       
+▌   #15048 · dependabot · 30m  ✓ ?         │ ⚠ gh failed: githubtest: no fixture for gh api --hostname github.com       
                                            │ graphql -f                                                                 
   ◌ Add guided multi-account setup and ev… │ query=query($owner:String!,$name:String!,$number:Int!){repository(owner:$ow
-    #14927 · williammartin · 2h  ✗ ci  ? … │ ner,name:$name){issueOrPullRequest(number:$number){__typename ...on        
+    #14927 · 2h  ✗ ?  ◉ fix login          │ ner,name:$name){issueOrPullRequest(number:$number){__typename ...on        
                                            │ Issue{number title url issueState:state createdAt updatedAt author{login}  
   ● Don't preallocate the agent task sess… │ labels(first:20){nodes{name}} assignees(first:10){nodes{login}}            
-    #15046 · compiler-segfault · 9h  ✓ ci… │ comments{totalCount}                                                       
+    #15046 · compiler-segfault · 9h  ✓ ?   │ comments{totalCount}                                                       
                                            │ timelineItems(last:10,itemTypes:[ISSUE_COMMENT,CLOSED_EVENT,REOPENED_EVENT,
   ◌ feat(auth): Better multi-account `gh`… │ CROSS_REFERENCED_EVENT]){nodes{__typename ...on IssueComment{createdAt     
-    #13781 · platinummonkey · 6d  · ci  ?… │ author{login}} ...on ClosedEvent{createdAt actor{login}} ...on             
+    #13781 · platinummonkey · 6d  · ?      │ author{login}} ...on ClosedEvent{createdAt actor{login}} ...on             
                                            │ ReopenedEvent{createdAt actor{login}} ...on CrossReferencedEvent{createdAt 
   ● Update build and release workflow to … │ actor{login}}}}} ...on PullRequest{number title url prState:state isDraft  
     #13665 · steiza · 2mo  ✓ ci  ✔ review  │ createdAt updatedAt author{login} labels(first:20){nodes{name}}            

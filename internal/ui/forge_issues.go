@@ -11,6 +11,7 @@ import (
 	"github.com/asheshgoplani/agent-deck/internal/github/freshness"
 	"github.com/asheshgoplani/agent-deck/internal/session"
 	"github.com/charmbracelet/lipgloss"
+	"github.com/charmbracelet/x/ansi"
 )
 
 // Forge lists (spec #18 §3, §5): the Issues and PRs tabs show their
@@ -281,6 +282,51 @@ func (h *Home) forgeCountText() string {
 	return fmt.Sprintf("%d open", l.total)
 }
 
+// forgeLine2 is how a row's second line fits its width: compact drops the
+// marks' labels (✓ ci -> ✓); linkFirst puts the ◉ mark before the Issue
+// labels, which the cut takes instead; short also drops the author. Each
+// step keeps the ◉ mark whole in a narrower pane.
+type forgeLine2 struct {
+	compact, linkFirst, short bool
+}
+
+// forgeLine2Fit picks the widest form of r's second line (under the
+// two-column bar and indent) that fits width with link, its ◉ mark: full,
+// then compact marks, then, only for a row with a mark, link first and
+// then short.
+func forgeLine2Fit(r forgeRow, link string, width int) forgeLine2 {
+	base := 4 + ansi.StringWidth(r.meta)
+	labels := 0
+	for i, m := range r.marks {
+		// Compact marks are "  ✓ ?"; labelled ones "  ✓ ci  ? review".
+		base += 1 + ansi.StringWidth(m.glyph)
+		labels += 1 + ansi.StringWidth(m.label)
+		if i == 0 {
+			base++
+		} else {
+			labels++
+		}
+	}
+	tags := 0
+	for _, t := range r.tags {
+		// "  bug, p3": two cells before each label.
+		tags += 2 + ansi.StringWidth(forgeOneLine(t))
+	}
+	linkW := 0
+	if link != "" {
+		linkW = 2 + ansi.StringWidth(link)
+	}
+	switch {
+	case base+labels+tags+linkW <= width:
+		return forgeLine2{}
+	case base+tags+linkW <= width || link == "":
+		return forgeLine2{compact: true}
+	case base+linkW <= width:
+		return forgeLine2{compact: true, linkFirst: true}
+	}
+	return forgeLine2{compact: true, linkFirst: true, short: true}
+}
+
 // forgeRowsOffset is the first item drawn: the list's offset, moved just
 // enough to keep cursor among the page items in view.
 func forgeRowsOffset(cursor, offset, page int) int {
@@ -343,29 +389,60 @@ func (h *Home) renderForgeRows(width, height int) []string {
 			glyph, title, tags = dim, dim, dim
 		}
 		line1 := bar + glyph.Render(r.glyph) + " " + title.Render(r.title)
-		line2 := bar + "  " + dim.Render(r.meta)
-		if len(r.tags) > 0 {
-			parts := make([]string, 0, len(r.tags))
-			for _, t := range r.tags {
-				parts = append(parts, tags.Render(forgeOneLine(t)))
-			}
-			line2 += "  " + strings.Join(parts, dim.Render(", "))
+		linkT := linkedText(linked[r.number])
+		fit := forgeLine2Fit(r, linkT, width)
+		meta := r.meta
+		if fit.short {
+			meta = fmt.Sprintf("#%d · %s", r.number, forgeAge(h.forgeNow().Sub(r.updatedAt)))
 		}
-		for _, m := range r.marks {
+		link := accent
+		if stale {
+			link = dim
+		}
+		var line2 strings.Builder
+		line2.WriteString(bar)
+		line2.WriteString("  ")
+		line2.WriteString(dim.Render(meta))
+		writeTags := func() {
+			for j, t := range r.tags {
+				if j == 0 {
+					line2.WriteString("  ")
+				} else {
+					line2.WriteString(dim.Render(", "))
+				}
+				line2.WriteString(tags.Render(forgeOneLine(t)))
+			}
+		}
+		writeLink := func() {
+			if linkT != "" {
+				line2.WriteString("  ")
+				line2.WriteString(link.Render(linkT))
+			}
+		}
+		if !fit.linkFirst {
+			writeTags()
+		}
+		for j, m := range r.marks {
 			g := lipgloss.NewStyle().Foreground(m.color)
 			if stale {
 				g = dim
 			}
-			line2 += "  " + g.Render(m.glyph) + dim.Render(" "+m.label)
-		}
-		if t := linkedText(linked[r.number]); t != "" {
-			link := accent
-			if stale {
-				link = dim
+			if fit.compact && j > 0 {
+				line2.WriteString(" ")
+			} else {
+				line2.WriteString("  ")
 			}
-			line2 += "  " + link.Render(t)
+			line2.WriteString(g.Render(m.glyph))
+			if !fit.compact {
+				line2.WriteString(dim.Render(" " + m.label))
+			}
 		}
-		out = append(out, truncateDisplay(line1, width, "…"), truncateDisplay(line2, width, "…"), "")
+		writeLink()
+		if fit.linkFirst {
+			// The ◉ mark went before the labels, which the cut takes.
+			writeTags()
+		}
+		out = append(out, truncateDisplay(line1, width, "…"), truncateDisplay(line2.String(), width, "…"), "")
 	}
 	if len(out) > height {
 		out = out[:height]

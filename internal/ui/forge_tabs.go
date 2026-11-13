@@ -796,6 +796,11 @@ func (h *Home) renderForgeProjectLine(width int) string {
 			right = dim.Render(v.note)
 		default:
 			right = h.forgeFreshText()
+			if width-lipgloss.Width(left)-lipgloss.Width(right) < 2 {
+				// Too narrow for all of it: the age gives way before
+				// the filter chip is cut.
+				right = h.forgeFreshTextOf(false)
+			}
 		}
 	}
 	line := left

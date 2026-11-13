@@ -2,7 +2,7 @@
   All    ● 0   ◐ 0   ○ 0   !@#& filter • 0 all • % open • ^ archived • t view • * time                                  
  SESSIONS │ ISSUES 1075 │ PRS              │ ISSUE #14053                                                               
 ────────────────────────────────────────── │ ───────────────────────────────────────────────────────────────────────────
-me/widgets ▾  is:cl…  4 of 2002 · just now │ ✓ `gh auth status` reports rate limit / network failures as "token is      
+me/widgets ▾  is:closed label:…  4 of 2002 │ ✓ `gh auth status` reports rate limit / network failures as "token is      
 ▌ ✓ `gh auth status` reports rate limit /… │   invalid" with misleading re-auth advice                                  
 ▌   #14053 · MumuTW · 2d  bug, priority-3… │                                                                            
                                            │ loading…                                                                   
