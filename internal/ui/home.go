@@ -2264,6 +2264,7 @@ func (h *Home) updateInner(msg tea.Msg) (tea.Model, tea.Cmd) {
 		h.promptInputDialog.SetSize(msg.Width, msg.Height)
 		h.scrollbackPager.SetSize(msg.Width, msg.Height)
 		h.contextPager.SetSize(msg.Width, msg.Height)
+		h.forgeOverlaySetSize(msg.Width, msg.Height)
 		if h.embeddedMode && h.embeddedTerminal != nil {
 			h.syncEmbeddedTerminalGeometry()
 			return h, nil
@@ -2324,6 +2325,10 @@ func (h *Home) updateInner(msg tea.Msg) (tea.Model, tea.Cmd) {
 				} else {
 					h.scrollbackPager.ScrollDown(3)
 				}
+				return h, nil
+			}
+			if h.forgeOverlayVisible() {
+				h.handleForgeOverlayWheel(msg.Button == tea.MouseButtonWheelUp)
 				return h, nil
 			}
 			if h.contextPager.IsVisible() {
@@ -5206,6 +5211,9 @@ func (h *Home) updateInner(msg tea.Msg) (tea.Model, tea.Cmd) {
 		}
 		if h.contextPager.IsVisible() {
 			return h.handleContextPagerKey(msg)
+		}
+		if h.forgeOverlayVisible() {
+			return h.handleForgeOverlayKey(msg)
 		}
 		if h.sessionPickerDialog.IsVisible() {
 			return h.handleSessionPickerDialogKey(msg)

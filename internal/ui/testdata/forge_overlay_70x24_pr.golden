@@ -1,0 +1,24 @@
+ ◌ #14927  Add guided multi-account setup and evaluation       draft
+ [ Conversation ]   Files   
+──────────────────────────────────────────────────────────────────────
+ williammartin · 1w (edited)
+ > Prototype overview and documentation
+ > (https://cli.github.io/multi-account-docs/)
+ >
+ > DO NOT MERGE. This stack is almost entirely vibe coded. These
+ > drafts are for handy review and prototyping, not merging as-is.
+ >
+ > Expect the code to be really bad in places: highly coupled,
+ > handling edge cases that do not really matter, or doing
+ > suspiciously fragile things like parsing GraphQL request bodies.
+ >
+ > I suspect some of the suspicious code also exposes the complexity
+ > of this feature set, because account selection, Git configuration,
+ > scope precedence, worktrees, SSH and API requests all interact.
+ >
+ > The prototype experience is the purpose, not the code. I want to
+ > find out whether the experience is useful, not defend this
+ > implementation or treat it as a design to preserve.
+ 
+ 1–19 of 186
+ c/d tabs · j/k scroll · o open · y copy url · r refresh · esc close

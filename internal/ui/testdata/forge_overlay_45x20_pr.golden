@@ -1,0 +1,20 @@
+ ◌ #14927  Add guided multi-account … draft
+ [ Conversation ]   Files   
+─────────────────────────────────────────────
+ williammartin · 1w (edited)
+ > Prototype overview and documentation
+ > (https://cli.github.io/multi-account-docs
+ > /)
+ >
+ > DO NOT MERGE. This stack is almost
+ > entirely vibe coded. These drafts are for
+ > handy review and prototyping, not merging
+ > as-is.
+ >
+ > Expect the code to be really bad in
+ > places: highly coupled, handling edge
+ > cases that do not really matter, or doing
+ > suspiciously fragile things like parsing
+ > GraphQL request bodies.
+ 1–15 of 228
+ c/d tabs · j/k scroll · o open · y copy url…

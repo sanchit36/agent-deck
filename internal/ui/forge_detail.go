@@ -56,18 +56,23 @@ func (h *Home) forgeDetailFull() bool {
 	return h.forge.detailFull && h.forgeTabActive() && h.getLayoutMode() == LayoutModeSingle
 }
 
-// forgeOpenItem is enter on a forge list: in the single column it opens
-// the selected row's full-screen detail. (The overlay of slice #29 takes
-// enter in the other layouts and from the full-screen detail.)
+// forgeOpenItem is enter on a forge list: the selected row's overlay on
+// Conversation, except that in the single column the first enter opens
+// the full-screen detail.
 func (h *Home) forgeOpenItem() tea.Cmd {
-	if h.getLayoutMode() != LayoutModeSingle || h.forge.detailFull {
-		return nil
-	}
 	if _, ok := h.forgeSelectedRow(); !ok {
 		return nil
 	}
-	h.forge.detailFull = true
-	return h.syncForgeDetail()
+	if h.getLayoutMode() == LayoutModeSingle && !h.forge.detailFull {
+		h.forge.detailFull = true
+		return h.syncForgeDetail()
+	}
+	return h.openForgeOverlay(forgeOverlayConversation)
+}
+
+// fetchConversation is the Conversation fetcher of the overlay.
+func fetchConversation(ctx context.Context, c *github.Client, k freshness.Key) (any, error) {
+	return c.Conversation(ctx, k.Repo, k.Number)
 }
 
 // forgeDetailShown reports whether a detail pane is on screen: the right

@@ -21,14 +21,18 @@ const (
 	Detail Kind = "detail"
 	// Diff is a Pull Request's diff at one head commit.
 	Diff Kind = "diff"
+	// Conversation is one Issue's or Pull Request's body and comments
+	// (the overlay's Conversation tab).
+	Conversation Kind = "conversation"
 	// Signals is one host's Attention signal poll (Key.Repo names only
 	// the host). It refetches on the refresh interval, like a list.
 	Signals Kind = "signals"
 )
 
 // Key names one cached fetch (spec #18 §5): a list is Project + kind +
-// filter, a detail Project + number, a diff Project + number + head SHA.
-// Build keys with ListKey, DetailKey and DiffKey.
+// filter, a detail or a Conversation Project + number, a diff Project +
+// number + head SHA. Build keys with ListKey, DetailKey, ConversationKey and
+// DiffKey.
 type Key struct {
 	Repo    github.Repo
 	Kind    Kind
@@ -45,6 +49,12 @@ func ListKey(repo github.Repo, kind Kind, filter string) Key {
 // DetailKey is the key of Issue or Pull Request number of repo.
 func DetailKey(repo github.Repo, number int) Key {
 	return Key{Repo: normal(repo), Kind: Detail, Number: number}
+}
+
+// ConversationKey is the key of the Conversation of Issue or Pull Request
+// number of repo.
+func ConversationKey(repo github.Repo, number int) Key {
+	return Key{Repo: normal(repo), Kind: Conversation, Number: number}
 }
 
 // DiffKey is the key of Pull Request number's diff at headSHA.
@@ -198,19 +208,24 @@ func (c *Cache) Done(k Key, value any, err error, now time.Time) {
 }
 
 // Seen tells the cache GitHub reported updatedAt for k's item (from a list
-// row). A detail cached at an older version becomes due.
+// row). k is a DetailKey; the item's detail and Conversation cached at an
+// older version become due.
 func (c *Cache) Seen(k Key, updatedAt time.Time) {
 	if k.Kind != Detail {
 		return
 	}
+	conv := k
+	conv.Kind = Conversation
 	c.mu.Lock()
 	defer c.mu.Unlock()
-	e, ok := c.entries[k]
-	if !ok || !e.HasData() {
-		return
-	}
-	if v, ok := e.Value.(Versioned); !ok || updatedAt.After(v.Version()) {
-		e.invalid = true
+	for _, key := range []Key{k, conv} {
+		e, ok := c.entries[key]
+		if !ok || !e.HasData() {
+			continue
+		}
+		if v, ok := e.Value.(Versioned); !ok || updatedAt.After(v.Version()) {
+			e.invalid = true
+		}
 	}
 }
 

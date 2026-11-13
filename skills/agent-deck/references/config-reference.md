@@ -1040,7 +1040,10 @@ fire on their Russian ЙЦУКЕН twin.
 | `forge_open` | `o` | Issues, PRs | open the selected row in the browser (the SAML authorize URL while that message shows) |
 | `forge_copy` | `y` | Issues, PRs | copy the selected row's URL (the SAML authorize URL while that message shows) |
 | `forge_attach` | `a` | Issues, PRs | attach to the session linked to the selected row (a picker when several are) |
-| `forge_view` | `enter` | Issues, PRs | single column: open the selected row's detail full screen (`esc` returns) |
+| `forge_view` | `enter` | Issues, PRs | open the selected row in the overlay (single column: the first press opens its detail full screen, `esc` returns) |
+| `forge_conversation` | `c` | overlay | Conversation tab |
+| `forge_files` | `d` | overlay | Files tab (PRs) |
+| `forge_expand` | `e` | overlay | expand every minimized comment, or collapse them all |
 
 ## [display] Section
 
