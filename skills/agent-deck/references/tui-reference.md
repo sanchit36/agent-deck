@@ -258,7 +258,7 @@ shows its state, author, age, labels, assignee, comment count and linked
 sessions; a PR shows its state, head branch (`owner:branch` from a fork),
 base branch (`into`), checks (`✗ 1 failed · 11 passed`), review, merge state
 (`⇢` clean, `≠` conflict, `↓` behind, `⊘` blocked), diff size
-(`+120 −30 · 7 files`) and linked sessions. The timeline lists the last
+(`+120 −30 · 7 files`), linked sessions and `local`. The timeline lists the last
 comments, reviews, pushes, check results and state changes. The body and
 comments are not shown here. The detail is one GraphQL request: its cached
 copy shows at once, it is fetched fresh each time you open it (once the
@@ -266,6 +266,20 @@ cursor rests on the row), and it refetches while on screen when the list
 reports the item changed. In the single column the list has the screen;
 `Enter` opens the selected row's detail full screen and `Esc` returns to the
 list.
+
+A PR's `local` row is your local copy of its head, for example
+`local  feature/42-x · ↑2 unpushed · dirty  +1 more`. The checkouts are the
+worktrees of the sessions linked to the PR, then any worktree or branch of the
+Project's local repo that tracks the PR head (its head branch, or GitHub's
+`pull/N/head` ref; for a fork PR only a remote of the fork's owner). The first
+one is shown, a linked session's first, then `+n more`. Its commit is compared
+with the PR head without fetching: `in sync`, `↑n unpushed`, `↓n behind`,
+`↑a ↓b` when both sides have commits, or `↓ PR has newer commits` when the head
+commit is not in your repo yet; `dirty` marks uncommitted changes. The row
+reads `none` with no checkout, `unavailable` when git could not be read (or
+for a jj checkout), and `checking…` before the first read. Agent Deck reads it
+in the background (each git call has a 5 s limit) when the PR opens, when its
+head commit changes, and on `r`; it is never polled.
 
 The right end of the Project line says how fresh the list is: `updated 2m ago`
 (`N open · 2m ago` once the count is known, or `100 of 342 · 2m ago` when
@@ -304,7 +318,7 @@ links worktree sessions to their PR.
 | `Alt+S` / `Alt+I` / `Alt+P` | Sessions / Issues / PRs tab; from every tab (**rebindable**: `forge_tab_sessions`, `forge_tab_issues`, `forge_tab_prs`) |
 | `p` | Project selector: `j`/`k` move, `Enter` selects, `Esc` closes (Issues, PRs; **rebindable**: `forge_project`) |
 | `P` | Toggle between the Project and its Parent Repository (from GitHub's fork metadata; a Project that is not a fork says so) (Issues, PRs; **rebindable**: `forge_parent`) |
-| `r` | Refresh: refetch the list and the open detail now, joining a fetch already running, and restart the poll timer; nothing while GitHub's rate limit lasts (Issues, PRs; **rebindable**: `forge_refresh`; `Ctrl+R` stays the global reload) |
+| `r` | Refresh: refetch the list and the open detail now (and re-read a PR's `local` row), joining a fetch already running, and restart the poll timer; nothing while GitHub's rate limit lasts (Issues, PRs; **rebindable**: `forge_refresh`; `Ctrl+R` stays the global reload) |
 | `o` / `y` | Open the selected Issue or PR in the browser / copy its URL; on the SAML message, the authorize URL. Both run in the background, never blocking the TUI (Issues, PRs; **rebindable**: `forge_open`, `forge_copy`) |
 | `/` | Filter: open the query bar on the current filter; `Enter` applies, `↑`/`↓` presets and recent queries, `Esc` cancels, `Ctrl+U` clears, `Ctrl+W` deletes a word (Issues, PRs; **rebindable**: `forge_filter`) |
 | `Esc` | Reset a filter other than the starting one; otherwise as on Sessions (Issues, PRs) |
