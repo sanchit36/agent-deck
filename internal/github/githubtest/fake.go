@@ -70,6 +70,11 @@ const (
 	// IssueListDisabled is the same query for torvalds/linux, which has
 	// Issues turned off.
 	IssueListDisabled = "issue-list-disabled"
+	// PRList is the lean PRs list query (github.PRListQuery) for cli/cli,
+	// recorded with gh 2.103 and trimmed to six of its 59 open PRs: checks
+	// passing, failing and absent; review required, approved and changes
+	// requested; drafts; and PRs from forks.
+	PRList = "pr-list"
 )
 
 // Load returns the fixture named name.
