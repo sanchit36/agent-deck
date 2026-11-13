@@ -51,6 +51,10 @@ func (h *Home) resolveNewSessionGroup() string {
 
 // handleNewDialogKey handles keys when new dialog is visible
 func (h *Home) handleNewDialogKey(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
+	// A launch from an Issue or PR is running: the dialog waits for it.
+	if h.forgeLaunchBusy() {
+		return h, nil
+	}
 	// When the recent sessions picker is open, let the dialog handle all keys first.
 	if h.newDialog.IsRecentPickerOpen() {
 		var cmd tea.Cmd
@@ -102,6 +106,12 @@ func (h *Home) handleNewDialogKey(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 		// (ASK-110), so the error takes focus to the field at fault.
 		if validationErr := h.newDialog.ShowValidationError(); validationErr != "" {
 			return h, nil
+		}
+
+		// n on an Issue or PR (spec #18 §13) launches through its own path:
+		// worktree or checkout, StartWithMessage, Link, rollback.
+		if h.newDialog.forge != nil {
+			return h, h.submitForgeLaunch()
 		}
 
 		// #1353: when the dialog was opened on a remote group/session, create
@@ -345,6 +355,10 @@ func (h *Home) handleNewDialogKey(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 
 	var cmd tea.Cmd
 	h.newDialog, cmd = h.newDialog.Update(msg)
+	if h.newDialog.forge != nil {
+		// A template that uses comments not fetched yet fetches them.
+		return h, tea.Batch(cmd, h.forgeLaunchFetch())
+	}
 	return h, cmd
 }
 

@@ -139,6 +139,7 @@ var forgeOverlayActionOrder = []string{
 	hotkeyForgeCopy,
 	hotkeyForgeAttach,
 	hotkeyForgeRefresh,
+	hotkeyForgeNew,
 }
 
 // buildForgeOverlayLookup maps each pressed key to its overlay action,
@@ -369,6 +370,14 @@ func (h *Home) handleForgeOverlayKey(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 		return h, h.forgeCopyURL()
 	case hotkeyForgeRefresh:
 		return h, h.forgeManualRefresh()
+	case hotkeyForgeNew:
+		// The dialog (or the chooser, in the list pane) replaces the
+		// overlay; the row is read while the overlay still names it.
+		cmd := h.forgeNew()
+		if h.forge.sessionPick != nil || h.newDialog.IsVisible() {
+			h.closeForgeOverlay()
+		}
+		return h, cmd
 	case hotkeyForgeAttach:
 		cmd := h.forgeAttach()
 		if h.forge.sessionPick != nil {

@@ -310,7 +310,7 @@ own scroll. The Files tab arrives in a later slice.
 | `h`/`l`, `←`/`→` | Pan code blocks and tables |
 | `Enter` | Expand or collapse the minimized comment on screen |
 | `e` | Expand every minimized comment, or collapse them all (**rebindable**: `forge_expand`) |
-| `o` `y` `a` `r` | As on the list, for the open item |
+| `o` `y` `n` `a` `r` | As on the list, for the open item (`n` closes the overlay for the chooser or the dialog) |
 | `Esc` / `q` | Close the overlay; only quit (`Ctrl+C`) still reaches the global keys |
 
 The right end of the Project line says how fresh the list is: `updated 2m ago`
@@ -332,9 +332,39 @@ retrying`, or `rate-limited until HH:MM` (polling stops until then).
 | `P` | Toggle between the Project and its Parent Repository (from GitHub's fork metadata; a Project that is not a fork says so) (Issues, PRs; **rebindable**: `forge_parent`) |
 | `r` | Refresh: refetch the list and the open detail now (and re-read a PR's `local` row), joining a fetch already running, and restart the poll timer; nothing while GitHub's rate limit lasts (Issues, PRs; **rebindable**: `forge_refresh`; `Ctrl+R` stays the global reload) |
 | `o` / `y` | Open the selected Issue or PR in the browser / copy its URL; on the SAML message, the authorize URL. Both run in the background, never blocking the TUI (Issues, PRs; **rebindable**: `forge_open`, `forge_copy`) |
+| `n` | Start a session on the selected Issue or PR: the chooser first when sessions are linked to it (`Enter` attaches, `n` starts a new one anyway, `Esc` cancels), then the new-session dialog, prefilled (see below) (Issues, PRs; **rebindable**: `forge_new`) |
 | `a` | Attach to the session linked to the selected Issue or PR; with several, a picker (`j`/`k` move, `Enter` attaches, `Esc` closes); with none, a message says so (Issues, PRs; **rebindable**: `forge_attach`) |
 | `Enter` | Open the selected row in the overlay; in the single column the first `Enter` opens its detail full screen and `Esc` returns to the list (Issues, PRs; **rebindable**: `forge_view`) |
 | `j`/`k`, `↑`/`↓`, `Ctrl+U/D`, `PgUp`/`PgDn`, `Ctrl+B/F`, `Home`/`End` | Move in the tab's list (Issues, PRs) |
+
+`n` on an Issue or PR opens the new-session dialog prefilled: the tab's
+group, the local checkout of the Project (its main worktree), Worktree ticked
+whatever `[worktree] default_enabled` says, the tool (the group's newest
+session's, then `default_tool`, then `claude`) and the title `#123 <title>` /
+`PR#34 <title>`. An Issue's branch is `<branch_prefix><number>-<slug>` (the
+title lowercased, other characters turned into `-`, cut to 40 characters on a
+word boundary); an existing branch or worktree is reused and the field is
+editable. A PR gets a worktree detached at its base, then `gh pr checkout <n>`
+inside it; its branch field shows the PR's head branch and is read-only.
+With Worktree unticked, `gh pr checkout` runs in the checkout itself, and only
+on a clean tree: otherwise the launch is refused with the reason.
+
+The dialog's Template field holds the first message, from the
+`[prompt_templates]` that match the item (see the configuration reference).
+`←`/`→` on it cycle the label matches, the other templates, then `none` (no
+first message; the session is still linked); when several match or a
+template file is missing it opens with the list. Under it are the first lines
+of the filled message and its size. `Ctrl+E` opens the message in `$VISUAL` /
+`$EDITOR` (`vi` by default); after an edit the field reads `<name> (edited)`,
+and changing the template asks first (press `←`/`→` again to discard the
+edit). The body, and the comments and review threads a template uses, load
+in the background (`loading comments…`); `Enter` during that waits for them,
+and if they fail the dialog asks before launching with them empty. `Enter`
+launches: the worktree, the checkout and the start run in the background
+while the dialog waits. A failure there leaves no session and removes a
+worktree made for the launch; the error shows in the dialog, which stays
+open. Once the session runs it is linked to the Issue or PR; if only the
+first message fails, the session and link are kept and a warning says so.
 
 On the Issues and PRs tabs every other session key is ignored except these,
 which work as on Sessions: quit (`q`, `Ctrl+C`), help (`?`), `Esc`, group

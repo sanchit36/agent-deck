@@ -1,0 +1,24 @@
+    ╭────────────────────────────────────────────────────────────╮    
+    │                                                            │    
+    │                                                            │    
+    │    New Session                                             │    
+    │                                                            │    
+    │      in group: widgets                                     │    
+    │                                                            │    
+    │    ▶ Name:  > PR#14927 Add guided multi-account setup a    │    
+    │                                                            │    
+    │      Agent:   shell     claude     gemini                  │    
+    │               opencode     opencode2     codex     pi      │    
+    │               copilot     crush     muse                   │    
+    │               cursor agent     hermes     deepseek         │    
+    │               omp                                          │    
+    │                                                            │    
+    │      Path:  > /src/widgets                                 │    
+    │                                                            │    
+    │      Template: pr-review                                   │    
+    │      │ Address the review feedback on pull request #14…    │    
+    │      ↓ more fields                                         │    
+    │    Tab next │ ↑↓ navigate │ Enter create │ Esc cancel      │    
+    │                                                            │    
+    │                                                            │    
+    ╰────────────────────────────────────────────────────────────╯    

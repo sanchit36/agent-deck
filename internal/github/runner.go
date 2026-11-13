@@ -25,6 +25,9 @@ type Call struct {
 	Args    []string
 	Stdin   []byte
 	Timeout time.Duration
+	// Dir is the working directory gh runs in; empty means this process's.
+	// Only commands that act on the local checkout (gh pr checkout) set it.
+	Dir string
 }
 
 // Result is what a gh process that ran to completion produced. A non-zero
@@ -66,6 +69,7 @@ func (ExecRunner) Run(ctx context.Context, call Call) (Result, error) {
 	var stdout, stderr bytes.Buffer
 	cmd.Stdout = &stdout
 	cmd.Stderr = &stderr
+	cmd.Dir = call.Dir
 	if call.Stdin != nil {
 		cmd.Stdin = bytes.NewReader(call.Stdin)
 	}
