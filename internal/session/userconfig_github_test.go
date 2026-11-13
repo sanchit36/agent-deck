@@ -78,3 +78,34 @@ func TestUserConfigGitHubRefreshInterval(t *testing.T) {
 		t.Fatalf("nil config: %v, want 60s", got)
 	}
 }
+
+// TestUserConfigGitHubSignals pins [github] signals (spec #18 §15): the
+// Attention signal poller is on unless set false, and runs only with the
+// gate on and a non-zero refresh interval.
+func TestUserConfigGitHubSignals(t *testing.T) {
+	for _, tc := range []struct {
+		name, src string
+		want      bool
+	}{
+		{"unset gate off", ``, false},
+		{"gate on", "[github]\nenabled = true\n", true},
+		{"gate on signals off", "[github]\nenabled = true\nsignals = false\n", false},
+		{"gate on signals on", "[github]\nenabled = true\nsignals = true\n", true},
+		{"gate off signals on", "[github]\nsignals = true\n", false},
+		{"manual refresh", "[github]\nenabled = true\nrefresh_interval = 0\n", false},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			var cfg UserConfig
+			if _, err := toml.Decode(tc.src, &cfg); err != nil {
+				t.Fatalf("decode: %v", err)
+			}
+			if got := cfg.GitHubSignals(); got != tc.want {
+				t.Fatalf("GitHubSignals() = %v, want %v", got, tc.want)
+			}
+		})
+	}
+	var nilCfg *UserConfig
+	if nilCfg.GitHubSignals() {
+		t.Fatal("nil config runs the poller")
+	}
+}

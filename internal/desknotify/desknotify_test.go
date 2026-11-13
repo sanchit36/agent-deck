@@ -215,6 +215,19 @@ func TestBody_NamesNonDefaultProfile(t *testing.T) {
 	}
 }
 
+// An Attention signal (a linked PR changed on GitHub) is not a status: its
+// Detail says what happened, still followed by a non-default profile.
+func TestBody_DetailReplacesTheStatusAction(t *testing.T) {
+	got := Notification{SessionTitle: "flow", Detail: "PR#34 checks failing"}.Body()
+	if got != "PR#34 checks failing" {
+		t.Errorf("Body() = %q, want the detail", got)
+	}
+	got = Notification{SessionTitle: "flow", Profile: "work", Detail: "PR#34 approved"}.Body()
+	if got != "PR#34 approved (profile work)" {
+		t.Errorf("Body() = %q, want the detail and the profile", got)
+	}
+}
+
 func TestTitle_FallsBackWhenSessionTitleIsEmpty(t *testing.T) {
 	if got := (Notification{ToStatus: "waiting"}).Title(); got != "agent-deck" {
 		t.Errorf("Title() = %q, want %q for an untitled session", got, "agent-deck")
