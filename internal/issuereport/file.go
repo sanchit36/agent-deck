@@ -12,8 +12,8 @@ import (
 	"strings"
 	"time"
 
-	"github.com/asheshgoplani/agent-deck/internal/childenv"
 	"github.com/asheshgoplani/agent-deck/internal/feedback"
+	"github.com/asheshgoplani/agent-deck/internal/ghexec"
 	"github.com/asheshgoplani/agent-deck/internal/platform"
 )
 
@@ -100,7 +100,7 @@ var issueURLPattern = regexp.MustCompile(`https://github\.com/[^\s/]+/[^\s/]+/is
 const ghTimeout = 60 * time.Second
 
 func ghEnv() []string {
-	return append(childenv.ForLaunch(""), "GH_PROMPT_DISABLED=1", "NO_COLOR=1", "GH_NO_UPDATE_NOTIFIER=1")
+	return ghexec.Env()
 }
 
 // GhEnv is the environment File runs gh with (childenv plus no prompts,
