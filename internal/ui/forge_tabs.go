@@ -119,6 +119,9 @@ type forgeState struct {
 	// attach attaches to a session by id; nil means as enter does on the
 	// Sessions tab. Injectable for tests.
 	attach func(id string) tea.Cmd
+	// runPager hands the terminal to the Files tab's diff pager
+	// (forge_pager.go); nil means the real handoff. Injectable for tests.
+	runPager func(*exec.Cmd) tea.Cmd
 	// background is true while the terminal reports it lost focus.
 	background bool
 	// now, openURL and copyURL are injectable for tests; nil means
@@ -1037,6 +1040,8 @@ func (h *Home) forgeHelpRows() [][2]string {
 		{"Enter", "Files: expand a collapsed file"},
 		{"h / l", "Files: pan long lines"},
 		{"f", "Files: file list (under 90 columns)"},
+		{"s", "Files: split view, old | new (120+ columns)"},
+		{"| / \\", "Files: the file's / the PR's diff in the pager"},
 		{"S", "Files: start a session on the PR"},
 		{"", ""},
 		{h.actionKey(hotkeyHelp), "This help"},

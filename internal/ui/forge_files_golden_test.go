@@ -30,6 +30,15 @@ func TestForgeFilesGolden(t *testing.T) {
 		{name: "70x24_list", w: 70, h: 24, keys: "fjjj"},
 		{name: "120x30_version", w: 120, h: 30, keys: "]]]]]]]]]]]"},
 		{name: "120x30_nav", w: 120, h: 30, home: navHome},
+		// Split (s): old | new with pairs inside each change block and
+		// blank cells; the recorded PR's added file (all right side),
+		// navDiff's a.go (a changed pair, a context line on both sides,
+		// a long line cut) and b.go (no newline at the end on both sides).
+		{name: "120x30_split", w: 120, h: 30, keys: "s"},
+		{name: "120x30_split_nav", w: 120, h: 30, home: navHome, keys: "s"},
+		{name: "120x30_split_eol", w: 120, h: 30, home: navHome, keys: "s]]]]"},
+		// Under 120 columns the view stays unified and says why.
+		{name: "100x30_split_narrow", w: 100, h: 30, home: navHome, keys: "s"},
 	}
 	for _, tc := range cases {
 		name := "forge_files_" + tc.name
