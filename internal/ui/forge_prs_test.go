@@ -152,8 +152,9 @@ func TestForgePRRowLinkedSession(t *testing.T) {
 }
 
 // TestForgeAutoLinks: the table of PR head-branch auto-detect. A session is
-// linked to a PR when its worktree branch is the PR's head branch in the
-// repository the session's Project resolves to; never twice.
+// linked to a PR of its own Project's list (never the Parent Repository's,
+// spec #18 §5, §11) when its worktree branch is the PR's head branch in
+// that Project; never twice.
 func TestForgeAutoLinks(t *testing.T) {
 	widgets := github.Repo{Host: "github.com", Owner: "me", Name: "widgets"}
 	fork := github.Repo{Host: "github.com", Owner: "zoe", Name: "widgets"}
@@ -165,6 +166,7 @@ func TestForgeAutoLinks(t *testing.T) {
 	}
 	cases := []struct {
 		name  string
+		list  github.Repo // the list's repository; widgets when empty
 		prs   []github.PullRequest
 		cands []forgeLinkCandidate
 		want  []forgeAutoLink
@@ -197,10 +199,16 @@ func TestForgeAutoLinks(t *testing.T) {
 			cands: []forgeLinkCandidate{{id: "s1", branch: "main", repo: widgets}},
 		},
 		{
-			name:  "a session in the fork links to the fork's PR",
+			name:  "a fork session does not link from its Parent Repository's list",
 			prs:   []github.PullRequest{pr(1, "fix", fork)},
 			cands: []forgeLinkCandidate{{id: "s1", branch: "fix", repo: fork}},
-			want:  []forgeAutoLink{{id: "s1", link: link(1)}},
+		},
+		{
+			name:  "a fork session links to its own Project's PR",
+			list:  fork,
+			prs:   []github.PullRequest{pr(1, "fix", fork)},
+			cands: []forgeLinkCandidate{{id: "s1", branch: "fix", repo: fork}},
+			want:  []forgeAutoLink{{id: "s1", link: session.Link{Host: "github.com", Owner: "zoe", Name: "widgets", Number: 1}}},
 		},
 		{
 			name:  "another Project's session does not link",
@@ -256,7 +264,11 @@ func TestForgeAutoLinks(t *testing.T) {
 	}
 	for _, c := range cases {
 		t.Run(c.name, func(t *testing.T) {
-			got := forgeAutoLinks(widgets, c.prs, c.cands)
+			list := c.list
+			if list.Owner == "" {
+				list = widgets
+			}
+			got := forgeAutoLinks(list, c.prs, c.cands)
 			if fmt.Sprint(got) != fmt.Sprint(c.want) {
 				t.Fatalf("got %+v, want %+v", got, c.want)
 			}

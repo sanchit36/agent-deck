@@ -190,16 +190,17 @@ type forgeAutoLink struct {
 }
 
 // forgeAutoLinks matches a PRs list of listRepo against candidate
-// sessions (spec §5, §11): a session is linked to an open PR whose head
-// branch is the session's worktree branch in the repository the session's
-// Project resolves to (the Project itself, or the fork a PR into the
-// Parent Repository comes from). Each session gets at most one Link: the
-// most recently updated PR, the list's first. Pure; table-tested.
+// sessions (spec §5, §11): a session whose Project is listRepo is linked
+// to an open PR whose head branch is the session's worktree branch in that
+// same Project. The Parent Repository's list (P) links nobody: its PRs
+// come from other repositories than the sessions' Projects. Each session
+// gets at most one Link: the most recently updated PR, the list's first.
+// Pure; table-tested.
 func forgeAutoLinks(listRepo github.Repo, prs []github.PullRequest, cands []forgeLinkCandidate) []forgeAutoLink {
 	var out []forgeAutoLink
 	done := map[string]bool{}
 	for _, c := range cands {
-		if c.branch == "" || done[c.id] {
+		if c.branch == "" || done[c.id] || !sameRepo(c.repo, listRepo) {
 			continue
 		}
 		for _, p := range prs {
