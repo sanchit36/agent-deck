@@ -51,6 +51,13 @@ type State struct {
 	Err error
 }
 
+// ProvablyClean reports a state read successfully from a git checkout with
+// no changes. A jj workspace, a path outside any repository and a failed read
+// are not provably clean: callers that delete files must ask first.
+func (s State) ProvablyClean() bool {
+	return s.Err == nil && !s.NotRepo && !s.JJ && !s.Dirty
+}
+
 // errMissingPath reports a checkout path that no longer exists.
 var errMissingPath = errors.New("checkout path does not exist")
 
