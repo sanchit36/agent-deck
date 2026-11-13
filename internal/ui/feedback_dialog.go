@@ -1,13 +1,14 @@
 package ui
 
 import (
+	"context"
 	"fmt"
-	"os/exec"
 	"runtime"
 	"strings"
 	"time"
 
 	"github.com/asheshgoplani/agent-deck/internal/feedback"
+	"github.com/asheshgoplani/agent-deck/internal/ghexec"
 	"github.com/asheshgoplani/agent-deck/internal/session"
 	"github.com/charmbracelet/bubbles/textarea"
 	tea "github.com/charmbracelet/bubbletea"
@@ -46,7 +47,9 @@ type feedbackDismissMsg struct{}
 // or "" on any error. Used by stepConfirm to show users which account will carry the
 // post before they consent (issue #679, v1.7.37 TUI fix). Overridable for tests.
 var ghUserLogin = func() string {
-	out, err := exec.Command("gh", "api", "user", "-q", ".login").Output()
+	cmd, cancel := ghexec.Command(context.Background(), 0, "api", "user", "-q", ".login")
+	defer cancel()
+	out, err := cmd.Output()
 	if err != nil {
 		return ""
 	}
