@@ -475,8 +475,9 @@ which work as on Sessions: quit (`q`, `Ctrl+C`), help (`?`), `Esc`, group
 navigation (`Alt+J`/`Alt+K`, `1`-`9`; the tab follows the selected group),
 layout (`<` `>` `O`), settings (`S`), report a problem (`Z`), what's new
 (`Alt+N`), show me around (`Alt+W`) and reload (`Ctrl+R`). There, `?` opens a
-GitHub help section with the forge keys and these global keys, and the bottom
-bar shows the forge keys.
+GitHub help section with the forge keys and these global keys (on a terminal
+too short for it, `j`/`k`, `PgUp`/`PgDn` and `g`/`G` scroll it; any other key
+closes it), and the bottom bar shows the forge keys.
 
 ### Worktree Shortcuts
 

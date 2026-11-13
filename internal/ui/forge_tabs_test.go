@@ -323,7 +323,10 @@ func TestForgeHelp(t *testing.T) {
 	if !h.helpOverlay.IsVisible() {
 		t.Fatal("? on the PRs tab did not open help")
 	}
+	// The section is taller than 40 rows: its end is a G away.
 	got := stripAnsi(h.View())
+	h = drive(t, h, runeKey('G'))
+	got += stripAnsi(h.View())
 	for _, want := range []string{"GITHUB", "Previous / next tab", "alt+i", "Project / Parent Repository", "ALSO ON THIS TAB", "Settings", "Report a problem"} {
 		if !strings.Contains(got, want) {
 			t.Errorf("GitHub help lacks %q:\n%s", want, got)
@@ -331,6 +334,60 @@ func TestForgeHelp(t *testing.T) {
 	}
 	if strings.Contains(got, "Rename session") {
 		t.Error("GitHub help lists Sessions-only keys")
+	}
+}
+
+// TestForgeHelpScrollsOnShortTerminal: the GitHub section is longer than a
+// 24-row terminal. It must never draw more rows than the screen has (the
+// renderer would cut its top off); j/k, pgup/pgdn and g/G scroll it so the
+// first and the last row are both reachable, and any other key closes it.
+// When it fits, any key closes it.
+func TestForgeHelpScrollsOnShortTerminal(t *testing.T) {
+	h := forgeHome(t, 80, 24, false, nil, widgetsCheckout)
+	h = drive(t, h, altKeyMsg('p'))
+	h = drive(t, h, runeKey('?'))
+	frame := func() string {
+		t.Helper()
+		got := stripAnsi(h.View())
+		if n := len(strings.Split(got, "\n")); n > 24 {
+			t.Fatalf("help draws %d rows on a 24-row terminal:\n%s", n, got)
+		}
+		return got
+	}
+	if got := frame(); !strings.Contains(got, "GITHUB") || !strings.Contains(got, "Previous / next tab") ||
+		!strings.Contains(got, "j/k scroll") || strings.Contains(got, "Show me around") {
+		t.Fatalf("first page of the GitHub help:\n%s", got)
+	}
+	h = drive(t, h, runeKey('j'))
+	h = drive(t, h, tea.KeyMsg{Type: tea.KeyPgDown})
+	if got := frame(); !h.helpOverlay.IsVisible() || !strings.Contains(got, "▲ more above") || strings.Contains(got, "GITHUB") {
+		t.Fatalf("j / pgdown did not scroll the GitHub help:\n%s", got)
+	}
+	h = drive(t, h, runeKey('G'))
+	if got := frame(); !strings.Contains(got, "Show me around") || strings.Contains(got, "▼ more below") {
+		t.Fatalf("G did not reach the last row:\n%s", got)
+	}
+	h = drive(t, h, tea.KeyMsg{Type: tea.KeyPgUp})
+	h = drive(t, h, runeKey('k'))
+	h = drive(t, h, runeKey('g'))
+	if got := frame(); !strings.Contains(got, "GITHUB") {
+		t.Fatalf("g did not go back to the top:\n%s", got)
+	}
+	h = drive(t, h, runeKey('x'))
+	if h.helpOverlay.IsVisible() {
+		t.Fatal("x did not close the GitHub help")
+	}
+
+	tall := forgeHome(t, 80, 80, false, nil, widgetsCheckout)
+	tall = drive(t, tall, altKeyMsg('p'))
+	tall = drive(t, tall, runeKey('?'))
+	if got := stripAnsi(tall.View()); !strings.Contains(got, "GITHUB") || !strings.Contains(got, "Show me around") ||
+		!strings.Contains(got, "any key to close") || strings.Contains(got, "j/k scroll") {
+		t.Fatalf("GitHub help at 80 rows:\n%s", got)
+	}
+	tall = drive(t, tall, runeKey('j'))
+	if tall.helpOverlay.IsVisible() {
+		t.Fatal("j did not close the GitHub help that fits")
 	}
 }
 
