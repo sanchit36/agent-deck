@@ -68,7 +68,7 @@ func runCmds(t *testing.T, h *Home, cmd tea.Cmd) *Home {
 			h = runCmds(t, h, c)
 		}
 	case forgeGroupResolvedMsg, forgeParentResolvedMsg, forgeFetchedMsg, forgeURLDoneMsg, forgeAutoLinkedMsg, forgeDetailOpenMsg, forgePRLocalReadMsg,
-		forgeMergeInfoMsg, forgeMergeDoneMsg, forgeMergeDirtyMsg:
+		forgeMergeInfoMsg, forgeMergeDoneMsg, forgeMergeDirtyMsg, forgePagerDoneMsg:
 		model, next := h.Update(m)
 		h = runCmds(t, model.(*Home), next)
 	}

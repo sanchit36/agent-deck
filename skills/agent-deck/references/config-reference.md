@@ -1008,6 +1008,7 @@ refresh_interval = 60
 signals = true
 issue_filter = "is:open"
 pr_filter = "is:open"
+diff_pager = ""
 ```
 
 | Key | Type | Default | Description |
@@ -1017,6 +1018,7 @@ pr_filter = "is:open"
 | `signals` | bool | `true` | Attention signals: live badges on sessions linked to an Issue or PR, the `⇠ n reviews` header count, and a notification-bar mark (plus a desktop notification with `[notifications] desktop = true`) when a linked PR's checks start failing, its review changes, it is merged or closed, or a review is requested from you. A poller of its own makes one `gh api graphql` request per host every `refresh_interval`, while the TUI runs, attached or not; `0` there stops it too. `false` turns it off completely. |
 | `issue_filter` | string | `"is:open"` | The Issues tab's starting filter, in GitHub search syntax (for example `"is:open assignee:@me"`). Empty means the default. `is:open` is the default list: the 100 most recently updated open Issues, fetched from the repository without search. Any other filter runs as a GitHub search scoped to the Project, which can lag new changes by a few minutes. `Esc` on the tab comes back to this filter. |
 | `pr_filter` | string | `"is:open"` | The PRs tab's starting filter, as `issue_filter` (for example `"is:open review-requested:@me"`). |
+| `diff_pager` | string | `""` | The pager the Files tab's `\|` (the selected file) and `\` (the whole PR) send the diff to on stdin, run through `sh -c` so it may carry flags (for example `"delta --side-by-side"` or `"less -R"`). Empty means auto: `delta` when it is on `PATH`, else `$PAGER`, else `less -R`. The pager has the terminal until it quits. |
 
 Lists are cached in memory per Project, kind and filter. Going back to a tab
 shows its cached list at once and refetches it if it is older than the

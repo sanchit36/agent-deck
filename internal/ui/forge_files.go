@@ -36,12 +36,17 @@ import (
 // gets a warning line. Long lines are cut with › and pan with h/l; n/N
 // move by hunk across files and ]/[ by file.
 //
-// Slice #31 adds the split toggle (s) and the pager (| and \): see
-// forgeFilesFixedKeys and forgeDiffRowsFor.
+// s toggles a side-by-side (split) view, old | new, which needs
+// forgeFilesSplitWidth columns: narrower, the view stays unified and a
+// line says why. | and \ hand the file's or the whole PR's diff to the
+// pager (forge_pager.go).
 
 // forgeFilesNarrowWidth is the overlay width under which the file list
 // hides behind f.
 const forgeFilesNarrowWidth = 90
+
+// forgeFilesSplitWidth is the overlay width the split view needs.
+const forgeFilesSplitWidth = 120
 
 // forgeDiffTabWidth is the tab stop diff text is expanded to.
 const forgeDiffTabWidth = 4
@@ -55,6 +60,8 @@ var forgeFilesFixedKeys = map[string]string{
 	"f":   "file list",
 	"tab": "focus",
 	"S":   "new session",
+	"s":   "split",
+	"|":   "pager file", "\\": "pager pr",
 }
 
 // forgeFilesView is the Files tab's state; the zero value is a fresh tab.
@@ -72,6 +79,12 @@ type forgeFilesView struct {
 	listTop int
 	// expanded marks the collapsed files the reader expanded, by path.
 	expanded map[string]bool
+	// split is the reader's s: side by side when the overlay is
+	// forgeFilesSplitWidth wide, else unified with a line saying why.
+	split bool
+	// pagerErr is the last pager's failure, shown in the status row until
+	// the next Files key.
+	pagerErr string
 	memo     forgeDiffRowsMemo
 }
 
@@ -86,12 +99,18 @@ const (
 	// diffRowNote is a one-line note in place of the diff: collapsed,
 	// binary, no content changes.
 	diffRowNote
+	// diffRowPair is a split row: old and new index the hunk's lines on
+	// each side, -1 for a blank cell.
+	diffRowPair
 )
 
-// forgeDiffRow is one row of a file's diff, by index into its hunks.
+// forgeDiffRow is one row of a file's diff, by index into its hunks. In
+// the split view a diffRowNoEOL row uses old and new (-1: no note on that
+// side) instead of line.
 type forgeDiffRow struct {
 	kind       forgeDiffRowKind
 	hunk, line int
+	old, new   int
 	note       string
 }
 
@@ -106,6 +125,8 @@ type forgeDiffRows struct {
 	textWidth int
 	// collapsed is true while the file shows as its one-line note.
 	collapsed bool
+	// split is true for the side-by-side rows.
+	split bool
 }
 
 type forgeDiffRowsMemo struct {
@@ -113,6 +134,7 @@ type forgeDiffRowsMemo struct {
 	sha      string
 	file     int
 	expanded bool
+	split    bool
 	rows     forgeDiffRows
 }
 
@@ -246,15 +268,24 @@ type forgeFilesLayout struct {
 	showList      bool
 	showDiff      bool
 	listFullWidth bool
+	// split is true while the diff shows side by side; splitNote while
+	// the reader asked for it but the overlay is too narrow (a line says
+	// why).
+	split, splitNote bool
 }
 
 func (h *Home) forgeFilesLayoutFor(d github.Diff) forgeFilesLayout {
 	o := &h.forge.overlay
 	width := max(1, o.width)
 	l := forgeFilesLayout{warn: d.Large(), narrow: width < forgeFilesNarrowWidth, height: h.forgeOverlayBodyHeight()}
+	l.splitNote = o.files.split && width < forgeFilesSplitWidth
+	l.split = o.files.split && !l.splitNote
 	top := 0
 	if l.warn {
-		top = 1
+		top++
+	}
+	if l.splitNote {
+		top++
 	}
 	avail := max(1, l.height-top)
 	switch {
@@ -279,8 +310,14 @@ func (h *Home) forgeFilesLayoutNow() forgeFilesLayout {
 	return h.forgeFilesLayoutFor(d)
 }
 
+// forgeFilesSplit reports whether the diff shows side by side now.
+func (h *Home) forgeFilesSplit() bool {
+	o := &h.forge.overlay
+	return o.files.split && o.width >= forgeFilesSplitWidth
+}
+
 // forgeFilesRows is the selected file's row model (memoised per diff,
-// file and expanded state).
+// file, expanded state and split).
 func (h *Home) forgeFilesRows() *forgeDiffRows {
 	o := &h.forge.overlay
 	f := &o.files
@@ -291,17 +328,18 @@ func (h *Home) forgeFilesRows() *forgeDiffRows {
 	}
 	file := d.Files[f.file]
 	expanded := f.expanded[file.Path()]
-	if f.memo.valid && f.memo.sha == f.sha && f.memo.file == f.file && f.memo.expanded == expanded {
+	split := h.forgeFilesSplit()
+	if f.memo.valid && f.memo.sha == f.sha && f.memo.file == f.file && f.memo.expanded == expanded && f.memo.split == split {
 		return &f.memo.rows
 	}
-	f.memo = forgeDiffRowsMemo{valid: true, sha: f.sha, file: f.file, expanded: expanded, rows: forgeDiffRowsFor(file, expanded)}
+	f.memo = forgeDiffRowsMemo{valid: true, sha: f.sha, file: f.file, expanded: expanded, split: split, rows: forgeDiffRowsFor(file, expanded, split)}
 	return &f.memo.rows
 }
 
-// forgeDiffRowsFor lays out file's unified diff as rows: each hunk's
-// header then its lines, or a one-line note for a collapsed, binary or
-// content-free file. #31's split view pairs the same hunks.
-func forgeDiffRowsFor(file github.DiffFile, expanded bool) forgeDiffRows {
+// forgeDiffRowsFor lays out file's diff as rows: each hunk's header then
+// its lines (split: its lines paired old | new, github.PairLines), or a
+// one-line note for a collapsed, binary or content-free file.
+func forgeDiffRowsFor(file github.DiffFile, expanded, split bool) forgeDiffRows {
 	var r forgeDiffRows
 	switch {
 	case file.Binary:
@@ -323,11 +361,16 @@ func forgeDiffRowsFor(file github.DiffFile, expanded bool) forgeDiffRows {
 		r.rows = []forgeDiffRow{{kind: diffRowNote, note: note}}
 		return r
 	}
+	r.split = split
 	maxNo := 1
 	for hi, hk := range file.Hunks {
 		r.hunks = append(r.hunks, len(r.rows))
 		r.rows = append(r.rows, forgeDiffRow{kind: diffRowHunk, hunk: hi})
 		maxNo = max(maxNo, hk.OldStart+hk.OldLines, hk.NewStart+hk.NewLines)
+		if split {
+			r.addPairs(hi, hk.Lines)
+			continue
+		}
 		for li, l := range hk.Lines {
 			r.rows = append(r.rows, forgeDiffRow{kind: diffRowLine, hunk: hi, line: li})
 			r.textWidth = max(r.textWidth, ansi.StringWidth(forgeDiffText(l.Text)))
@@ -338,6 +381,28 @@ func forgeDiffRowsFor(file github.DiffFile, expanded bool) forgeDiffRows {
 	}
 	r.numWidth = len(strconv.Itoa(maxNo))
 	return r
+}
+
+// addPairs appends hunk hi's lines as split rows: one row per pair, then a
+// no-newline row under a pair whose old or new line has none.
+func (r *forgeDiffRows) addPairs(hi int, lines []github.DiffLine) {
+	noEOL := func(i int) int {
+		if i >= 0 && lines[i].NoNewline {
+			return i
+		}
+		return -1
+	}
+	for _, p := range github.PairLines(lines) {
+		r.rows = append(r.rows, forgeDiffRow{kind: diffRowPair, hunk: hi, old: p.Old, new: p.New})
+		for _, i := range []int{p.Old, p.New} {
+			if i >= 0 {
+				r.textWidth = max(r.textWidth, ansi.StringWidth(forgeDiffText(lines[i].Text)))
+			}
+		}
+		if o, n := noEOL(p.Old), noEOL(p.New); o >= 0 || n >= 0 {
+			r.rows = append(r.rows, forgeDiffRow{kind: diffRowNoEOL, hunk: hi, old: o, new: n})
+		}
+	}
 }
 
 // forgeDiffText makes diff text safe and one line for the terminal: tabs
@@ -446,6 +511,10 @@ func (h *Home) renderForgeFiles(height int) []string {
 	if l.warn {
 		warn := fmt.Sprintf("⚠ large PR: %s in %s files", forgeChangedLines(d.Changed()), forgeThousands(len(d.Files)))
 		out = append(out, lipgloss.NewStyle().Foreground(ColorYellow).Render(truncateDisplay(" "+warn, width, "…")))
+	}
+	if l.splitNote {
+		note := fmt.Sprintf("split view needs %d+ columns (this is %d) · showing unified · s turns split off", forgeFilesSplitWidth, width)
+		out = append(out, dim.Render(truncateDisplay(" "+note, width, "…")))
 	}
 	rows := height - len(out)
 	var list, diff []string
@@ -588,7 +657,12 @@ func (h *Home) renderForgeFileDiff(d github.Diff, l forgeFilesLayout, height int
 	r := h.forgeFilesRows()
 	s := o.scroll[forgeOverlayFiles]
 	for i := s.offset; i < len(r.rows) && len(out) < height; i++ {
-		out = append(out, renderForgeDiffRow(file, r, r.rows[i], width, s.pan))
+		row := r.rows[i]
+		if r.split && (row.kind == diffRowPair || row.kind == diffRowNoEOL) {
+			out = append(out, renderForgeSplitRow(file, r, row, width, s.pan))
+			continue
+		}
+		out = append(out, renderForgeDiffRow(file, r, row, width, s.pan))
 	}
 	for len(out) < height {
 		out = append(out, strings.Repeat(" ", width))
@@ -633,7 +707,14 @@ func renderForgeDiffRow(file github.DiffFile, r *forgeDiffRows, row forgeDiffRow
 	if room < 1 {
 		return forgeFitCells(base.Inherit(dim).Render(gutter), width)
 	}
-	text := forgeDiffText(l.Text)
+	return base.Foreground(ColorTextDim).Render(gutter) +
+		base.Foreground(markColor).Render(mark+" ") +
+		base.Foreground(ColorText).Render(forgePanCells(forgeDiffText(l.Text), room, pan))
+}
+
+// forgePanCells is text panned by pan and fitted to exactly room cells:
+// cut with › when more follows, padded otherwise.
+func forgePanCells(text string, room, pan int) string {
 	tw := ansi.StringWidth(text)
 	var vis string
 	switch {
@@ -645,10 +726,69 @@ func renderForgeDiffRow(file github.DiffFile, r *forgeDiffRows, row forgeDiffRow
 	default:
 		vis = forgeCutCells(ansi.Cut(text, pan, tw), room)
 	}
-	fill := max(0, room-ansi.StringWidth(vis))
+	return vis + strings.Repeat(" ", max(0, room-ansi.StringWidth(vis)))
+}
+
+// forgeSplitWidths are the old and new cells' widths in a split row of
+// width cells (one cell between them).
+func forgeSplitWidths(width int) (int, int) {
+	left := max(1, (width-1)/2)
+	return left, max(1, width-1-left)
+}
+
+// renderForgeSplitRow draws one split row at width cells: the old line
+// (its old number, red tint when removed) | the new line (its new number,
+// green tint when added), a blank cell where a side has no line, both
+// panned by pan; or the no-newline note under the side(s) it applies to.
+func renderForgeSplitRow(file github.DiffFile, r *forgeDiffRows, row forgeDiffRow, width, pan int) string {
+	lines := file.Hunks[row.hunk].Lines
+	leftW, rightW := forgeSplitWidths(width)
+	sep := lipgloss.NewStyle().Foreground(ColorBorder).Render("│")
+	if row.kind == diffRowNoEOL {
+		dim := lipgloss.NewStyle().Foreground(ColorTextDim)
+		gutter := strings.Repeat(" ", 1+r.numWidth+1)
+		note := func(i, w int) string {
+			if i < 0 {
+				return strings.Repeat(" ", w)
+			}
+			return forgeFitCells(gutter+dim.Render("  \\ no newline at end of file"), w)
+		}
+		return note(row.old, leftW) + sep + note(row.new, rightW)
+	}
+	return renderForgeSplitCell(lines, row.old, true, r.numWidth, leftW, pan) + sep +
+		renderForgeSplitCell(lines, row.new, false, r.numWidth, rightW, pan)
+}
+
+// renderForgeSplitCell draws line i of a hunk on the old (old true) or new
+// side in w cells; blank when i is -1.
+func renderForgeSplitCell(lines []github.DiffLine, i int, old bool, numWidth, w, pan int) string {
+	if i < 0 {
+		return strings.Repeat(" ", w)
+	}
+	l := lines[i]
+	addBg, delBg := forgeDiffTint()
+	base := lipgloss.NewStyle()
+	markColor := lipgloss.TerminalColor(ColorTextDim)
+	mark := " "
+	switch l.Kind {
+	case github.LineDel:
+		base, markColor, mark = base.Background(delBg), ColorRed, "-"
+	case github.LineAdd:
+		base, markColor, mark = base.Background(addBg), ColorGreen, "+"
+	}
+	n := l.New
+	if old {
+		n = l.Old
+	}
+	s := strconv.Itoa(n)
+	gutter := " " + strings.Repeat(" ", max(0, numWidth-len(s))) + s + " "
+	room := w - lipgloss.Width(gutter) - 2
+	if room < 1 {
+		return forgeFitCells(base.Foreground(ColorTextDim).Render(gutter), w)
+	}
 	return base.Foreground(ColorTextDim).Render(gutter) +
 		base.Foreground(markColor).Render(mark+" ") +
-		base.Foreground(ColorText).Render(vis+strings.Repeat(" ", fill))
+		base.Foreground(ColorText).Render(forgePanCells(forgeDiffText(l.Text), room, pan))
 }
 
 // forgeCutCells trims s to at most n cells (ansi.Cut can keep a wide rune
@@ -684,6 +824,10 @@ func (h *Home) forgeFilesMaxPan() int {
 	l := h.forgeFilesLayoutNow()
 	r := h.forgeFilesRows()
 	room := l.diffW - (1 + 2*r.numWidth + 2) - 2
+	if r.split {
+		side, _ := forgeSplitWidths(l.diffW)
+		room = side - (1 + r.numWidth + 1) - 2
+	}
 	return max(0, r.textWidth-room)
 }
 
@@ -757,7 +901,7 @@ func (h *Home) moveForgeHunk(dir int) {
 		}
 	}
 	for i := o.files.file + dir; i >= 0 && i < len(d.Files); i += dir {
-		rows := forgeDiffRowsFor(d.Files[i], o.files.expanded[d.Files[i].Path()])
+		rows := forgeDiffRowsFor(d.Files[i], o.files.expanded[d.Files[i].Path()], h.forgeFilesSplit())
 		if len(rows.hunks) == 0 {
 			continue
 		}
@@ -768,6 +912,26 @@ func (h *Home) moveForgeHunk(dir int) {
 		}
 		return
 	}
+}
+
+// toggleForgeFilesSplit is s: switch between unified and split, keeping
+// the hunk at the top of the diff at the top.
+func (h *Home) toggleForgeFilesSplit() {
+	o := &h.forge.overlay
+	s := &o.scroll[forgeOverlayFiles]
+	hunk := -1
+	if r := h.forgeFilesRows(); s.offset < len(r.rows) && r.rows[s.offset].kind != diffRowNote {
+		hunk = r.rows[s.offset].hunk
+	}
+	was := h.forgeFilesSplit()
+	o.files.split = !o.files.split
+	if h.forgeFilesSplit() == was {
+		return // too narrow either way: only the note changes
+	}
+	if r := h.forgeFilesRows(); hunk >= 0 && hunk < len(r.hunks) {
+		s.offset = r.hunks[hunk]
+	}
+	h.clampForgeFiles()
 }
 
 // toggleForgeFileExpanded is enter on the diff: expand a collapsed file,
@@ -797,6 +961,7 @@ func (h *Home) toggleForgeFileExpanded() {
 func (h *Home) handleForgeFilesKey(raw string) (bool, tea.Cmd) {
 	o := &h.forge.overlay
 	f := &o.files
+	f.pagerErr = ""
 	d, has := h.forgeFilesDiff()
 	switch forgeFilesFixedKeys[raw] {
 	case "next hunk":
@@ -832,6 +997,13 @@ func (h *Home) handleForgeFilesKey(raw string) (bool, tea.Cmd) {
 			h.closeForgeOverlay()
 		}
 		return true, cmd
+	case "split":
+		h.toggleForgeFilesSplit()
+		return true, nil
+	case "pager file":
+		return true, h.forgeOpenPager(false)
+	case "pager pr":
+		return true, h.forgeOpenPager(true)
 	}
 	listMode := h.forgeFilesListMode()
 	switch forgeOverlayFixedKeys[raw] {
@@ -893,5 +1065,11 @@ func (h *Home) forgeFilesHints(add func(key, label string)) {
 		add("enter", "expand")
 	}
 	add("h/l", "pan")
+	if l.split {
+		add("s", "unified")
+	} else {
+		add("s", "split")
+	}
+	add("|/\\", "pager")
 	add("S", "new session")
 }

@@ -1,0 +1,30 @@
+ ◌ #14927  Add guided multi-account setup and evaluation                                                         draft
+   Conversation   [ Files ] 
+────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────
+ ⚠ large PR: 4,836 changed lines in 21 files
+ Files 21  +4835 −1                 │ A .github/skills/setting-up-identites/SKILL.md                  +79 −0  file 1/21 
+▌A …ng-up-identites/SKILL.md +79 −0 │ @@ -0,0 +1,79 @@                                                                  
+ A …/references/workflow.md +183 −0 │                                         │  1 + ---                                
+ A …tes/tests/scenarios.json +47 −0 │                                         │  2 + name: setting-up-identites         
+ M acceptance/README.md      +11 −0 │                                         │  3 + description: Use when a user wants›
+ M …tance/acceptance_test.go +25 −0 │                                         │  4 + ---                                
+ A identity-lifecycle.txtar +153 −0 │                                         │  5 +                                    
+ A …entity_isolation_test.go +35 −0 │                                         │  6 + # Setting up GitHub CLI identities 
+ M internal/debug/config.go  +12 −0 │                                         │  7 +                                    
+ M …rnal/debug/config_test.go +1 −0 │                                         │  8 + Guide setup of this **unreleased p›
+ A …eyring/isolation_test.go +31 −0 │                                         │  9 + language; ask one focused question›
+ M …ernal/keyring/keyring.go +10 −0 │                                         │ 10 + [workflow reference](references/wo›
+ M pkg/cmd/version/version.go +5 −1 │                                         │ 11 +                                    
+ A …/identity-e2e/README.md +823 −0 │                                         │ 12 + ## 1. Establish the target         
+ A …entity-e2e/bootstrap.sh +642 −0 │                                         │ 13 +                                    
+ A …ity-e2e/fixture_test.go +421 −0 │                                         │ 14 + Establish the executable and proje›
+ A …ity-e2e/offline_test.go +456 −0 │                                         │ 15 + `version`, `auth identity create -›
+ A …/reset_downgrade_test.go +83 −0 │                                         │ 16 + version and repository layout with›
+ A …ipt/identity-e2e/run.sh +894 −0 │                                         │ 17 +                                    
+ A …e/runner_helper_test.go +227 −0 │                                         │ 18 + Require Git 2.36+, macOS/Linux, an›
+ A …tity-e2e/runner_test.go +622 −0 │                                         │ 19 + Linked worktrees are supported: ch›
+ A …count-review/08-reset.sh +75 −0 │                                         │ 20 + repository family, including exter›
+                                    │                                         │ 21 + Stop on unsupported layouts or inc›
+                                    │                                         │ 22 + Do not install/upgrade software, r›
+ 1–23 of 80
+ c/d tabs · j/k scroll · tab focus · n/N hunk · ]/[ file · h/l pan · s unified · |/\ pager · S new session · m merge · …

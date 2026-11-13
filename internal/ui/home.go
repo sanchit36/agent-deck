@@ -4541,6 +4541,10 @@ func (h *Home) updateInner(msg tea.Msg) (tea.Model, tea.Cmd) {
 		h.applyForgeURLDone(msg)
 		return h, nil
 
+	case forgePagerDoneMsg:
+		h.applyForgePagerDone(msg)
+		return h, nil
+
 	case forgeMergeInfoMsg:
 		return h, h.applyForgeMergeInfo(msg)
 
