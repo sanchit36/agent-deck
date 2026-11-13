@@ -225,7 +225,7 @@ func TestSignalsPollerEndToEnd(t *testing.T) {
 	h.instances = []*session.Instance{inst}
 
 	h.startSignals()
-	t.Cleanup(h.stopForge)
+	t.Cleanup(h.stopSignals)
 	poller := h.forge.signals.poller
 	if poller == nil {
 		t.Fatal("no poller with the gate on")
@@ -277,11 +277,14 @@ func TestSignalsPollerEndToEnd(t *testing.T) {
 		t.Fatalf("bar after a visit = %q, want empty", bar)
 	}
 
-	h.stopForge()
-	if poller.Running() || h.forge.signals.poller != nil {
-		t.Fatal("poller not joined on stop")
+	// Quitting (performFinalShutdown's forgeShutdown) joins the poller.
+	h.forgeShutdown()()
+	if poller.Running() {
+		t.Fatal("poller not joined on quit")
 	}
-	if h.forge.signals.snap.Load() != nil {
+	// Turning signals off also takes the badges away.
+	h.stopSignals()
+	if h.forge.signals.poller != nil || h.forge.signals.snap.Load() != nil {
 		t.Fatal("badges stay after the poller stopped")
 	}
 }
@@ -328,14 +331,14 @@ func TestSignalsOffSwitch(t *testing.T) {
 		h := forgeFrameHome(t, 120, 30, false, cfg)
 		h.startSignals()
 		if h.forge.signals.poller != nil {
-			h.stopForge()
+			h.stopSignals()
 			t.Fatalf("config %q started the poller", cfg)
 		}
 	}
 	h := forgeFrameHome(t, 120, 30, false, gateOn)
 	h.reloadForgeFromConfig()
 	if h.forge.signals.poller != nil {
-		h.stopForge()
+		h.stopSignals()
 		t.Fatal("a Home that never ran Init started the poller")
 	}
 }

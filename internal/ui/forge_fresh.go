@@ -129,12 +129,21 @@ func (h *Home) forgeJobs() *forgeJobs {
 	return h.forge.jobs
 }
 
-// stopForge cancels and joins the forge's gh work (see forgeJobs) and the
-// Attention signal poller.
-func (h *Home) stopForge() {
-	h.stopSignals()
-	if h.forge.jobs != nil && !h.forge.jobs.stop(forgeStopTimeout) {
-		uiLog.Warn("forge_jobs_stop_timeout")
+// forgeShutdown is quitting's stop of the forge: it takes the handles of
+// the forge's gh work (see forgeJobs) and the Attention signal poller here,
+// on the Update goroutine, and returns the func that cancels and joins
+// them. performFinalShutdown runs that func off the Update goroutine, so it
+// touches no Home state.
+func (h *Home) forgeShutdown() func() {
+	jobs := h.forgeJobs()
+	poller := h.forge.signals.poller
+	return func() {
+		if !jobs.stop(forgeStopTimeout) {
+			uiLog.Warn("forge_jobs_stop_timeout")
+		}
+		if poller != nil {
+			poller.Stop()
+		}
 	}
 }
 

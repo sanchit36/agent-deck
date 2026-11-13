@@ -579,21 +579,21 @@ func TestForgeStopJoinsFetches(t *testing.T) {
 	<-started
 
 	stopped := make(chan struct{})
-	go func() { h.stopForge(); close(stopped) }()
+	go func() { h.forgeShutdown()(); close(stopped) }()
 	select {
 	case <-stopped:
 	case <-time.After(5 * time.Second):
-		t.Fatal("stopForge did not return")
+		t.Fatal("forgeShutdown did not return")
 	}
 	select {
 	case <-finished:
 	default:
-		t.Fatal("stopForge returned before the fetch did")
+		t.Fatal("forgeShutdown returned before the fetch did")
 	}
 	<-done
 
 	h.forge.fetchers[freshness.PRList] = func(context.Context, *github.Client, freshness.Key) (any, error) {
-		t.Error("a fetch ran after stopForge")
+		t.Error("a fetch ran after forgeShutdown")
 		return nil, nil
 	}
 	_, cmd = h.Update(altKeyMsg('p'))
