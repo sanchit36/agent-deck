@@ -53,6 +53,11 @@ var classText = map[Class]string{
 	ClassFailed:      "failed",
 }
 
+// ErrIssuesDisabled is what an Issues list fetch returns for a repository
+// with Issues turned off. The forge shows it as a normal empty state, not
+// as a failure (spec §5).
+var ErrIssuesDisabled = errors.New("issues are disabled for this repository")
+
 // Error is a classified gh failure.
 type Error struct {
 	Class Class

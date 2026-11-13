@@ -9,6 +9,7 @@ import (
 	"time"
 
 	"github.com/asheshgoplani/agent-deck/internal/github"
+	"github.com/asheshgoplani/agent-deck/internal/github/freshness"
 	"github.com/asheshgoplani/agent-deck/internal/session"
 	tea "github.com/charmbracelet/bubbletea"
 	"github.com/charmbracelet/lipgloss"
@@ -81,6 +82,25 @@ type forgeState struct {
 	pickerAt  int
 	// bypass lets a fall-through key run handleMainKey's global switch.
 	bypass bool
+
+	// Freshness (forge_fresh.go). fresh caches every fetch by key;
+	// interval is [github] refresh_interval (0 = manual only); fetchers
+	// fetch each kind; jobs runs and joins the gh work.
+	fresh    *freshness.Cache
+	interval time.Duration
+	fetchers map[freshness.Kind]forgeFetchFunc
+	client   *github.Client
+	jobs     *forgeJobs
+	// detail is the key of the open detail (zero Kind: none); r refreshes
+	// it with the list. Set by the detail pane.
+	detail freshness.Key
+	// background is true while the terminal reports it lost focus.
+	background bool
+	// now, openURL and copyURL are injectable for tests; nil means
+	// time.Now, the platform browser and the clipboard.
+	now     func() time.Time
+	openURL func(string) error
+	copyURL func(string) error
 }
 
 type forgeGroupResolvedMsg struct {
@@ -102,14 +122,16 @@ type forgeParentResolvedMsg struct {
 // most a gh auth status per host).
 const forgeResolveTimeout = 30 * time.Second
 
-// reloadForgeFromConfig reads the gate and the forge_* hotkeys. Turning the
-// gate off returns to the Sessions tab.
+// reloadForgeFromConfig reads the gate, the refresh interval and the
+// forge_* hotkeys. Turning the gate off returns to the Sessions tab.
 func (h *Home) reloadForgeFromConfig() {
 	cfg, _ := session.LoadUserConfig()
+	h.forge.interval = cfg.GitHubRefreshInterval()
 	h.setForgeEnabled(cfg.GitHubEnabled(), session.GetHotkeyOverrides())
 }
 
 func (h *Home) setForgeEnabled(enabled bool, overrides map[string]string) {
+	h.forgeCache()
 	h.forge.enabled = enabled
 	h.forge.bindings = resolveForgeHotkeys(overrides)
 	h.forge.lookup = buildForgeHotkeyLookup(h.forge.bindings)
@@ -182,6 +204,12 @@ func (h *Home) handleForgeKey(msg tea.KeyMsg, raw, key string) (bool, tea.Model,
 		return true, h, nil
 	case hotkeyForgeParent:
 		return true, h, h.toggleForgeParent()
+	case hotkeyForgeRefresh:
+		return true, h, h.forgeManualRefresh()
+	case hotkeyForgeOpen:
+		return true, h, h.forgeOpenURL()
+	case hotkeyForgeCopy:
+		return true, h, h.forgeCopyURL()
 	}
 	if mv, ok := forgeMovementKeys[raw]; ok {
 		h.moveForgeCursor(mv)
@@ -229,6 +257,7 @@ func (h *Home) handleForgePickerKey(msg tea.KeyMsg, key string) (bool, tea.Model
 			}
 		}
 		h.forge.picker = false
+		return true, h, h.forgeRefreshDue()
 	case "esc":
 		h.forge.picker = false
 	default:
@@ -338,9 +367,20 @@ func (h *Home) forgeView() *forgeGroupView {
 // forgeEnsureProject points the forge tabs at the cursor's group and, the
 // first time a forge tab shows that group, resolves its Projects in a
 // tea.Cmd (spec #18 §2: lazily, on opening a forge tab, never on render).
+// A group already resolved fetches whatever its visible view is due for.
 func (h *Home) forgeEnsureProject() tea.Cmd {
+	cmd, resolving := h.forgeResolveProject()
+	if resolving {
+		return cmd
+	}
+	return h.forgeRefreshDue()
+}
+
+// forgeResolveProject starts resolving the cursor group's Projects the
+// first time a forge tab shows it; false when it needs no resolving.
+func (h *Home) forgeResolveProject() (tea.Cmd, bool) {
 	if !h.forgeTabActive() {
-		return nil
+		return nil, false
 	}
 	groupPath, defaultPath, sessionPaths, cursorPath, remote := h.forgeTarget()
 	if groupPath != h.forge.groupPath {
@@ -351,16 +391,16 @@ func (h *Home) forgeEnsureProject() tea.Cmd {
 		h.forge.views = map[string]*forgeGroupView{}
 	}
 	if _, ok := h.forge.views[groupPath]; ok {
-		return nil
+		return nil, false
 	}
 	if remote {
 		h.forge.views[groupPath] = &forgeGroupView{unsupported: "remote groups have no GitHub tabs"}
-		return nil
+		return nil, false
 	}
 	h.forge.views[groupPath] = &forgeGroupView{resolving: true}
 	r := h.forgeResolver()
-	return func() tea.Msg {
-		ctx, cancel := context.WithTimeout(context.Background(), forgeResolveTimeout)
+	return h.forgeJobs().run(func(jobCtx context.Context) tea.Msg {
+		ctx, cancel := context.WithTimeout(jobCtx, forgeResolveTimeout)
 		defer cancel()
 		g, err := r.ResolveGroup(ctx, defaultPath, sessionPaths)
 		msg := forgeGroupResolvedMsg{groupPath: groupPath, group: g, err: err}
@@ -375,10 +415,12 @@ func (h *Home) forgeEnsureProject() tea.Cmd {
 			}
 		}
 		return msg
-	}
+	}), true
 }
 
-func (h *Home) applyForgeGroupResolved(msg forgeGroupResolvedMsg) {
+// applyForgeGroupResolved installs a group's Projects and fetches what the
+// visible view is due for.
+func (h *Home) applyForgeGroupResolved(msg forgeGroupResolvedMsg) tea.Cmd {
 	if h.forge.views == nil {
 		h.forge.views = map[string]*forgeGroupView{}
 	}
@@ -392,6 +434,7 @@ func (h *Home) applyForgeGroupResolved(msg forgeGroupResolvedMsg) {
 	if v.selected >= len(v.group.Projects) {
 		v.selected = 0
 	}
+	return h.forgeRefreshDue()
 }
 
 // forgeProject is the selected Project of the shown group.
@@ -428,27 +471,29 @@ func (h *Home) toggleForgeParent() tea.Cmd {
 	v.note = ""
 	if v.parent {
 		v.parent = false
-		return nil
+		return h.forgeRefreshDue()
 	}
 	if _, known := v.parents[repo]; known {
 		v.parent = true
-		return nil
+		return h.forgeRefreshDue()
 	}
 	v.parentResolving = true
 	groupPath := h.forge.groupPath
 	r := h.forgeResolver()
-	return func() tea.Msg {
-		ctx, cancel := context.WithTimeout(context.Background(), forgeResolveTimeout)
+	return h.forgeJobs().run(func(jobCtx context.Context) tea.Msg {
+		ctx, cancel := context.WithTimeout(jobCtx, forgeResolveTimeout)
 		defer cancel()
 		parent, ok, err := r.Parent(ctx, repo)
 		return forgeParentResolvedMsg{groupPath: groupPath, repo: repo, parent: parent, ok: ok, err: err}
-	}
+	})
 }
 
-func (h *Home) applyForgeParentResolved(msg forgeParentResolvedMsg) {
+// applyForgeParentResolved installs a Parent Repository lookup and fetches
+// what the visible view is due for.
+func (h *Home) applyForgeParentResolved(msg forgeParentResolvedMsg) tea.Cmd {
 	v := h.forge.views[msg.groupPath]
 	if v == nil {
-		return
+		return nil
 	}
 	v.parentResolving = false
 	switch {
@@ -465,6 +510,7 @@ func (h *Home) applyForgeParentResolved(msg forgeParentResolvedMsg) {
 			v.parent = true
 		}
 	}
+	return h.forgeRefreshDue()
 }
 
 // forgeErrorText is the one-line text of a resolution error.
@@ -597,6 +643,8 @@ func (h *Home) renderForgeList(width, height int) string {
 	lines := []string{h.renderForgeProjectLine(width)}
 	if h.forge.picker {
 		lines = append(lines, h.renderForgePicker(width)...)
+	} else {
+		lines = append(lines, h.renderForgeListBody(width)...)
 	}
 	if len(lines) > height {
 		lines = lines[:max(0, height)]
@@ -643,6 +691,8 @@ func (h *Home) renderForgeProjectLine(width int) string {
 			right = dim.Render("finding parent…")
 		case v.note != "":
 			right = dim.Render(v.note)
+		default:
+			right = h.forgeFreshText()
 		}
 	}
 	line := left
@@ -695,6 +745,7 @@ func (h *Home) renderForgeHelpBar() string {
 		add("esc", "close")
 	} else {
 		add(joinHotkeyLabels(h.forgeKey(hotkeyForgePrevTab), h.forgeKey(hotkeyForgeNextTab)), "tabs")
+		add(h.forgeKey(hotkeyForgeRefresh), "refresh")
 		add(h.forgeKey(hotkeyForgeProject), "project")
 		add(h.forgeKey(hotkeyForgeParent), "parent")
 	}
@@ -737,6 +788,7 @@ func (h *Home) forgeHelpRows() [][2]string {
 		{h.forgeKey(hotkeyForgeTabPRs), "PRs tab"},
 		{h.forgeKey(hotkeyForgeProject), "Choose the Project"},
 		{h.forgeKey(hotkeyForgeParent), "Project / Parent Repository"},
+		{h.forgeKey(hotkeyForgeRefresh), "Refresh the list"},
 		{"j/k ↑↓", "Move in the list"},
 		{"", ""},
 		{h.actionKey(hotkeyHelp), "This help"},

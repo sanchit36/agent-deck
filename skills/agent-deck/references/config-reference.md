@@ -1004,11 +1004,20 @@ panel for the GitHub repository (Project) of the selected group.
 ```toml
 [github]
 enabled = true
+refresh_interval = 60
 ```
 
 | Key | Type | Default | Description |
 |-----|------|---------|-------------|
 | `enabled` | bool | `false` | Turns the feature on. Off means no tab strip, no forge keys and no `gh` calls: the TUI is exactly as without it. |
+| `refresh_interval` | int (seconds) | `60` | How often the list on screen refetches. Values below `30` are raised to `30`; `0` means manual refresh (`r`) only. Only the visible tab of the visible Project polls, and only while the TUI is in the foreground with no session attached. |
+
+Lists are cached in memory per Project, kind and filter. Going back to a tab
+shows its cached list at once and refetches it if it is older than the
+interval. A failed refetch keeps the last list on screen, marked `⚠ stale`;
+network, rate-limit and server failures retry with backoff from the interval
+up to 5 minutes, and a rate limit stops polling until it resets. Login, token,
+SAML and missing-`gh` failures wait for `r`.
 
 **Forge hotkeys.** Every forge key is a `[hotkeys]` action prefixed `forge_`
 (empty string unbinds; for example `forge_next_tab = "}"` under `[hotkeys]`
@@ -1025,6 +1034,9 @@ fire on their Russian ЙЦУКЕН twin.
 | `forge_tab_prs` | `alt+p` | every tab | PRs tab |
 | `forge_project` | `p` | Issues, PRs | Project selector of the group |
 | `forge_parent` | `P` | Issues, PRs | toggle the Project and its Parent Repository |
+| `forge_refresh` | `r` | Issues, PRs | refetch the list (and the open detail) now |
+| `forge_open` | `o` | Issues, PRs | open the SAML authorize URL in the browser, while that message shows |
+| `forge_copy` | `y` | Issues, PRs | copy the SAML authorize URL, while that message shows |
 
 ## [display] Section
 

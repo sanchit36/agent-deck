@@ -376,11 +376,36 @@ type GitHubSettings struct {
 	// Enabled turns on the Issues and PRs tabs, their keys and every gh call
 	// they make. Default false: no tab strip, no forge keys, no gh calls.
 	Enabled bool `toml:"enabled,omitempty"`
+
+	// RefreshInterval is how often, in seconds, the visible Issues or PRs
+	// list refetches while the TUI is in the foreground. Default 60; values
+	// below 30 are raised to 30; 0 = manual refresh (r) only. Read through
+	// GitHubRefreshInterval.
+	RefreshInterval *int `toml:"refresh_interval,omitempty"`
 }
+
+// Bounds of [github] refresh_interval.
+const (
+	defaultGitHubRefreshInterval = 60 * time.Second
+	minGitHubRefreshInterval     = 30 * time.Second
+)
 
 // GitHubEnabled reports whether [github] enabled is on. A nil config is off.
 func (c *UserConfig) GitHubEnabled() bool {
 	return c != nil && c.GitHub.Enabled
+}
+
+// GitHubRefreshInterval is [github] refresh_interval as a duration: 60 s
+// when unset, 0 for manual only, and never below 30 s otherwise.
+func (c *UserConfig) GitHubRefreshInterval() time.Duration {
+	if c == nil || c.GitHub.RefreshInterval == nil {
+		return defaultGitHubRefreshInterval
+	}
+	secs := *c.GitHub.RefreshInterval
+	if secs == 0 {
+		return 0
+	}
+	return max(time.Duration(secs)*time.Second, minGitHubRefreshInterval)
 }
 
 // BuildPromptTemplates merges [prompt_templates] over the built-ins and
