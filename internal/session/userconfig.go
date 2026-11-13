@@ -389,6 +389,45 @@ type GitHubSettings struct {
 	// false turns the poller off. It also needs enabled and a non-zero
 	// refresh_interval. Read through GitHubSignals.
 	Signals *bool `toml:"signals,omitempty"`
+
+	// IssueFilter is the Issues tab's starting filter, in GitHub search
+	// syntax (e.g. "is:open assignee:@me"). Default "is:open" (empty =
+	// default): the 100 most recently updated open Issues, fetched without
+	// search. Read through GitHubIssueFilter.
+	IssueFilter string `toml:"issue_filter,omitempty"`
+
+	// PRFilter is the PRs tab's starting filter, in GitHub search syntax
+	// (e.g. "is:open review-requested:@me"). Default "is:open" (empty =
+	// default). Read through GitHubPRFilter.
+	PRFilter string `toml:"pr_filter,omitempty"`
+}
+
+// defaultGitHubFilter is the starting filter of both forge tabs.
+const defaultGitHubFilter = "is:open"
+
+// GitHubIssueFilter is [github] issue_filter, trimmed; "is:open" when
+// unset or blank.
+func (c *UserConfig) GitHubIssueFilter() string {
+	if c == nil {
+		return defaultGitHubFilter
+	}
+	return githubFilterOrDefault(c.GitHub.IssueFilter)
+}
+
+// GitHubPRFilter is [github] pr_filter, trimmed; "is:open" when unset or
+// blank.
+func (c *UserConfig) GitHubPRFilter() string {
+	if c == nil {
+		return defaultGitHubFilter
+	}
+	return githubFilterOrDefault(c.GitHub.PRFilter)
+}
+
+func githubFilterOrDefault(s string) string {
+	if s = strings.TrimSpace(s); s != "" {
+		return s
+	}
+	return defaultGitHubFilter
 }
 
 // Bounds of [github] refresh_interval.

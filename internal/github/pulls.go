@@ -110,33 +110,8 @@ func (c *Client) PRList(ctx context.Context, repo Repo) (PRList, error) {
 	var data struct {
 		Repository *struct {
 			PullRequests struct {
-				TotalCount int `json:"totalCount"`
-				Nodes      []struct {
-					Number         int       `json:"number"`
-					Title          string    `json:"title"`
-					URL            string    `json:"url"`
-					State          string    `json:"state"`
-					IsDraft        bool      `json:"isDraft"`
-					UpdatedAt      time.Time `json:"updatedAt"`
-					Author         *gqlActor `json:"author"`
-					HeadRefName    string    `json:"headRefName"`
-					BaseRefName    string    `json:"baseRefName"`
-					HeadRepository *struct {
-						Name  string   `json:"name"`
-						Owner gqlActor `json:"owner"`
-					} `json:"headRepository"`
-					ReviewDecision *string `json:"reviewDecision"`
-					MergeState     string  `json:"mergeStateStatus"`
-					Commits        struct {
-						Nodes []struct {
-							Commit struct {
-								Rollup *struct {
-									State string `json:"state"`
-								} `json:"statusCheckRollup"`
-							} `json:"commit"`
-						} `json:"nodes"`
-					} `json:"commits"`
-				} `json:"nodes"`
+				TotalCount int     `json:"totalCount"`
+				Nodes      []gqlPR `json:"nodes"`
 			} `json:"pullRequests"`
 		} `json:"repository"`
 	}
@@ -149,28 +124,61 @@ func (c *Client) PRList(ctx context.Context, repo Repo) (PRList, error) {
 	}
 	out := PRList{Total: r.PullRequests.TotalCount, PRs: make([]PullRequest, 0, len(r.PullRequests.Nodes))}
 	for _, n := range r.PullRequests.Nodes {
-		p := PullRequest{
-			Number:     n.Number,
-			Title:      n.Title,
-			URL:        n.URL,
-			Author:     n.Author.login(),
-			State:      PRState(n.State),
-			Draft:      n.IsDraft,
-			UpdatedAt:  n.UpdatedAt,
-			HeadBranch: n.HeadRefName,
-			BaseBranch: n.BaseRefName,
-			MergeState: MergeState(n.MergeState),
-		}
-		if h := n.HeadRepository; h != nil && h.Owner.Login != "" && h.Name != "" {
-			p.HeadRepo = Repo{Host: repo.HostOrDefault(), Owner: h.Owner.Login, Name: h.Name}
-		}
-		if n.ReviewDecision != nil {
-			p.Review = ReviewDecision(*n.ReviewDecision)
-		}
-		if c := n.Commits.Nodes; len(c) > 0 && c[len(c)-1].Commit.Rollup != nil {
-			p.Checks = CheckStateOf(c[len(c)-1].Commit.Rollup.State)
-		}
-		out.PRs = append(out.PRs, p)
+		out.PRs = append(out.PRs, n.pr(repo))
 	}
 	return out, nil
+}
+
+// gqlPR is a PR list row as the list and search queries return it.
+type gqlPR struct {
+	Number         int       `json:"number"`
+	Title          string    `json:"title"`
+	URL            string    `json:"url"`
+	State          string    `json:"state"`
+	IsDraft        bool      `json:"isDraft"`
+	UpdatedAt      time.Time `json:"updatedAt"`
+	Author         *gqlActor `json:"author"`
+	HeadRefName    string    `json:"headRefName"`
+	BaseRefName    string    `json:"baseRefName"`
+	HeadRepository *struct {
+		Name  string   `json:"name"`
+		Owner gqlActor `json:"owner"`
+	} `json:"headRepository"`
+	ReviewDecision *string `json:"reviewDecision"`
+	MergeState     string  `json:"mergeStateStatus"`
+	Commits        struct {
+		Nodes []struct {
+			Commit struct {
+				Rollup *struct {
+					State string `json:"state"`
+				} `json:"statusCheckRollup"`
+			} `json:"commit"`
+		} `json:"nodes"`
+	} `json:"commits"`
+}
+
+// pr is the row, for a list of repo (the head repository is on its host).
+func (n gqlPR) pr(repo Repo) PullRequest {
+	p := PullRequest{
+		Number:     n.Number,
+		Title:      n.Title,
+		URL:        n.URL,
+		Author:     n.Author.login(),
+		State:      PRState(n.State),
+		Draft:      n.IsDraft,
+		UpdatedAt:  n.UpdatedAt,
+		HeadBranch: n.HeadRefName,
+		BaseBranch: n.BaseRefName,
+		MergeState: MergeState(n.MergeState),
+	}
+	if h := n.HeadRepository; h != nil && h.Owner.Login != "" && h.Name != "" {
+		p.HeadRepo = Repo{Host: repo.HostOrDefault(), Owner: h.Owner.Login, Name: h.Name}
+	}
+	if n.ReviewDecision != nil {
+		p.Review = ReviewDecision(*n.ReviewDecision)
+	}
+	if c := n.Commits.Nodes; len(c) > 0 && c[len(c)-1].Commit.Rollup != nil {
+		p.Checks = CheckStateOf(c[len(c)-1].Commit.Rollup.State)
+	}
+	return p
 }
