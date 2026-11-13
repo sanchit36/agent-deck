@@ -1102,6 +1102,11 @@ func (h *Home) handleForgeMouseClick(x, y int) (bool, tea.Cmd) {
 	if h.welcomeActive() {
 		return false, nil
 	}
+	// The single column's full-screen detail covers the strip and the list:
+	// a click there must not reach the rows or chips drawn under it.
+	if h.forgeDetailFull() {
+		return true, nil
+	}
 	width := h.forgeLeftPaneWidth()
 	if x >= width {
 		return false, nil
