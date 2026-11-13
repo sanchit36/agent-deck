@@ -1,0 +1,30 @@
+ ●●○ Agent Deck [_test]  no sessions                                                                           v1.16.10 
+  All    ● 0   ◐ 0   ○ 0   !@#& filter • 0 all • % open • ^ archived • t view • * time                                  
+ SESSIONS │ ISSUES │ PRS 59                │ PREVIEW                                                                    
+────────────────────────────────────────── │ ───────────────────────────────────────────────────────────────────────────
+me/widgets ▾  is:open   6 of 59 · just now │ fix login  ■ stopped                                                       
+▌ ● chore(deps): Bump golang.org/x/term f… │ 📁 /src/widgets                                                            
+▌   #15048 · dependabot · 30m  ✓ ci  ? re… │ ⏱ unknown                                                                  
+                                           │  claude   widgets                                                          
+  ◌ Add guided multi-account setup and ev… │ ─────────────────────────────── Claude ───────────────────────────────     
+    #14927 · williammartin · 2h  ✗ ci  ? … │ Status:  ○ Not connected                                                   
+                                           │ Model:   tool default                                                      
+  ● Don't preallocate the agent task sess… │                                                                            
+    #15046 · compiler-segfault · 9h  ✓ ci… │ ─────────────────────────── Process Exited ───────────────────────────     
+                                           │                                                                            
+  ◌ feat(auth): Better multi-account `gh`… │ ■ Process exited                                                           
+    #13781 · platinummonkey · 6d  · ci  ?… │                                                                            
+                                           │ The process ended or was stopped.                                          
+  ● Update build and release workflow to … │ The session record is preserved for resuming.                              
+    #13665 · steiza · 2mo  ✓ ci  ✔ review  │                                                                            
+                                           │ Actions:                                                                   
+  ● Warn instead of failing when issue fi… │   R Resume  - restart with session resume                                  
+    #13899 · imkp1 · 2mo  ✓ ci  ± review   │   d Delete  - remove from list                                             
+                                           │   Enter - attach (will auto-start)                                         
+                                           │                                                                            
+                                           │                                                                            
+                                           │                                                                            
+                                           │                                                                            
+                                           │                                                                            
+────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────
+[/] tabs  o open  y copy url  r refresh  p project  P parent  S settings  ? help                                        

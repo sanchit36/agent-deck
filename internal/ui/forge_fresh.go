@@ -35,6 +35,7 @@ type forgeFetchFunc func(ctx context.Context, c *github.Client, key freshness.Ke
 func defaultForgeFetchers() map[freshness.Kind]forgeFetchFunc {
 	return map[freshness.Kind]forgeFetchFunc{
 		freshness.IssueList: fetchIssueList,
+		freshness.PRList:    fetchPRList,
 	}
 }
 
@@ -236,13 +237,18 @@ func (h *Home) forgeFetch(k freshness.Key) tea.Cmd {
 	})
 }
 
-// applyForgeFetched writes a result under its key.
-func (h *Home) applyForgeFetched(msg forgeFetchedMsg) {
+// applyForgeFetched writes a result under its key. A PRs list that
+// arrives starts Link auto-detect.
+func (h *Home) applyForgeFetched(msg forgeFetchedMsg) tea.Cmd {
 	h.forgeCache().Done(msg.key, msg.value, msg.err, h.forgeNow())
 	if msg.err == nil {
 		h.markForgeRowsSeen(msg.key, msg.value)
 	}
 	h.syncForgeLists()
+	if l, ok := msg.value.(github.PRList); ok && msg.err == nil {
+		return h.forgeAutoLinkCmd(msg.key.Repo, l)
+	}
+	return nil
 }
 
 // forgeVisibleEntry is the cache entry of the list on screen.

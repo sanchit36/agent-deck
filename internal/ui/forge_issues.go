@@ -9,6 +9,7 @@ import (
 
 	"github.com/asheshgoplani/agent-deck/internal/github"
 	"github.com/asheshgoplani/agent-deck/internal/github/freshness"
+	"github.com/asheshgoplani/agent-deck/internal/session"
 	"github.com/charmbracelet/lipgloss"
 )
 
@@ -34,10 +35,19 @@ type forgeRow struct {
 	// meta is line 2's dim text: #n · author · age.
 	meta string
 	// tags are line 2's labels (Issues).
-	tags      []string
+	tags []string
+	// marks are line 2's state marks (PRs: ✓ ci  ✔ review).
+	marks     []forgeMark
 	url       string
 	number    int
 	updatedAt time.Time
+}
+
+// forgeMark is a coloured one-cell glyph and its dim label.
+type forgeMark struct {
+	glyph string
+	color lipgloss.TerminalColor
+	label string
 }
 
 // issueGlyph is an Issue's state glyph: ○ open, ✓ closed.
@@ -66,6 +76,8 @@ func forgeListCounts(v any) (rows, total int, ok bool) {
 	switch l := v.(type) {
 	case github.IssueList:
 		return len(l.Issues), l.Total, true
+	case github.PRList:
+		return len(l.PRs), l.Total, true
 	}
 	return 0, 0, false
 }
@@ -88,6 +100,8 @@ func forgeRows(v any, now time.Time) []forgeRow {
 			})
 		}
 		return rows
+	case github.PRList:
+		return prRows(l, now)
 	}
 	return nil
 }
@@ -234,6 +248,14 @@ func (h *Home) renderForgeRows(width, height int) []string {
 		return []string{dim.Render(truncateDisplay(what, width, "…"))}
 	}
 	stale := e.Stale()
+	var linked map[int][]string
+	if k, ok := h.forgeListKey(); ok {
+		kind := session.LinkIssue
+		if k.Kind == freshness.PRList {
+			kind = session.LinkPR
+		}
+		linked = h.forgeLinkedTitles(k.Repo, kind)
+	}
 	l := h.forge.lists[h.forge.tab]
 	cursor := max(0, min(l.cursor, len(rows)-1))
 	page := max(1, height/forgeRowHeight)
@@ -267,6 +289,20 @@ func (h *Home) renderForgeRows(width, height int) []string {
 				parts = append(parts, tags.Render(forgeOneLine(t)))
 			}
 			line2 += "  " + strings.Join(parts, dim.Render(", "))
+		}
+		for _, m := range r.marks {
+			g := lipgloss.NewStyle().Foreground(m.color)
+			if stale {
+				g = dim
+			}
+			line2 += "  " + g.Render(m.glyph) + dim.Render(" "+m.label)
+		}
+		if t := linkedText(linked[r.number]); t != "" {
+			link := accent
+			if stale {
+				link = dim
+			}
+			line2 += "  " + link.Render(t)
 		}
 		out = append(out, truncateDisplay(line1, width, "…"), truncateDisplay(line2, width, "…"), "")
 	}
