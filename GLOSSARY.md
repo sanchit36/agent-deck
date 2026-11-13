@@ -30,6 +30,10 @@ _Avoid_: Ticket, task
 A GitHub pull request of a project. Shortened to PR in the UI.
 _Avoid_: Merge request, MR
 
+**Link**:
+A recorded tie between a session and an issue or pull request. A session has at most one linked issue and one linked pull request; an issue or pull request may be linked to many sessions.
+_Avoid_: Association, binding
+
 **Prompt Template**:
 A user-defined text, chosen per kind of issue (bug, implementation, ...), that is filled with an issue's number and content to become the first message of a session launched from that issue.
 _Avoid_: Preset, prompt preset
