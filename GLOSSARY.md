@@ -42,6 +42,10 @@ _Avoid_: Association, binding
 A live condition of a session's linked issue or pull request (failing checks, changes requested, approved, merged, closed), or a pending review request addressed to the user, shown without opening the issues or pull requests of a project. A signal lasts exactly as long as its condition holds; it is never marked as seen.
 _Avoid_: Alert, badge (a badge is how a signal is drawn)
 
+**Filter**:
+A query that narrows the issues or pull requests of a project shown in a list, written in GitHub's search syntax. Every list has one; the default shows open items. A filter belongs to one project and one kind (issues or pull requests).
+_Avoid_: Search (that finds sessions), view
+
 **Prompt Template**:
 A named text, chosen per kind of issue or pull request (bug, implementation, review feedback, ...), that is filled with that issue's or pull request's number and content to become the first message of a session launched from it. Agent Deck ships built-in templates; a user's template of the same name replaces the built-in one.
 _Avoid_: Preset, prompt preset
