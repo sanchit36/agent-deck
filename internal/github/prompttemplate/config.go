@@ -150,7 +150,11 @@ func buildOne(name string, d Def, configDir, home string) (Template, []Warning, 
 	for _, v := range Variables(text) {
 		switch {
 		case !isKnownVariable(v):
-			ws = append(ws, warn("unknown variable {%s} stays as written", v))
+			if m, ok := meantVariable(v); ok {
+				ws = append(ws, warn("unknown variable {%s} stays as written (did you mean {%s}?)", v, m))
+			} else {
+				ws = append(ws, warn("unknown variable {%s} stays as written", v))
+			}
 		case kind == KindIssue && isPRVariable(v):
 			ws = append(ws, warn("{%s} is a pull request variable and renders empty in an issue template", v))
 		}
