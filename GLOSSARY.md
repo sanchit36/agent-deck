@@ -30,6 +30,10 @@ _Avoid_: Ticket, task
 A GitHub pull request of a project. Shortened to PR in the UI.
 _Avoid_: Merge request, MR
 
+**Merge method**:
+How a pull request's commits land on its base branch: squash, merge commit, or rebase. A project allows a subset of the three.
+_Avoid_: Merge strategy (git uses that for something else)
+
 **Link**:
 A recorded tie between a session and an issue or pull request. A session has at most one linked issue and one linked pull request; an issue or pull request may be linked to many sessions.
 _Avoid_: Association, binding
