@@ -1,30 +1,30 @@
  ●●○ Agent Deck [_test]  no sessions                                                                           v1.16.10 
   All    ● 0   ◐ 0   ○ 0   !@#& filter • 0 all • % open • ^ archived • t view • * time                                  
- SESSIONS │ ISSUES 1075 │ PRS              │ PREVIEW                                                                    
+ SESSIONS │ ISSUES 1075 │ PRS              │ ISSUE #14822                                                               
 ────────────────────────────────────────── │ ───────────────────────────────────────────────────────────────────────────
-me/widgets ▾  is:op…  6 of 1075 · just now │ fix login  ■ stopped                                                       
-▌ ○ gh run view --job --log-failed fails … │ 📁 /src/widgets                                                            
-▌   #14822 · henrymodisett · 15m  bug, pr… │ ⏱ unknown                                                                  
-                                           │  claude   widgets                                                          
-  ○ gh auth saves plain text token, even … │ ─────────────────────────────── Claude ───────────────────────────────     
-    #8954 · 3f6a · 48m  bug, needs-triage… │ Status:  ○ Not connected                                                   
-                                           │ Model:   tool default                                                      
-  ○ `gh pr create` reports a generic perm… │                                                                            
-    #14874 · will-lynas · 2h  blocked, en… │ ─────────────────────────── Process Exited ───────────────────────────     
-                                           │                                                                            
-  ○ Support generating `.gitignore` files… │ ■ Process exited                                                           
-    #15047 · antarupdey81 · 3h  needs-tri… │                                                                            
-                                           │ The process ended or was stopped.                                          
-  ○ `gh run view --log` silently drops th… │ The session record is preserved for resuming.                              
-    #15019 · jeffwall-curlewlabs · 6h  ne… │                                                                            
-                                           │ Actions:                                                                   
-  ○ `gh cs create` doesn't offer location… │   R Resume  - restart with session resume                                  
-    #14558 · ghost · 10h  enhancement, gh… │   d Delete  - remove from list                                             
-                                           │   Enter - attach (will auto-start)                                         
-                                           │                                                                            
-                                           │                                                                            
-                                           │                                                                            
-                                           │                                                                            
-                                           │                                                                            
+me/widgets ▾  is:op…  6 of 1075 · just now │ ○ gh run view --job --log-failed fails on required shared-workflow metadata
+▌ ○ gh run view --job --log-failed fails … │   404                                                                      
+▌   #14822 · henrymodisett · 15m  bug, pr… │                                                                            
+                                           │ ⚠ gh failed: githubtest: no fixture for gh api --hostname github.com       
+  ○ gh auth saves plain text token, even … │ graphql -f                                                                 
+    #8954 · 3f6a · 48m  bug, needs-triage… │ query=query($owner:String!,$name:String!,$number:Int!){repository(owner:$ow
+                                           │ ner,name:$name){issueOrPullRequest(number:$number){__typename ...on        
+  ○ `gh pr create` reports a generic perm… │ Issue{number title url issueState:state createdAt updatedAt author{login}  
+    #14874 · will-lynas · 2h  blocked, en… │ labels(first:20){nodes{name}} assignees(first:10){nodes{login}}            
+                                           │ comments{totalCount}                                                       
+  ○ Support generating `.gitignore` files… │ timelineItems(last:10,itemTypes:[ISSUE_COMMENT,CLOSED_EVENT,REOPENED_EVENT,
+    #15047 · antarupdey81 · 3h  needs-tri… │ CROSS_REFERENCED_EVENT]){nodes{__typename ...on IssueComment{createdAt     
+                                           │ author{login}} ...on ClosedEvent{createdAt actor{login}} ...on             
+  ○ `gh run view --log` silently drops th… │ ReopenedEvent{createdAt actor{login}} ...on CrossReferencedEvent{createdAt 
+    #15019 · jeffwall-curlewlabs · 6h  ne… │ actor{login}}}}} ...on PullRequest{number title url prState:state isDraft  
+                                           │ createdAt updatedAt author{login} labels(first:20){nodes{name}}            
+  ○ `gh cs create` doesn't offer location… │ assignees(first:10){nodes{login}} comments{totalCount} headRefName         
+    #14558 · ghost · 10h  enhancement, gh… │ baseRefName headRefOid headRepository{name owner{login}} reviewDecision    
+                                           │ mergeStateStatus additions deletions changedFiles                          
+                                           │ commits(last:1){nodes{commit{statusCheckRollup{state                       
+                                           │ contexts(first:100){nodes{__typename ...on CheckRun{conclusion status      
+                                           │ completedAt} ...on StatusContext{state createdAt}}}}}}}                    
+                                           │ timelineItems(last:10,itemTypes:[ISSUE_COMMENT,PULL_REQUEST_REVIEW,PULL_REQ
+                                           │ UEST_COMMIT,HEAD_REF_FORCE_PUSHED_EVENT,CLOSED_EVENT,REOPENED_EVENT,MERGED_
 ────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────
 [/] tabs  o open  y copy url  r refresh  p project  P parent  S settings  ? help                                        

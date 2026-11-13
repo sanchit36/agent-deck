@@ -2,6 +2,7 @@ package ui
 
 import (
 	"context"
+	"slices"
 	"strings"
 	"testing"
 	"time"
@@ -63,11 +64,12 @@ func serveLists(fake *githubtest.Fake, f githubtest.Fixture) {
 	fake.Serve(f, listArgs(github.DefaultHost, freshness.PRList)...)
 }
 
-// listCalls counts the list fetches fake has answered.
+// listCalls counts the list fetches fake has answered (GraphQL calls other
+// than detail fetches).
 func listCalls(fake *githubtest.Fake) int {
 	n := 0
 	for _, c := range fake.Calls() {
-		if len(c.Args) > 3 && c.Args[3] == "graphql" {
+		if len(c.Args) > 3 && c.Args[3] == "graphql" && !slices.Contains(c.Args, "query="+github.DetailQuery) {
 			n++
 		}
 	}

@@ -1,0 +1,20 @@
+ ●●○ Agent Deck [_test]  0 sessions v1.16.10 
+  All    ● 0   ◐ 0   ○ 0   !@#& filter • …   
+ISSUE #14822                                 
+─────────────────────────────────────────────
+○ gh run view --job --log-failed fails on    
+  required shared-workflow metadata 404      
+                                             
+state     ○ open                             
+author    henrymodisett                      
+age       2w                                 
+labels    bug, priority-3, gh-run            
+assignee  none                               
+comments  5                                  
+sessions  ◉ triage run, repro  a attach      
+                                             
+TIMELINE                                     
+15m  henrymodisett commented                 
+2w   henrymodisett commented                 
+─────────────────────────────────────────────
+                 ? for help                  

@@ -737,6 +737,10 @@ func (h *Home) renderPreviewPane(width, height int) string {
 	if h.embeddedMode && h.sessionInput != nil {
 		return h.renderEmbeddedTerminalContent(width, height)
 	}
+	// A forge tab's right pane is the selected Issue's or PR's detail.
+	if h.forgeTabActive() {
+		return h.renderForgeDetail(width, height)
+	}
 
 	if len(h.flatItems) == 0 || h.cursor >= len(h.flatItems) {
 		// Show different message when there are no sessions vs just no selection

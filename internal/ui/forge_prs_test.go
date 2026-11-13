@@ -341,6 +341,9 @@ func TestForgePRsAutoLinkOffRenderPath(t *testing.T) {
 func TestForgePRsAutoLinkNoCandidates(t *testing.T) {
 	plain := &session.Instance{ID: "p", Title: "plain", GroupPath: "widgets", ProjectPath: "/src/widgets"}
 	h, _ := prsHome(t, 120, 30, githubtest.PRList, plain)
+	// The new list moves the selection to another PR, whose detail opens:
+	// that fetch is not what this test is about.
+	delete(h.forge.fetchers, freshness.Detail)
 	if _, cmd := h.Update(forgeFetchedMsg{key: widgetsPRs, value: prListWith("feat/x")}); cmd != nil {
 		t.Fatal("a command started with nothing to link")
 	}

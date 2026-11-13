@@ -28,6 +28,12 @@ const (
 	// failure message.
 	hotkeyForgeOpen = "forge_open"
 	hotkeyForgeCopy = "forge_copy"
+	// hotkeyForgeAttach attaches to the session linked to the selected
+	// row, through a picker when several are.
+	hotkeyForgeAttach = "forge_attach"
+	// hotkeyForgeView views the selected row: in the single column the
+	// first press opens the full-screen detail.
+	hotkeyForgeView = "forge_view"
 )
 
 // forgeHotkeyActionOrder is every forge action; later slices append theirs.
@@ -42,6 +48,8 @@ var forgeHotkeyActionOrder = []string{
 	hotkeyForgeRefresh,
 	hotkeyForgeOpen,
 	hotkeyForgeCopy,
+	hotkeyForgeAttach,
+	hotkeyForgeView,
 }
 
 // forgeTabActions switch tabs and work from every tab, Sessions included.
@@ -64,6 +72,8 @@ var defaultForgeHotkeyBindings = map[string]string{
 	hotkeyForgeRefresh:     "r",
 	hotkeyForgeOpen:        "o",
 	hotkeyForgeCopy:        "y",
+	hotkeyForgeAttach:      "a",
+	hotkeyForgeView:        "enter",
 }
 
 // forgeFallThroughKeys are the overview keys (canonical, as normalizeMainKey

@@ -1563,7 +1563,7 @@ func (h *Home) renderDualColumnLayout(contentHeight int) string {
 	// Issue #1092: when the user just adjusted the split, briefly append
 	// the new ratio to both titles so the change is visible.
 	sessionsTitle := h.sidebarTitle()
-	previewTitle := "PREVIEW"
+	previewTitle := h.previewPaneTitle()
 	if !h.previewPctOverlayAt.IsZero() && time.Now().Before(h.previewPctOverlayAt) {
 		pct := h.getPreviewPct()
 		sessionsTitle = fmt.Sprintf("SESSIONS %d%%", 100-pct)
@@ -1690,7 +1690,7 @@ func (h *Home) renderStackedLayout(totalHeight int) string {
 	b.WriteString("\n")
 
 	// Preview (full width)
-	previewTitle := h.renderPanelTitle("PREVIEW", h.width)
+	previewTitle := h.renderPanelTitle(h.previewPaneTitle(), h.width)
 	previewContent := h.renderPreviewPane(h.width, previewHeight-2) // -2 for title
 	previewContent = ensureExactHeight(previewContent, previewHeight-2)
 	b.WriteString(previewTitle)
@@ -1706,6 +1706,14 @@ func (h *Home) renderSingleColumnLayout(totalHeight int) string {
 
 	// Full height for list
 	listHeight := totalHeight - 2 // -2 for title
+
+	// A forge tab's full-screen detail (enter) takes the list's place.
+	if h.forgeDetailFull() {
+		b.WriteString(h.renderPanelTitle(h.forgeDetailTitle(), h.width))
+		b.WriteString("\n")
+		b.WriteString(ensureExactHeight(h.renderForgeDetail(h.width, listHeight), listHeight))
+		return b.String()
+	}
 
 	listTitle := h.leftPanelTitle(h.sidebarTitle(), h.width)
 	listContent := h.renderLeftPane(h.width, listHeight)
