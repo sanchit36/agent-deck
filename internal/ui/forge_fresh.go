@@ -199,7 +199,8 @@ func (h *Home) forgePaused() bool {
 }
 
 // forgeRefreshDue starts the fetches the visible keys are due for: a first
-// open, a list older than the refresh interval, a retry after backoff.
+// open, a list or the open detail older than the refresh interval, a retry
+// after backoff.
 func (h *Home) forgeRefreshDue() tea.Cmd {
 	h.syncForgeLists()
 	if h.forgePaused() {
