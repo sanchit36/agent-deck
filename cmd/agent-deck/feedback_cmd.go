@@ -9,12 +9,12 @@ import (
 	"fmt"
 	"io"
 	"os"
-	"os/exec"
 	"os/signal"
 	"runtime"
 	"strings"
 
 	"github.com/asheshgoplani/agent-deck/internal/feedback"
+	"github.com/asheshgoplani/agent-deck/internal/ghexec"
 	"github.com/asheshgoplani/agent-deck/internal/issuereport"
 	"github.com/asheshgoplani/agent-deck/internal/reportloop"
 	"github.com/asheshgoplani/agent-deck/internal/session"
@@ -28,8 +28,8 @@ import (
 //
 // Overridable for tests.
 var ghUserLogin = func() string {
-	cmd := exec.Command("gh", "api", "user", "-q", ".login")
-	cmd.Env = issuereport.GhEnv() // no prompts, no update notice, childenv
+	cmd, cancel := ghexec.Command(context.Background(), 0, "api", "user", "-q", ".login")
+	defer cancel()
 	out, err := cmd.Output()
 	if err != nil {
 		return ""
