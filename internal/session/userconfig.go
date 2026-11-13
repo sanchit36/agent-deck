@@ -28,6 +28,7 @@ import (
 	"github.com/asheshgoplani/agent-deck/internal/agentpaths"
 	"github.com/asheshgoplani/agent-deck/internal/atomicfile"
 	"github.com/asheshgoplani/agent-deck/internal/git"
+	"github.com/asheshgoplani/agent-deck/internal/github/prompttemplate"
 	"github.com/asheshgoplani/agent-deck/internal/logging"
 	"github.com/asheshgoplani/agent-deck/internal/platform"
 	"github.com/asheshgoplani/agent-deck/internal/safeio"
@@ -358,6 +359,53 @@ type UserConfig struct {
 	// Harnesses overrides the core install/login table per harness
 	// ([harnesses.<name>] binary, install_command, login_command, docs_url).
 	Harnesses map[string]harness.Override `toml:"harnesses,omitempty"`
+
+	// PromptTemplates are the [prompt_templates.<name>] Prompt Templates
+	// for sessions launched from a GitHub Issue or PR: applies_to ("issue",
+	// the default, or "pr"), labels, default, repos (owner/name; empty = all)
+	// and exactly one of text or file. A name matching a built-in (issue,
+	// pr-review) replaces it. Read through BuildPromptTemplates.
+	PromptTemplates map[string]prompttemplate.Def `toml:"prompt_templates,omitempty"`
+}
+
+// BuildPromptTemplates merges [prompt_templates] over the built-ins and
+// returns the config-load warnings. configDir resolves relative file paths
+// and home expands ~ (PromptTemplateDirs gives both for the live config).
+func (c *UserConfig) BuildPromptTemplates(configDir, home string) ([]prompttemplate.Template, []prompttemplate.Warning) {
+	return prompttemplate.Build(c.PromptTemplates, configDir, home)
+}
+
+// PromptTemplateDirs returns the directory of config.toml and the home
+// directory, which resolve a Prompt Template's file path.
+func PromptTemplateDirs() (configDir, home string, err error) {
+	configPath, err := GetUserConfigPath()
+	if err != nil {
+		return "", "", fmt.Errorf("resolving config path for prompt templates: %w", err)
+	}
+	home, err = os.UserHomeDir()
+	if err != nil {
+		return "", "", fmt.Errorf("resolving home directory for prompt templates: %w", err)
+	}
+	return filepath.Dir(configPath), home, nil
+}
+
+// warnPromptTemplates logs the [prompt_templates] config-load warnings
+// (unknown or wrong-kind variables, invalid entries, clashing defaults).
+func warnPromptTemplates(c *UserConfig) {
+	if len(c.PromptTemplates) == 0 {
+		return
+	}
+	configDir, home, err := PromptTemplateDirs()
+	if err != nil {
+		registryLog.Warn("prompt_templates_check_skipped", slog.String("error", err.Error()))
+		return
+	}
+	_, warnings := c.BuildPromptTemplates(configDir, home)
+	for _, w := range warnings {
+		registryLog.Warn("prompt_template_config_warning",
+			slog.String("template", w.Template),
+			slog.String("warning", w.String()))
+	}
 }
 
 // TraceSettings is the [trace] section.
@@ -4703,6 +4751,7 @@ func LoadUserConfig() (*UserConfig, error) {
 
 	normalizeUIHiddenTools(&config.UI, config.Tools)
 	normalizeUIPreviewFields(&config.UI)
+	warnPromptTemplates(&config)
 	for _, socket := range misnamedTmuxBinarySockets(config.Tmux.Binaries) {
 		registryLog.Warn("tmux.binaries entry is not named tmux",
 			"socket", socket,
