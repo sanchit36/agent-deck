@@ -655,7 +655,7 @@ Finish:  W merge + cleanup
 - **Status**: `clean`, `dirty (uncommitted changes)` (untracked files count as dirty), `checking...` before the first read, `unavailable` when git failed or took longer than 5 s.
 - **Upstream**: the tracked branch with commits ahead (`↑`) and behind (`↓`) as of the last `git fetch` (agent-deck never fetches), the bare branch name when the remote branch is gone, or `no upstream`.
 - **Setup** / **Finish** hints show for worktree sessions only.
-- A Jujutsu workspace shows `jj workspace: not shown in v1`.
+- A Jujutsu workspace keeps its Branch, Repo and Path rows and shows `jj workspace: not shown in v1` in place of Status and Upstream.
 - The state comes from one `git status --porcelain=v2 --branch` per checkout, run in the background when the selection settles and cached for 10 s per path. Rendering never runs git. Opening the Finish dialog (`W`) always reads it fresh.
 
 ## Updates

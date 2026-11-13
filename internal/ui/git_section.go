@@ -76,27 +76,29 @@ func (h *Home) renderGitSection(inst *session.Instance, width int) string {
 		b.WriteString("\n")
 	}
 
+	branch, repo, path := st.Branch, st.Repo, inst.ProjectPath
+	if isWT {
+		if inst.WorktreeBranch != "" {
+			branch = inst.WorktreeBranch
+		}
+		repo, path = inst.WorktreeRepoRoot, inst.WorktreePath
+	}
+	if branch != "" {
+		row("Branch:  ", branch, branchStyle)
+	}
+	if repo != "" {
+		row("Repo:    ", truncatePath(repo, width-4-9), valueStyle)
+	}
+	if path != "" {
+		row("Path:    ", truncatePath(path, width-4-9), valueStyle)
+	}
+
+	// A jj workspace keeps its Branch/Repo/Path rows (session fields, not
+	// git state); only the git status and upstream are not shown in v1.
 	if isJJWorkspace(inst) || (cached && st.JJ) {
 		b.WriteString(commentStyle.Render("jj workspace: not shown in v1"))
 		b.WriteString("\n")
 	} else {
-		branch, repo, path := st.Branch, st.Repo, inst.ProjectPath
-		if isWT {
-			if inst.WorktreeBranch != "" {
-				branch = inst.WorktreeBranch
-			}
-			repo, path = inst.WorktreeRepoRoot, inst.WorktreePath
-		}
-		if branch != "" {
-			row("Branch:  ", branch, branchStyle)
-		}
-		if repo != "" {
-			row("Repo:    ", truncatePath(repo, width-4-9), valueStyle)
-		}
-		if path != "" {
-			row("Path:    ", truncatePath(path, width-4-9), valueStyle)
-		}
-
 		status, statusStyle := "checking...", valueStyle
 		switch {
 		case !cached:
