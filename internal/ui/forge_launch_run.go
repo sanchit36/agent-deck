@@ -24,8 +24,9 @@ import (
 // goroutine: make the worktree (an Issue's branch, or a PR's detached at
 // its base then gh pr checkout), start the session with its first message
 // through StartWithMessage, and write the Link once it runs. A failure in
-// the worktree, the checkout or the start leaves no session and removes a
-// worktree made for this launch; a failed send keeps the session.
+// the worktree, the checkout or the start leaves no session and removes the
+// worktree and branch made for this launch (never ones that were there); a
+// failed send keeps the session.
 
 // forgeLaunchPlan is one launch, read from the dialog on the UI goroutine.
 type forgeLaunchPlan struct {
@@ -88,12 +89,14 @@ func (l forgeLauncher) sessionRunning(inst *session.Instance) bool {
 func (l forgeLauncher) launch(ctx context.Context, p forgeLaunchPlan) forgeLaunchResult {
 	dir, created, branch := p.repoRoot, "", ""
 	var setupErr error
+	// branchesBefore are the local branches before this launch made its
+	// worktree: a branch the worktree holds that is not among them was
+	// made by this launch (by git worktree add, or gh pr checkout), and a
+	// failure removes it with the worktree. nil (unread) removes none.
+	var branchesBefore map[string]bool
 	fail := func(err error) forgeLaunchResult {
 		if created != "" {
-			if rmErr := git.RemoveWorktree(p.repoRoot, created, true); rmErr != nil {
-				uiLog.Warn("forge_launch_worktree_cleanup_failed", slog.String("path", created), slog.String("error", rmErr.Error()))
-				err = fmt.Errorf("%w (removing the worktree %s also failed: %v)", err, created, rmErr)
-			}
+			err = forgeLaunchCleanup(context.WithoutCancel(ctx), p.repoRoot, created, branchesBefore, err)
 		}
 		return forgeLaunchResult{err: err}
 	}
@@ -119,6 +122,7 @@ func (l forgeLauncher) launch(ctx context.Context, p forgeLaunchPlan) forgeLaunc
 		if err := os.MkdirAll(filepath.Dir(wt), 0o755); err != nil {
 			return fail(fmt.Errorf("creating the worktree parent directory: %w", err))
 		}
+		branchesBefore = forgeLocalBranches(ctx, p.repoRoot)
 		setupErr, err = createWorktreeWithSetupAndLog(backend, wt, p.branch, p.repoRoot)
 		if err != nil {
 			return fail(fmt.Errorf("creating the worktree for %s: %w", p.branch, err))
@@ -142,6 +146,7 @@ func (l forgeLauncher) launch(ctx context.Context, p forgeLaunchPlan) forgeLaunc
 		if err := os.MkdirAll(filepath.Dir(wt), 0o755); err != nil {
 			return fail(fmt.Errorf("creating the worktree parent directory: %w", err))
 		}
+		branchesBefore = forgeLocalBranches(ctx, p.repoRoot)
 		if err := addDetachedWorktree(ctx, p.repoRoot, wt, p.baseBranch); err != nil {
 			return fail(err)
 		}
@@ -205,6 +210,49 @@ func (l forgeLauncher) prCheckout(ctx context.Context, p forgeLaunchPlan, dir st
 		return fmt.Errorf("gh pr checkout %d: %w", p.number, err)
 	}
 	return nil
+}
+
+// forgeLocalBranches are repoRoot's local branch names; nil when git
+// cannot list them.
+func forgeLocalBranches(ctx context.Context, repoRoot string) map[string]bool {
+	out, err := forgeGit(ctx, repoRoot, "for-each-ref", "--format=%(refname:short)", "refs/heads")
+	if err != nil {
+		uiLog.Warn("forge_launch_list_branches_failed", slog.String("repo", repoRoot), slog.String("error", err.Error()))
+		return nil
+	}
+	set := map[string]bool{}
+	for _, b := range strings.Split(strings.TrimSpace(string(out)), "\n") {
+		if b != "" {
+			set[b] = true
+		}
+	}
+	return set
+}
+
+// forgeLaunchCleanup removes what a failed launch made: the worktree wt,
+// and the branch it holds when that is not among before (this launch made
+// it). A cleanup failure is added to err, which it returns.
+func forgeLaunchCleanup(ctx context.Context, repoRoot, wt string, before map[string]bool, err error) error {
+	made := ""
+	if before != nil {
+		if out, bErr := forgeGit(ctx, wt, "symbolic-ref", "--quiet", "--short", "HEAD"); bErr == nil {
+			if b := strings.TrimSpace(string(out)); b != "" && !before[b] {
+				made = b
+			}
+		}
+	}
+	if rmErr := git.RemoveWorktree(repoRoot, wt, true); rmErr != nil {
+		uiLog.Warn("forge_launch_worktree_cleanup_failed", slog.String("path", wt), slog.String("error", rmErr.Error()))
+		return fmt.Errorf("%w (removing the worktree %s also failed: %v)", err, wt, rmErr)
+	}
+	if made == "" {
+		return err
+	}
+	if _, brErr := forgeGit(ctx, repoRoot, "branch", "-D", "--", made); brErr != nil {
+		uiLog.Warn("forge_launch_branch_cleanup_failed", slog.String("branch", made), slog.String("error", brErr.Error()))
+		return fmt.Errorf("%w (deleting the branch %s also failed: %v)", err, made, brErr)
+	}
+	return err
 }
 
 // forgeExistingWorktree is the linked worktree that has branch checked

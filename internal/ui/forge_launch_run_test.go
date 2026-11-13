@@ -334,7 +334,56 @@ func TestForgeLaunchNeverUsesMainCheckout(t *testing.T) {
 	})
 }
 
-// TestForgeLaunchPRMissingBase: a PR worktree starts detached at the PR's
+func branchExists(t *testing.T, repo, branch string) bool {
+	t.Helper()
+	return strings.TrimSpace(gitOutUI(t, repo, "branch", "--list", branch)) != ""
+}
+
+// TestForgeLaunchFailureRemovesCreatedBranch: a failed launch removes the
+// branch it created along with its worktree (the Issue branch it made, or
+// the branch gh pr checkout made), and keeps a branch that was there.
+func TestForgeLaunchFailureRemovesCreatedBranch(t *testing.T) {
+	t.Run("issue branch created", func(t *testing.T) {
+		repo := launchTestRepo(t)
+		rec := &startRecorder{err: errors.New("boom")}
+		if res := rec.launcher(githubtest.NewFake()).launch(context.Background(), issuePlan(repo)); res.err == nil {
+			t.Fatal("want the start error")
+		}
+		if branchExists(t, repo, "feature/12-fix-crash") {
+			t.Fatal("the branch the failed launch created is still there")
+		}
+	})
+	t.Run("issue branch existed", func(t *testing.T) {
+		repo := launchTestRepo(t)
+		gitMustUI(t, repo, "branch", "feature/12-fix-crash")
+		rec := &startRecorder{err: errors.New("boom")}
+		if res := rec.launcher(githubtest.NewFake()).launch(context.Background(), issuePlan(repo)); res.err == nil {
+			t.Fatal("want the start error")
+		}
+		if !branchExists(t, repo, "feature/12-fix-crash") {
+			t.Fatal("a failed launch deleted a branch it did not create")
+		}
+		if n := worktreeCount(t, repo); n != 1 {
+			t.Fatalf("%d worktrees, want only the main one", n)
+		}
+	})
+	t.Run("pr checkout branch created", func(t *testing.T) {
+		repo := launchTestRepo(t)
+		fake := githubtest.NewFake().Serve(githubtest.MustLoad(t, githubtest.OK), prCheckoutArgs("34")...)
+		rec := &startRecorder{err: errors.New("boom")}
+		if res := rec.launcher(checkoutGh{t: t, head: "widget-sizes", fake: fake}).launch(context.Background(), prPlan(repo)); res.err == nil {
+			t.Fatal("want the start error")
+		}
+		if n := worktreeCount(t, repo); n != 1 {
+			t.Fatalf("%d worktrees, want only the main one", n)
+		}
+		if branchExists(t, repo, "widget-sizes") {
+			t.Fatal("the branch gh pr checkout made for the failed launch is still there")
+		}
+	})
+}
+
+// TestForgeLaunchPRMissingBase:a PR worktree starts detached at the PR's
 // base; a base the repository does not have (or an unknown one) is an
 // error naming it, never a silent start at HEAD.
 func TestForgeLaunchPRMissingBase(t *testing.T) {
