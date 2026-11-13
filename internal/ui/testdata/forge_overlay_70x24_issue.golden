@@ -21,4 +21,4 @@
  2. Obtain the run/job IDs from the PR check URL.
  3. Run gh run view RUN --repo ORG/CONSUMER --job JOB --log-failed;
  1–19 of 120
- j/k scroll · e expand hidden · o open · y copy url · r refresh · esc…
+ j/k scroll · e expand hidden · o open · y copy url · esc close
