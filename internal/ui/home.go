@@ -4545,6 +4545,15 @@ func (h *Home) updateInner(msg tea.Msg) (tea.Model, tea.Cmd) {
 		h.applyForgePagerDone(msg)
 		return h, nil
 
+	case forgeMergeInfoMsg:
+		return h, h.applyForgeMergeInfo(msg)
+
+	case forgeMergeDoneMsg:
+		return h, h.applyForgeMergeDone(msg)
+
+	case forgeMergeDirtyMsg:
+		return h, h.applyForgeMergeDirty(msg)
+
 	case analyticsFetchedMsg:
 		// Async analytics parsing complete - update TTL cache
 		h.analyticsFetchingID = ""
@@ -5224,6 +5233,9 @@ func (h *Home) updateInner(msg tea.Msg) (tea.Model, tea.Cmd) {
 		if h.contextPager.IsVisible() {
 			return h.handleContextPagerKey(msg)
 		}
+		if h.forgeMergeVisible() {
+			return h.handleForgeMergeKey(msg)
+		}
 		if h.forgeOverlayVisible() {
 			return h.handleForgeOverlayKey(msg)
 		}
@@ -5357,7 +5369,7 @@ func newGlobalSearchInstance(result *GlobalSearchResult, group string) *session.
 func (h *Home) handleMouse(msg tea.MouseMsg) (tea.Model, tea.Cmd) {
 	// The forge overlay takes clicks on its tab row; it is drawn under the
 	// panels and pagers the wheel routing above also checks first.
-	if h.forgeOverlayVisible() && msg.Button == tea.MouseButtonLeft && msg.Action == tea.MouseActionPress &&
+	if h.forgeOverlayVisible() && !h.forgeMergeVisible() && msg.Button == tea.MouseButtonLeft && msg.Action == tea.MouseActionPress &&
 		!h.settingsPanel.IsVisible() && !h.helpOverlay.IsVisible() && !h.scrollbackPager.IsVisible() && !h.contextPager.IsVisible() {
 		return h, h.handleForgeOverlayClick(msg.X, msg.Y)
 	}

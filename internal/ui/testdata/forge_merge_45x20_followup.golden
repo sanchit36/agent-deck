@@ -1,0 +1,20 @@
+                                             
+                                             
+ ╭─────────────────────────────────────────╮ 
+ │                                         │ 
+ │  ✓ Merged #15048 (squash)               │ 
+ │                                         │ 
+ │  2 sessions are linked to #15048:       │ 
+ │    • bump term                          │ 
+ │    • review bump                        │ 
+ │                                         │ 
+ │  [Keep all]  Stop all   Delete all      │ 
+ │  Delete removes their worktrees; a      │ 
+ │  dirty one is asked about first.        │ 
+ │                                         │ 
+ │  ←→ choose · enter confirm              │ 
+ │  esc keep all                           │ 
+ │                                         │ 
+ ╰─────────────────────────────────────────╯ 
+                                             
+                                             

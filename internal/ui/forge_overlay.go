@@ -142,6 +142,7 @@ var forgeOverlayActionOrder = []string{
 	hotkeyForgeAttach,
 	hotkeyForgeRefresh,
 	hotkeyForgeNew,
+	hotkeyForgeMerge,
 }
 
 // buildForgeOverlayLookup maps each pressed key to its overlay action,
@@ -403,6 +404,9 @@ func (h *Home) handleForgeOverlayKey(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 			h.closeForgeOverlay()
 		}
 		return h, cmd
+	case hotkeyForgeMerge:
+		// The dialog opens over the overlay, which esc returns to.
+		return h, h.openForgeMerge()
 	case hotkeyForgeAttach:
 		cmd := h.forgeAttach()
 		if h.forge.sessionPick != nil {
@@ -817,6 +821,9 @@ func (h *Home) forgeOverlayHints() string {
 	}
 	if o.tab == forgeOverlayConversation && len(h.forgeConversationLines().minimized) > 0 {
 		add(key(hotkeyForgeExpand), "expand hidden")
+	}
+	if o.pr {
+		add(key(hotkeyForgeMerge), "merge")
 	}
 	add(key(hotkeyForgeOpen), "open")
 	add(key(hotkeyForgeCopy), "copy url")
