@@ -5,6 +5,7 @@ import (
 	"errors"
 	"fmt"
 	"os/exec"
+	"sort"
 	"strings"
 	"time"
 
@@ -848,9 +849,17 @@ func (h *Home) renderForgePicker(width int) []string {
 func (h *Home) renderForgeHelpBar() string {
 	border := lipgloss.NewStyle().Foreground(ColorBorder).Render(strings.Repeat("─", max(0, h.width)))
 	var ctx []footerHint
+	var prio []int
+	// prio is the order keys give way in a narrow bar: lowest kept first
+	// (forgeHintPriority); unlisted labels go last.
 	add := func(key, label string) {
 		if strings.TrimSpace(key) != "" {
 			ctx = append(ctx, footerHint{key: key, label: label})
+			p, ok := forgeHintPriority[label]
+			if !ok {
+				p = len(forgeHintPriority)
+			}
+			prio = append(prio, p)
 		}
 	}
 	switch {
@@ -904,13 +913,75 @@ func (h *Home) renderForgeHelpBar() string {
 	if key := h.actionKey(hotkeyHelp); key != "" {
 		global = append(global, footerHint{key: key, label: "help"})
 	}
-	hints := h.fitCuratedHints(ctx, global)
+	hints := h.fitForgeHints(ctx, prio, global)
 	parts := make([]string, 0, len(hints))
 	for _, hint := range hints {
 		parts = append(parts, h.curatedHint(hint))
 	}
 	content := strings.Join(parts, lipgloss.NewStyle().Foreground(ColorBorder).Render("  "))
 	return lipgloss.NewStyle().MaxWidth(h.width).Render(lipgloss.JoinVertical(lipgloss.Left, border, content))
+}
+
+// forgeHintPriority ranks the forge bar's keys by what a narrow bar keeps:
+// esc's current meaning and opening the item first, then refresh, filter
+// and new, then the rest. Labels shared by the picker and query bar modes
+// rank by their order there.
+var forgeHintPriority = map[string]int{
+	"back": 0, "reset": 0, "cancel": 0, "close": 0,
+	"view": 1, "detail": 1, "select": 1, "apply": 1, "attach": 1,
+	"refresh": 2, "move": 2, "presets": 2,
+	"filter":      3,
+	"new":         4,
+	"new session": 4,
+	"tabs":        5,
+	"open":        6,
+	"copy url":    7,
+	"project":     8,
+	"parent":      9,
+}
+
+// fitForgeHints keeps the context hints that fit beside the global ones,
+// taking them by priority (lowest first, ties in bar order) and showing
+// the kept ones in bar order. The help key is always kept; settings gives
+// way first if even the global hints do not fit.
+func (h *Home) fitForgeHints(ctx []footerHint, prio []int, global []footerHint) []footerHint {
+	const sep = 2
+	width := func(hint footerHint) int { return lipgloss.Width(h.curatedHint(hint)) }
+	used := 0
+	for i, hint := range global {
+		used += width(hint)
+		if i > 0 {
+			used += sep
+		}
+	}
+	for len(global) > 1 && h.width > 0 && used > h.width {
+		used -= width(global[0]) + sep
+		global = global[1:]
+	}
+	order := make([]int, len(ctx))
+	for i := range order {
+		order[i] = i
+	}
+	sort.SliceStable(order, func(a, b int) bool { return prio[order[a]] < prio[order[b]] })
+	keep := make([]bool, len(ctx))
+	for _, i := range order {
+		next := used + width(ctx[i])
+		if used > 0 {
+			next += sep
+		}
+		if h.width > 0 && next > h.width {
+			break
+		}
+		keep[i] = true
+		used = next
+	}
+	out := make([]footerHint, 0, len(ctx)+len(global))
+	for i, hint := range ctx {
+		if keep[i] {
+			out = append(out, hint)
+		}
+	}
+	return append(out, global...)
 }
 
 // syncForgeHelp gives the help overlay the GitHub section while a forge tab
