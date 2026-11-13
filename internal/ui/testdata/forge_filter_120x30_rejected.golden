@@ -1,0 +1,30 @@
+ ●●○ Agent Deck [_test]  no sessions                                                                           v1.16.10 
+  All    ● 0   ◐ 0   ○ 0   !@#& filter • 0 all • % open • ^ archived • t view • * time                                  
+ SESSIONS │ ISSUES 1075 │ PRS              │ ISSUE #14822                                                               
+────────────────────────────────────────── │ ───────────────────────────────────────────────────────────────────────────
+/ is:open label:(bug▏            6 of 1075 │ ○ gh run view --job --log-failed fails on required shared-workflow metadata
+⚠ The search query is invalid: unbalanced  │   404                                                                      
+parentheses.                               │                                                                            
+▌ ○ gh run view --job --log-failed fails … │ state     ○ open                                                           
+▌   #14822 · henrymodisett · 15m  bug, pr… │ author    henrymodisett                                                    
+                                           │ age       2w                                                               
+  ○ gh auth saves plain text token, even … │ labels    bug, priority-3, gh-run                                          
+    #8954 · 3f6a · 48m  bug, needs-triage… │ assignee  none                                                             
+                                           │ comments  5                                                                
+  ○ `gh pr create` reports a generic perm… │ sessions  none                                                             
+    #14874 · will-lynas · 2h  blocked, en… │                                                                            
+                                           │ TIMELINE                                                                   
+  ○ Support generating `.gitignore` files… │ 15m  henrymodisett commented                                               
+    #15047 · antarupdey81 · 3h  needs-tri… │ 2w   henrymodisett commented                                               
+                                           │ 2w   henrymodisett commented                                               
+  ○ `gh run view --log` silently drops th… │ 2w   duongynhi000005-oss commented                                         
+    #15019 · jeffwall-curlewlabs · 6h  ne… │ 2w   cli-triage commented                                                  
+                                           │                                                                            
+  ○ `gh cs create` doesn't offer location… │                                                                            
+    #14558 · ghost · 10h  enhancement, gh… │                                                                            
+                                           │                                                                            
+                                           │                                                                            
+                                           │                                                                            
+                                           │                                                                            
+────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────
+enter apply  ↑↓ presets  esc cancel  S settings  ? help                                                                 

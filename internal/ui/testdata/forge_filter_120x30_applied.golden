@@ -1,0 +1,30 @@
+ ●●○ Agent Deck [_test]  no sessions                                                                           v1.16.10 
+  All    ● 0   ◐ 0   ○ 0   !@#& filter • 0 all • % open • ^ archived • t view • * time                                  
+ SESSIONS │ ISSUES 1075 │ PRS              │ ISSUE #14053                                                               
+────────────────────────────────────────── │ ───────────────────────────────────────────────────────────────────────────
+me/widgets ▾  is:closed label:…  4 of 2002 │ ✓ `gh auth status` reports rate limit / network failures as "token is      
+▌ ✓ `gh auth status` reports rate limit /… │   invalid" with misleading re-auth advice                                  
+▌   #14053 · MumuTW · 2d  bug, priority-3… │                                                                            
+                                           │ loading…                                                                   
+  ✓ Expiring token auto-refresh can break… │                                                                            
+    #14844 · babakks · 2d  bug, priority-… │                                                                            
+                                           │                                                                            
+  ✓ `gh attestation verify` fails with cr… │                                                                            
+    #9101 · capri-xiyue · 1w  bug, needs-… │                                                                            
+                                           │                                                                            
+  ✓ `gh auth login` freezes after selecti… │                                                                            
+    #7359 · xandmore · 1w  bug, more-info… │                                                                            
+                                           │                                                                            
+                                           │                                                                            
+                                           │                                                                            
+                                           │                                                                            
+                                           │                                                                            
+                                           │                                                                            
+                                           │                                                                            
+                                           │                                                                            
+                                           │                                                                            
+                                           │                                                                            
+                                           │                                                                            
+                                           │                                                                            
+────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────
+[/] tabs  enter view  n new  o open  y copy url  / filter  esc reset  r refresh  p project  P parent  S settings  ? help

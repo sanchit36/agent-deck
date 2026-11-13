@@ -145,6 +145,7 @@ const (
 	focusCreate                      // explicit "[ Create session ]" button; the one row where Enter submits in walk mode.
 	focusHooks                       // the Claude hooks line (conditional: Claude picked, hooks undecided).
 	focusMore                        // the "More options" toggle (worktree, Docker sandbox, multi-repo).
+	focusTemplate                    // the Prompt Template of a launch from an Issue or PR (conditional).
 )
 
 // New session dialog: outer box and textinput widths stay in sync so long
@@ -231,6 +232,10 @@ type NewDialog struct {
 	// Conducting parent selector.
 	conductorSessions []*session.Instance // nil when no conductors; populated by ShowInGroup
 	conductorCursor   int                 // 0 = "None", 1..N index into conductorSessions
+
+	// forge is the Template field and item of a launch from an Issue or PR
+	// (newdialog_forge.go); nil for every other opening.
+	forge *forgeLaunchField
 
 	// enterAdvances mirrors config.toml [ui] new_session_enter_advances (PR
 	// #1295). False (default since ASK-110): Enter creates from any row. True
@@ -580,6 +585,7 @@ func (d *NewDialog) ShowInGroup(groupPath, groupName, defaultPath string, conduc
 	d.parentGroupPath = groupPath
 	d.parentGroupName = groupName
 	d.visible = true
+	d.forge = nil
 	d.focusIndex = 0
 	d.validationErr = ""
 	d.nameInput.SetValue("")
@@ -894,6 +900,11 @@ func (d *NewDialog) shouldHandleEnterLocally() bool {
 	// The Create button is the one row where Enter means "create now".
 	case focusCreate:
 		return false
+	case focusTemplate:
+		// Enter on the open template list chooses and closes it.
+		if d.forge != nil && d.forge.open {
+			return true
+		}
 	case focusMultiRepo:
 		// Enter edits / commits the highlighted path of the list.
 		if d.multiRepoEnabled {
@@ -2027,6 +2038,9 @@ func (d *NewDialog) rebuildFocusTargets() {
 	if !d.multiRepoEnabled {
 		targets = append(targets, focusPath)
 	}
+	if d.forge != nil {
+		targets = append(targets, focusTemplate)
+	}
 	// The hooks line sits right under Path (prototype): it is what the first
 	// Enter agrees to, so it stays on screen at 80x24.
 	if d.showHooksLine() {
@@ -2223,6 +2237,11 @@ func (d *NewDialog) Update(msg tea.Msg) (*NewDialog, tea.Cmd) {
 
 	switch msg := msg.(type) {
 	case tea.KeyMsg:
+		if d.forge != nil {
+			if handled, cmd := d.forgeKey(msg, cur); handled {
+				return d, cmd
+			}
+		}
 		if d.branchPicker != nil && d.branchPicker.IsVisible() {
 			if selected, handled := d.branchPicker.Update(msg); handled {
 				if d.branchPicker == nil || !d.branchPicker.IsVisible() {
@@ -3473,6 +3492,10 @@ func (d *NewDialog) View() string {
 	if !d.multiRepoEnabled {
 		markFocusedRow(focusPath)
 		d.renderSinglePathSection(&content, cur, dialogWidth)
+	}
+	if d.forge != nil {
+		markFocusedRow(focusTemplate)
+		d.renderForgeTemplate(&content, cur, dialogWidth)
 	}
 	// The Claude hooks line (replaces the Claude Code Hooks box), right under
 	// Path so the consent the first Enter gives is on screen at 80x24.

@@ -1,0 +1,20 @@
+                                             
+ ╭─────────────────────────────────────────╮ 
+ │                                         │ 
+ │  Merge PR #15048                        │ 
+ │  chore(deps): Bump golang.org/x/term …  │ 
+ │  trunk ← dependabot/go_modu… · f2b0c5d  │ 
+ │                                         │ 
+ │  Checks  ✓ 12 passed · 18 skipped       │ 
+ │  Review  ✔ approved                     │ 
+ │  Method  ◀ squash ▶                     │ 
+ │  Branch  [ ] Delete branch dependabot…  │ 
+ │  Commit  chore(deps): Bump golang.org…  │ 
+ │                                         │ 
+ │  ⚠ local term-bump: dirty               │ 
+ │                                         │ 
+ │  y merge · ←→ method · space branch     │ 
+ │  r refresh · esc cancel                 │ 
+ │                                         │ 
+ ╰─────────────────────────────────────────╯ 
+                                             

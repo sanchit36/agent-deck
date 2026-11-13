@@ -1,29 +1,29 @@
  ●●○ Agent Deck  ● 1 running • ◐ 3 waiting • ○ 1 idle • ■ 2 stopped • ✕ 5 error                                                                                                                 <version>
   All    ● 1   ◐ 3   ○ 1   ■ 2   ✕ 5   !@#& filter • 0 all • % open • ^ archived • t view • * time
-SESSIONS                                                               │ PREVIEW
+ SESSIONS │ ISSUES │ PRS                                               │ PREVIEW
 ────────────────────────────────────────────────────────────────────── │ ───────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────
 1·▾ alpha (8) ● 1 ◐ 2                                                  │ claude-waiting (fork)  ◐ waiting
    ├─ ■ opencode-idle opencode                                         │ 📁 /tmp/vc-<tmp>
    ├─ ✕ claude-idle claude                                             │ ⏱ <age>
    ├─ ◐ claude-waiting claude                                          │ ◉ no viewers
    ├─ ■ claude-stopped claude                                          │  claude   alpha
-  ▶└─ ◐ claude-waiting (fork) claude [fork/claude-...]                 │ ──────────────────────────────────────────────────────── Worktree ────────────────────────────────────────────────────────
+  ▶└─ ◐ claude-waiting (fork) claude [fork/claude-...]                 │ ─────────────────────────────────────────────────────────── Git ───────────────────────────────────────────────────────────
     ▾ backend (3) ● 1                                                  │ Branch:  fork/claude-waiting
      ├─ ✕ codex-idle codex                                             │ Repo:    /tmp/vc-<tmp>
      ├─ ● claude-running claude                                        │ Path:    /tmp/vc-<tmp>
      └─ ✕ claude-error claude                                          │ Status:  clean
-2·▾ beta (4) ◐ 1                                                       │ Setup:   b re-run setup script
-   ├─ ✕ gemini-idle gemini                                             │ Finish:  W merge + cleanup
-   ├─ ✕ pi-idle pi                                                     │ ───────────────────────────────────────────────────────── Claude ─────────────────────────────────────────────────────────
-   ├─ ◐ claude-i18n claude                                             │ Status:  ● Connected
-   └─ ○ shell-live shell                                               │ Session: <uuid>
-  ▾ remotes/lab (0) · unreachable: host down · poll <age>              │ Model:   tool default
+2·▾ beta (4) ◐ 1                                                       │ Upstream: no upstream
+   ├─ ✕ gemini-idle gemini                                             │ Setup:   b re-run setup script
+   ├─ ✕ pi-idle pi                                                     │ Finish:  W merge + cleanup
+   ├─ ◐ claude-i18n claude                                             │ ───────────────────────────────────────────────────────── Claude ─────────────────────────────────────────────────────────
+   └─ ○ shell-live shell                                               │ Status:  ● Connected
+  ▾ remotes/lab (0) · unreachable: host down · poll <age>              │ Session: <uuid>
+                                                                       │ Model:   tool default
                                                                        │ Fork:    f quick fork, F fork with options
                                                                        │
                                                                        │ ───────────────────────────────────────────────────────── Output ─────────────────────────────────────────────────────────
                                                                        │ Claude Code synthetic fixture
                                                                        │ ❯
-                                                                       │
                                                                        │
                                                                        │
                                                                        │

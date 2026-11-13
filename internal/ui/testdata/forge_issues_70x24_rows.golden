@@ -1,0 +1,24 @@
+ ●●○ Agent Deck [_test]  no sessions                         v1.16.10 
+  All    ● 0   ◐ 0   ○ 0   !@#& filter • 0 all • % open • …           
+ SESSIONS │ ISSUES 1075 │ PRS                                         
+──────────────────────────────────────────────────────────────────────
+me/widgets ▾  is:open                             6 of 1075 · just now
+▌ ○ gh run view --job --log-failed fails on required shared-workflow …
+▌   #14822 · henrymodisett · 15m  bug, priority-3, gh-run             
+                                                                      
+  ○ gh auth saves plain text token, even though I have keyring        
+──────────────────────────────────────────────────────────────────────
+ISSUE #14822                                                          
+──────────────────────────────────────────────────────────────────────
+○ gh run view --job --log-failed fails on required shared-workflow    
+  metadata 404                                                        
+                                                                      
+state     ○ open                                                      
+author    henrymodisett                                               
+age       2w                                                          
+labels    bug, priority-3, gh-run                                     
+assignee  none                                                        
+comments  5                                                           
+sessions  none                                                        
+──────────────────────────────────────────────────────────────────────
+[/] tabs  enter view  n new  / filter  r refresh  S settings  ? help  

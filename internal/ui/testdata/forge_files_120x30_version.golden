@@ -1,0 +1,30 @@
+ ◌ #14927  Add guided multi-account setup and evaluation                                                         draft
+   Conversation   [ Files ] 
+────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────
+ ⚠ large PR: 4,836 changed lines in 21 files
+ Files 21  +4835 −1                 │ M pkg/cmd/version/version.go                                    +5 −1  file 12/21 
+ A …ng-up-identites/SKILL.md +79 −0 │ @@ -26,7 +26,11 @@ func NewCmdVersion(f *cmdutil.Factory, version, buildDate stri…
+ A …/references/workflow.md +183 −0 │ 26 26   }                                                                         
+ A …tes/tests/scenarios.json +47 −0 │ 27 27                                                                             
+ M acceptance/README.md      +11 −0 │ 28 28   func Format(version, buildDate string) string {                           
+ M …tance/acceptance_test.go +25 −0 │ 29    -     return format(version, buildDate, debug.Enabled)                      
+ A identity-lifecycle.txtar +153 −0 │    29 +     output := format(version, buildDate, debug.Enabled)                   
+ A …entity_isolation_test.go +35 −0 │    30 +     if disabled, _ := debug.Config().DisableKeyring.Value(); disabled {   
+ M internal/debug/config.go  +12 −0 │    31 +         output += "OS keyring: disabled (isolated debug workflow)\n"      
+ M …rnal/debug/config_test.go +1 −0 │    32 +     }                                                                     
+ A …eyring/isolation_test.go +31 −0 │    33 +     return output                                                         
+ M …ernal/keyring/keyring.go +10 −0 │ 30 34   }                                                                         
+▌M pkg/cmd/version/version.go +5 −1 │ 31 35                                                                             
+ A …/identity-e2e/README.md +823 −0 │ 32 36   func format(version, buildDate string, debugBuild bool) string {          
+ A …entity-e2e/bootstrap.sh +642 −0 │                                                                                   
+ A …ity-e2e/fixture_test.go +421 −0 │                                                                                   
+ A …ity-e2e/offline_test.go +456 −0 │                                                                                   
+ A …/reset_downgrade_test.go +83 −0 │                                                                                   
+ A …ipt/identity-e2e/run.sh +894 −0 │                                                                                   
+ A …e/runner_helper_test.go +227 −0 │                                                                                   
+ A …tity-e2e/runner_test.go +622 −0 │                                                                                   
+ A …count-review/08-reset.sh +75 −0 │                                                                                   
+                                    │                                                                                   
+                                    │                                                                                   
+ 
+ c/d tabs · tab focus · n/N hunk · ]/[ file · h/l pan · s split · |/\ pager · S new session · m merge · esc close

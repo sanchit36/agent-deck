@@ -26,6 +26,8 @@ All options for `$XDG_CONFIG_HOME/agent-deck/config.toml` (default `~/.config/ag
 - [[updates] Section](#updates-section)
 - [[sessions] Section](#sessions-section)
 - [[interval_hooks.*] Section](#interval_hooks-section)
+- [[prompt_templates.<name>] Section](#prompt_templatesname-section)
+- [[github] Section](#github-section)
 - [[display] Section](#display-section)
 - [[ui] Section](#ui-section)
   - [[ui.remote_preview] Section](#uiremote_preview-section)
@@ -918,6 +920,168 @@ Notes:
 - **Live config changes:** a supervisor rescans `config.toml` about every 15s, so you can add, remove, pause (`enabled = false`), or re-enable a hook without restarting the TUI — changes take effect within one rescan. A live hook's own `command` / `interval_seconds` edits are picked up on its next tick. (No restart is required for any of these.)
 - Each run is logged: failures (non-zero exit) at WARN with truncated output, successes at INFO. A hook is never allowed to crash the TUI (each runs in a panic-recovering goroutine).
 
+## [prompt_templates.<name>] Section
+
+A Prompt Template is the first message of a session launched from a GitHub
+Issue or Pull Request: named text filled with that item's number and content.
+Each template is a named table under `[prompt_templates]`; the name is what the
+template picker shows. Templates carry text only, no launch options.
+
+```toml
+[prompt_templates.bug]
+labels = ["bug", "regression"]   # chosen for an issue carrying any of these
+text = """
+Fix bug #{number} in {repo}: {title}
+{url}
+
+{body}
+"""
+
+[prompt_templates.review]
+applies_to = "pr"
+default = true                   # fallback for PRs when no label matches
+repos = ["acme/app"]             # only for this Project
+file = "templates/review.md"     # relative to the config dir; ~ is expanded
+```
+
+| Key | Type | Default | Description |
+|-----|------|---------|-------------|
+| `applies_to` | string | `"issue"` | `"issue"` or `"pr"`. Any other value ignores the template and warns. |
+| `labels` | list | `[]` | Labels that select the template, compared exactly and case-insensitively (no globs). |
+| `default` | bool | `false` | Fallback for its kind when no label matches. |
+| `repos` | list | `[]` (all) | `owner/name` Projects the template applies to. Templates for the current Project rank ahead of global ones. |
+| `text` | string | | Inline template. Set exactly one of `text` and `file`, or the template is ignored with a warning. |
+| `file` | string | | Template file. A relative path resolves against the directory of `config.toml`, `~` is expanded, and the file is read at launch (edits need no restart). A missing file is a launch-time error, and the picker opens. |
+
+**Variables** use single braces, `{name}`, and are substituted in one pass:
+a `{title}` inside an issue body is never expanded.
+
+| Variable | Kind | Value |
+|----------|------|-------|
+| `{number}` | both | Issue or PR number |
+| `{title}` | both | Title |
+| `{body}` | both | Body (capped, see below) |
+| `{url}` | both | Web URL |
+| `{repo}` | both | `owner/name` |
+| `{labels}` | both | Labels, comma-separated |
+| `{author}` | both | Author login |
+| `{comments}` | both | Comments (capped; fetched only when the template uses it) |
+| `{head-branch}` | PR | Head branch |
+| `{base-branch}` | PR | Base branch |
+| `{review-comments}` | PR | Inline review threads with `file:line` (capped; fetched only when used) |
+
+There is no `{diff}`: the agent runs `git diff` itself. `{body}`, `{comments}`
+and `{review-comments}` are each capped at 16 KB, cut on a character boundary,
+and followed by `[truncated: run gh issue view <number> -R <repo> --comments]`
+(`gh pr view` for a PR).
+
+**Built-ins:** `issue` (work on the issue, the issue default) and `pr-review`
+(address the review comments, the PR default). A template of the same name
+replaces the built-in.
+
+**Matching**, among templates of the item's kind whose `repos` include the Project:
+
+- one label match: used without asking
+- several: the picker opens with the matches first (Project templates, then by name)
+- none: the kind's `default` (yours before the built-in, a Project default before a global one, then the first by name), otherwise the picker
+
+**Config-load warnings** (logged; the template still loads unless noted):
+a variable name not in the list above (left as written; `{Title}` or
+`{head_branch}` warn with the variable meant); a PR variable in an issue template
+(renders empty); a `repos` entry that is not `owner/name`; a `file` that cannot
+be read yet; two `default` templates of one kind for the same Project (the
+first by name wins); a bad `applies_to` or not exactly one of `text`/`file`
+(the template is ignored).
+
+## [github] Section
+
+The GitHub integration in the TUI: `SESSIONS │ ISSUES │ PRS` tabs in the left
+panel for the GitHub repository (Project) of the selected group. It is on by
+default and talks to GitHub only through the `gh` CLI, so it needs `gh` on
+`PATH` and logged in to the host (`gh auth login`, or `gh auth login -h <host>`
+for GitHub Enterprise); without it the tabs say what to do. To turn the whole
+integration off, set `enabled = false`:
+
+```toml
+[github]
+enabled = false
+```
+
+Off means no tab strip, no forge keys, no Attention signal poller and no `gh`
+calls. Session links (`agent-deck session link`) and their static `#12` /
+`PR#34` row badges stay, since they are stored on the session and drawn
+without a network call.
+
+```toml
+[github]
+enabled = true
+refresh_interval = 60
+signals = true
+issue_filter = "is:open"
+pr_filter = "is:open"
+diff_pager = ""
+```
+
+| Key | Type | Default | Description |
+|-----|------|---------|-------------|
+| `enabled` | bool | `true` | The GitHub integration. `false` turns it off: no tab strip, no forge keys, no signal poller and no `gh` calls; the TUI is exactly as without it. |
+| `refresh_interval` | int (seconds) | `60` | How often the list and the open detail on screen refetch. Values below `30` are raised to `30`; `0` means manual refresh (`r`) only. Only the visible tab of the visible Project polls, and only while the TUI is in the foreground with no session attached. |
+| `signals` | bool | `true` | Attention signals: live badges on sessions linked to an Issue or PR, the `⇠ n reviews` header count, and a notification-bar mark (plus a desktop notification with `[notifications] desktop = true`) when a linked PR's checks start failing, its review changes, it is merged or closed, or a review is requested from you. A poller of its own makes one `gh api graphql` request per host every `refresh_interval`, while the TUI runs, attached or not; `0` there stops it too. `false` turns it off completely. |
+| `issue_filter` | string | `"is:open"` | The Issues tab's starting filter, in GitHub search syntax (for example `"is:open assignee:@me"`). Empty means the default. `is:open` is the default list: the 100 most recently updated open Issues, fetched from the repository without search. Any other filter runs as a GitHub search scoped to the Project, which can lag new changes by a few minutes. `Esc` on the tab comes back to this filter. |
+| `pr_filter` | string | `"is:open"` | The PRs tab's starting filter, as `issue_filter` (for example `"is:open review-requested:@me"`). |
+| `diff_pager` | string | `""` | The pager the Files tab's `\|` (the selected file) and `\` (the whole PR) send the diff to on stdin, run through `sh -c` so it may carry flags (for example `"delta --side-by-side"` or `"less -R"`). Empty means auto: `delta` when it is on `PATH`, else `$PAGER`, else `less -R`. The pager has the terminal until it quits. |
+
+Lists are cached in memory per Project, kind and filter. Going back to a tab
+shows its cached list at once and refetches it if it is older than the
+interval. A failed refetch keeps the last list on screen, marked `⚠ stale`
+with one line saying why;
+network, rate-limit and server failures retry with backoff from the interval
+up to 5 minutes, and a rate limit stops polling until it resets. Login, token,
+SAML and missing-`gh` failures wait for `r`.
+
+**Forge hotkeys.** Every forge key is a `[hotkeys]` action prefixed `forge_`
+(empty string unbinds; for example `forge_next_tab = "}"` under `[hotkeys]`
+rebinds next tab). They are resolved apart from the session keys, so they
+do nothing with `enabled = false`, and like the session keys they also
+fire on their Russian ЙЦУКЕН twin.
+
+| Action | Default | Where | Does |
+|--------|---------|-------|------|
+| `forge_prev_tab` | `[` | every tab | previous tab (wraps) |
+| `forge_next_tab` | `]` | every tab | next tab (wraps) |
+| `forge_tab_sessions` | `alt+s` | every tab | Sessions tab |
+| `forge_tab_issues` | `alt+i` | every tab | Issues tab |
+| `forge_tab_prs` | `alt+p` | every tab | PRs tab |
+| `forge_project` | `p` | Issues, PRs | Project selector of the group |
+| `forge_parent` | `P` | Issues, PRs | toggle the Project and its Parent Repository |
+| `forge_refresh` | `r` | Issues, PRs | refetch the list (and the open detail, and the chip total under a filter) now, resolve the Projects again and re-poll the Attention signals |
+| `forge_open` | `o` | Issues, PRs | open the selected row in the browser (the SAML authorize URL while that message shows) |
+| `forge_copy` | `y` | Issues, PRs | copy the selected row's URL (the SAML authorize URL while that message shows) |
+| `forge_filter` | `/` | Issues, PRs | open the query bar (GitHub search syntax) |
+| `forge_attach` | `a` | Issues, PRs | attach to the session linked to the selected row (a picker when several are) |
+| `forge_view` | `enter` | Issues, PRs | open the selected row in the overlay (single column: the first press opens its detail full screen, `esc` returns) |
+| `forge_new` | `n` | Issues, PRs, overlay | start a session on the selected row: the chooser first when sessions are linked to it, then the prefilled new-session dialog (on the Files tab too, unless a Files key has its key: then `forge_files_new` does it) |
+| `forge_merge` | `m` | PRs, overlay | merge the selected PR through the merge dialog (never bypasses branch protection) |
+| `forge_conversation` | `c` | overlay | Conversation tab |
+| `forge_files` | `d` | PRs, overlay | open the selected PR on its Files tab; in the overlay, the Files tab (PRs) |
+| `forge_conversation_alt` | `1` | overlay | Conversation tab (a second key) |
+| `forge_files_alt` | `2` | overlay | Files tab (a second key; PRs) |
+| `forge_expand` | `e` | overlay | expand every minimized comment, or collapse them all |
+| `forge_next_hunk` | `n` | Files | next hunk, crossing into the next file that shows hunks |
+| `forge_prev_hunk` | `N` | Files | previous hunk |
+| `forge_next_file` | `]` | Files | next file |
+| `forge_prev_file` | `[` | Files | previous file |
+| `forge_file_list` | `f` | Files | file list full screen (under 90 columns) |
+| `forge_focus` | `tab` | Files | move the keys between the file list and the diff (90 columns and up) |
+| `forge_split` | `s` | Files | toggle the split (old \| new) view |
+| `forge_pager_file` | `\|` | Files | the selected file's diff in the pager |
+| `forge_pager_pr` | `\` | Files | the whole PR's diff in the pager |
+| `forge_files_new` | `S` | Files | start a session on the PR while a Files key has `forge_new`'s key (by default `n` is `forge_next_hunk`); when `forge_new` is bound to a key no Files action uses, that key starts the session on Files and this one does nothing |
+
+The Files keys are seen before the overlay's while the Files tab shows, so
+they may reuse an overlay or list key (`]`/`[` are also `forge_next_tab` /
+`forge_prev_tab` on the lists); in TOML write `\` as `"\\"`.
+
 ## [display] Section
 
 Rendering and display settings.
@@ -1143,6 +1307,8 @@ Delivery prefers the [cmux](https://cmux.com) terminal's notification panel when
 Notifications fire on the transition into `waiting` or `error`, once per transition rather than once per poll. `idle` is deliberately excluded: for a long-lived interactive agent it is the resting state, not an event, and alerting on it trains you to ignore the banners. The per-session `set-transition-notify off` opt-out is honoured here too, so a single noisy session can be muted without turning the feature off globally.
 
 Off by default because it is the only agent-deck signal that interrupts you outside the TUI.
+
+With `[github] signals` on (the default; see [[github] Section](#github-section)), the same setting also raises a notification when a linked GitHub PR changes (checks failing, changes requested, approved, merged or closed) or a review is requested from you, and the notification bar marks the linked session with the signal's glyph (`[1] ✗ fix login`) until you attach to it or jump to it. These come only from a change seen while the TUI runs, never from the first poll after a start.
 
 One thing to know before enabling it: the notification carries the session **title**. Titles can be generated by the agent itself (Claude's conversation-name sync), so a title derived from content the agent read is displayed in a banner, and on the cmux path it is also recorded in cmux's notification history. Nothing is executed: a title is escaped before it reaches the notifier, and is passed as a separate argument where the notifier supports one. But if you run sessions whose titles could echo sensitive strings, that text persists in the notification record. `agent-deck session set-title-lock <id> on` pins a title you chose and stops the sync from replacing it.
 

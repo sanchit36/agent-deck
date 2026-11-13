@@ -1,0 +1,7 @@
+─────────────────────────────────── Git ───────────────────────────────────
+Branch:  feature/x
+Repo:    /work/repo
+Path:    /work/repo/.worktrees/feature-x
+jj workspace: not shown in v1
+Setup:   b re-run setup script
+Finish:  W merge + cleanup

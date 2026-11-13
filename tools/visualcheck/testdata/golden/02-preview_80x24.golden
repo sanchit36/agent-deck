@@ -1,21 +1,21 @@
  ●●○ Agent Deck  11 sessions                                           <version>
   All    ● 1   ◐ 2   ○ 1   ■ 2   ✕ 5   !@#& filter • 0 all • % open • …
-SESSIONS                     │ PREVIEW
+ SESSIONS │ ISSUES │ PRS     │ PREVIEW
 ──────────────────────────── │ ─────────────────────────────────────────────────
 1·▾ alpha (7) ● 1 ◐ 1        │ claude-i18n  ◐ waiting
    ├─ ■ opencode-idle        │ 📁 /tmp/vc-<tmp>
    ├─ ✕ claude-idle          │ ⏱ <age>
    ├─ ◐ claude-waiting       │ ◉ no viewers
    └─ ■ claude-stopped       │  claude   beta
-    ▾ backend (3) ● 1        │ ────────────────── Claude ──────────────────
-     ├─ ✕ codex-idle         │ Status:  ● Connected
-     ├─ ● claude-running     │ Session: <uuid>
-     └─ ✕ claude-error       │ Model:   tool default
-2·▾ beta (4) ◐ 1             │ Fork:    f quick fork, F fork with options
-   ├─ ✕ gemini-idle          │
-   ├─ ✕ pi-idle              │ ────────────────── Output ──────────────────
-  ▶├─ ◐ claude-i18n          │ ⋮ 3 more lines above
-   └─ ○ shell-live           │ esc to interrupt
+    ▾ backend (3) ● 1        │ Git:     master · clean · no upstream
+     ├─ ✕ codex-idle         │ ────────────────── Claude ──────────────────
+     ├─ ● claude-running     │ Status:  ● Connected
+     └─ ✕ claude-error       │ Session: <uuid>
+2·▾ beta (4) ◐ 1             │ Model:   tool default
+   ├─ ✕ gemini-idle          │ Fork:    f quick fork, F fork with options
+   ├─ ✕ pi-idle              │
+  ▶├─ ◐ claude-i18n          │ ────────────────── Output ──────────────────
+   └─ ○ shell-live           │ ⋮ 4 more lines above
   ▾ remotes/lab (0) · host … │ नमस्ते दुनिया 🚀🌟 यह परीक्षण है।
                              │ ❯
                              │

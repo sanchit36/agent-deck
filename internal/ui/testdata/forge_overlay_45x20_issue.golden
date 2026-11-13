@@ -1,0 +1,20 @@
+ ○ #14822  gh run view --job --log-fa… open
+ [ Conversation ] 
+─────────────────────────────────────────────
+ henrymodisett · 2w
+ Symptom
+ 
+ gh run view RUN --job JOB --log-failed
+ fails before fetching logs for a completed
+ organization-required workflow run:
+ 
+ failed to get run: HTTP 404: Not Found (ht›
+ 
+ The same authenticated CLI can read the run
+ metadata and download that job's logs
+ directly. The workflow is required by an
+ organization ruleset and originates in a
+ shared workflow repository, rather than a
+ workflow file in the consumer checkout.
+ 1–15 of 169
+ j/k scroll · e expand hidden · esc close

@@ -1,0 +1,20 @@
+ ●●○ Agent Deck [_test]  0 sessions v1.16.10 
+  All    ● 0   ◐ 0   ○ 0   !@#& filter • …   
+PR #14927                                    
+─────────────────────────────────────────────
+◌ Add guided multi-account setup and         
+  evaluation                                 
+                                             
+state     ◌ draft                            
+branch    cli:williammartin-multiaccount-dra…
+into      williammartin-multiaccount-draft-0…
+checks    ✗ 1 failed · 11 passed · 13 skipped
+review    ? review required                  
+merge     ⊘ blocked                          
+diff      +4835 −1 · 21 files                
+sessions  ◉ fix login  a attach              
+local     none                               
+                                             
+TIMELINE                                     
+─────────────────────────────────────────────
+                 ? for help                  

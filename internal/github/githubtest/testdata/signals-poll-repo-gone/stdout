@@ -1,0 +1,1 @@
+{"data":{"r0":null,"reviews":{"nodes":[]}},"errors":[{"type":"NOT_FOUND","path":["r0"],"locations":[{"line":1,"column":9}],"message":"Could not resolve to a Repository with the name 'acme/widgets'."}]}

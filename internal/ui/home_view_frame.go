@@ -628,6 +628,12 @@ func (h *Home) renderFrame() string {
 	if h.contextPager.IsVisible() {
 		return h.contextPager.View()
 	}
+	if h.forgeMergeVisible() {
+		return h.renderForgeMerge()
+	}
+	if h.forgeOverlayVisible() {
+		return h.renderForgeOverlay()
+	}
 	if h.sessionPickerDialog.IsVisible() {
 		return h.sessionPickerDialog.View()
 	}
@@ -858,16 +864,19 @@ func (h *Home) renderFrame() string {
 	// total (statsCompact) rather than falling through to MaxWidth's blind
 	// mid-text byte truncation, which used to eat the badge on a busy
 	// fleet even with every optional field off (#2301 round-2).
-	optionalSegments := []string{sysStatsSegment, costSegment, accountsSegment, sshSegment}
+	// The review request count (`⇠ n reviews`, Attention signals) is kept
+	// longest: it is the one segment that asks the user to act.
+	optionalSegments := []string{h.reviewCountSegment(), sysStatsSegment, costSegment, accountsSegment, sshSegment}
+	const accountsAt, sshAt = 3, 4
 	headerLeft, versionFits := assembleHeaderLeft(logo, title, stats, statsCompact, statsSep, optionalSegments, versionBadge, h.width)
 	if !versionFits {
 		// Retry with the ssh and accounts fields' compact forms before
 		// dropping them outright.
-		optionalSegments[3] = sshCompactSegment
+		optionalSegments[sshAt] = sshCompactSegment
 		headerLeft, versionFits = assembleHeaderLeft(logo, title, stats, statsCompact, statsSep, optionalSegments, versionBadge, h.width)
 	}
 	if !versionFits {
-		optionalSegments[2] = accountsCompactSegment
+		optionalSegments[accountsAt] = accountsCompactSegment
 		headerLeft, versionFits = assembleHeaderLeft(logo, title, stats, statsCompact, statsSep, optionalSegments, versionBadge, h.width)
 	}
 	_ = versionFits // best-effort below this point; an unreasonably narrow terminal still gets a legible (if cramped) header
@@ -1560,14 +1569,14 @@ func (h *Home) renderDualColumnLayout(contentHeight int) string {
 	// Issue #1092: when the user just adjusted the split, briefly append
 	// the new ratio to both titles so the change is visible.
 	sessionsTitle := h.sidebarTitle()
-	previewTitle := "PREVIEW"
+	previewTitle := h.previewPaneTitle()
 	if !h.previewPctOverlayAt.IsZero() && time.Now().Before(h.previewPctOverlayAt) {
 		pct := h.getPreviewPct()
 		sessionsTitle = fmt.Sprintf("SESSIONS %d%%", 100-pct)
 		previewTitle = fmt.Sprintf("PREVIEW %d%%", pct)
 	}
-	leftTitle := h.renderPanelTitle(sessionsTitle, leftWidth)
-	leftContent := h.renderSessionList(leftWidth, panelContentHeight)
+	leftTitle := h.leftPanelTitle(sessionsTitle, leftWidth)
+	leftContent := h.renderLeftPane(leftWidth, panelContentHeight)
 	// CRITICAL: Ensure left content has exactly panelContentHeight lines
 	leftContent = ensureExactHeight(leftContent, panelContentHeight)
 	leftPanel := leftTitle + "\n" + leftContent
@@ -1673,8 +1682,8 @@ func (h *Home) renderStackedLayout(totalHeight int) string {
 	}
 
 	// Session list (full width)
-	listTitle := h.renderPanelTitle(h.sidebarTitle(), h.width)
-	listContent := h.renderSessionList(h.width, listHeight-2) // -2 for title
+	listTitle := h.leftPanelTitle(h.sidebarTitle(), h.width)
+	listContent := h.renderLeftPane(h.width, listHeight-2) // -2 for title
 	listContent = ensureExactHeight(listContent, listHeight-2)
 	b.WriteString(listTitle)
 	b.WriteString("\n")
@@ -1687,7 +1696,7 @@ func (h *Home) renderStackedLayout(totalHeight int) string {
 	b.WriteString("\n")
 
 	// Preview (full width)
-	previewTitle := h.renderPanelTitle("PREVIEW", h.width)
+	previewTitle := h.renderPanelTitle(h.previewPaneTitle(), h.width)
 	previewContent := h.renderPreviewPane(h.width, previewHeight-2) // -2 for title
 	previewContent = ensureExactHeight(previewContent, previewHeight-2)
 	b.WriteString(previewTitle)
@@ -1704,8 +1713,16 @@ func (h *Home) renderSingleColumnLayout(totalHeight int) string {
 	// Full height for list
 	listHeight := totalHeight - 2 // -2 for title
 
-	listTitle := h.renderPanelTitle(h.sidebarTitle(), h.width)
-	listContent := h.renderSessionList(h.width, listHeight)
+	// A forge tab's full-screen detail (enter) takes the list's place.
+	if h.forgeDetailFull() {
+		b.WriteString(h.renderPanelTitle(h.forgeDetailTitle(), h.width))
+		b.WriteString("\n")
+		b.WriteString(ensureExactHeight(h.renderForgeDetail(h.width, listHeight), listHeight))
+		return b.String()
+	}
+
+	listTitle := h.leftPanelTitle(h.sidebarTitle(), h.width)
+	listContent := h.renderLeftPane(h.width, listHeight)
 	listContent = ensureExactHeight(listContent, listHeight)
 
 	b.WriteString(listTitle)
@@ -1748,6 +1765,9 @@ func (h *Home) renderEmbeddedOnlyLayout(contentHeight int) string {
 func (h *Home) renderHelpBar() string {
 	if h.width < layoutBreakpointSingle {
 		return h.renderHelpBarTiny()
+	}
+	if h.forgeTabActive() {
+		return h.renderForgeHelpBar()
 	}
 
 	switch h.footerMode {

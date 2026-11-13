@@ -25,6 +25,7 @@ import (
 	"github.com/asheshgoplani/agent-deck/internal/docker"
 	"github.com/asheshgoplani/agent-deck/internal/feedback"
 	"github.com/asheshgoplani/agent-deck/internal/git"
+	"github.com/asheshgoplani/agent-deck/internal/gitstate"
 	"github.com/asheshgoplani/agent-deck/internal/health"
 	"github.com/asheshgoplani/agent-deck/internal/intervalhook"
 	"github.com/asheshgoplani/agent-deck/internal/jujutsu"
@@ -503,10 +504,12 @@ type Home struct {
 	// rules and remoteOrder for why the scoping is nested).
 	remoteSessionOrder remoteOrder
 
-	// Worktree dirty status cache (lazy, 10s TTL)
-	worktreeDirtyCache   map[string]bool      // sessionID -> isDirty
-	worktreeDirtyCacheTs map[string]time.Time // sessionID -> cache timestamp
-	worktreeDirtyMu      sync.Mutex           // Protects dirty cache maps
+	// Local git state per checkout path (10s TTL), filled by an async fetch
+	// from the preview-debounce handler and read by the render path, which
+	// never runs git. gitStateFetch is the reader (gitstate.Fetch; tests
+	// swap in a fake).
+	gitState      *gitstate.Cache
+	gitStateFetch func(ctx context.Context, path string) gitstate.State
 
 	// Memory management: periodic cache pruning
 	lastCachePrune time.Time
@@ -1003,6 +1006,9 @@ type Home struct {
 	// cadence ([interval_hooks] in config.toml). nil when none are configured.
 	intervalHookRunner *intervalhook.Runner
 
+	// forge is the Issues/PRs tab state ([github] enabled; forge_tabs.go).
+	forge forgeState
+
 	// Insert mode (#1069, feature 1): vim-style modal type-through. When
 	// active, printable runes, Space, and Enter are routed directly to the
 	// focused session's tmux pane instead of being interpreted as TUI
@@ -1219,6 +1225,7 @@ func (h *Home) saveToolVisibilityConfig() error {
 
 func (h *Home) reloadHotkeysFromConfig() {
 	h.setHotkeys(resolveHotkeys(session.GetHotkeyOverrides()))
+	h.reloadForgeFromConfig()
 }
 
 func (h *Home) detachByte() byte {
@@ -2220,7 +2227,14 @@ func (h *Home) updateInner(msg tea.Msg) (tea.Model, tea.Cmd) {
 		// is enabled only for the embedded layout; classic mode never sees
 		// this message.)
 		h.clearDividerHover()
+		// The forge stops polling while the terminal is in the background.
+		h.forge.background = true
 		return h, nil
+
+	case tea.FocusMsg:
+		// Back in the foreground: fetch whatever the forge view missed.
+		h.forge.background = false
+		return h, h.forgeRefreshDue()
 
 	case tea.WindowSizeMsg:
 		h.width = msg.Width
@@ -2250,6 +2264,7 @@ func (h *Home) updateInner(msg tea.Msg) (tea.Model, tea.Cmd) {
 		h.promptInputDialog.SetSize(msg.Width, msg.Height)
 		h.scrollbackPager.SetSize(msg.Width, msg.Height)
 		h.contextPager.SetSize(msg.Width, msg.Height)
+		h.forgeOverlaySetSize(msg.Width, msg.Height)
 		if h.embeddedMode && h.embeddedTerminal != nil {
 			h.syncEmbeddedTerminalGeometry()
 			return h, nil
@@ -2312,6 +2327,10 @@ func (h *Home) updateInner(msg tea.Msg) (tea.Model, tea.Cmd) {
 				}
 				return h, nil
 			}
+			if h.forgeOverlayVisible() {
+				h.handleForgeOverlayWheel(msg.Button == tea.MouseButtonWheelUp)
+				return h, nil
+			}
 			if h.contextPager.IsVisible() {
 				// Wheel scrolls the inspector body without moving the
 				// selection, matching the scrollback pager above.
@@ -2364,6 +2383,15 @@ func (h *Home) updateInner(msg tea.Msg) (tea.Model, tea.Cmd) {
 					}
 					return h, nil
 				}
+			}
+			// A forge tab's list scrolls its own cursor.
+			if h.forgeTabActive() {
+				if msg.Button == tea.MouseButtonWheelUp {
+					h.moveForgeCursor(moveUp)
+				} else {
+					h.moveForgeCursor(moveDown)
+				}
+				return h, h.syncForgeDetail()
 			}
 			// Main session list scroll (cursor movement also resets any
 			// stale preview offset so the new session starts at its tail).
@@ -4049,8 +4077,16 @@ func (h *Home) updateInner(msg tea.Msg) (tea.Model, tea.Cmd) {
 			h.setError(fmt.Errorf("edit message: %w", msg.err))
 		} else if h.promptInputDialog.IsVisible() {
 			h.promptInputDialog.input.SetValue(msg.text)
+		} else if h.newDialog.IsVisible() && h.newDialog.forge != nil {
+			h.newDialog.forge.setEdited(msg.text)
 		}
 		return h, nil
+
+	case forgeLaunchTextMsg:
+		return h, h.applyForgeLaunchText(msg)
+
+	case forgeLaunchedMsg:
+		return h, h.applyForgeLaunched(msg)
 
 	case promptDeliveryMsg:
 		if msg.err != nil {
@@ -4450,23 +4486,9 @@ func (h *Home) updateInner(msg tea.Msg) (tea.Model, tea.Cmd) {
 				}
 			}
 
-			// Worktree dirty status check (lazy, 10s TTL)
-			if inst.IsWorktree() && inst.WorktreePath != "" {
-				h.worktreeDirtyMu.Lock()
-				cacheTs, hasCached := h.worktreeDirtyCacheTs[inst.ID]
-				needsCheck := !hasCached || time.Since(cacheTs) > 10*time.Second
-				if needsCheck {
-					h.worktreeDirtyCacheTs[inst.ID] = time.Now() // Prevent duplicate fetches
-				}
-				h.worktreeDirtyMu.Unlock()
-				if needsCheck {
-					sid := inst.ID
-					wtPath := inst.WorktreePath
-					cmds = append(cmds, func() tea.Msg {
-						dirty, err := git.HasUncommittedChanges(wtPath)
-						return worktreeDirtyCheckMsg{sessionID: sid, isDirty: dirty, err: err}
-					})
-				}
+			// Local git state (async, 10s TTL per checkout path)
+			if cmd := h.gitStateCmd(inst, false); cmd != nil {
+				cmds = append(cmds, cmd)
 			}
 
 			if len(cmds) > 0 {
@@ -4494,6 +4516,43 @@ func (h *Home) updateInner(msg tea.Msg) (tea.Model, tea.Cmd) {
 		}
 		h.previewCacheMu.Unlock()
 		return h, nil
+
+	case forgeGroupResolvedMsg:
+		return h, h.applyForgeGroupResolved(msg)
+
+	case forgeParentResolvedMsg:
+		return h, h.applyForgeParentResolved(msg)
+
+	case forgeFetchedMsg:
+		return h, h.applyForgeFetched(msg)
+
+	case forgePRLocalReadMsg:
+		h.applyForgePRLocalRead(msg)
+		return h, nil
+
+	case forgeAutoLinkedMsg:
+		h.applyForgeAutoLinked(msg)
+		return h, nil
+
+	case forgeDetailOpenMsg:
+		return h, h.applyForgeDetailOpen(msg)
+
+	case forgeURLDoneMsg:
+		h.applyForgeURLDone(msg)
+		return h, nil
+
+	case forgePagerDoneMsg:
+		h.applyForgePagerDone(msg)
+		return h, nil
+
+	case forgeMergeInfoMsg:
+		return h, h.applyForgeMergeInfo(msg)
+
+	case forgeMergeDoneMsg:
+		return h, h.applyForgeMergeDone(msg)
+
+	case forgeMergeDirtyMsg:
+		return h, h.applyForgeMergeDirty(msg)
 
 	case analyticsFetchedMsg:
 		// Async analytics parsing complete - update TTL cache
@@ -4533,17 +4592,11 @@ func (h *Home) updateInner(msg tea.Msg) (tea.Model, tea.Cmd) {
 		}
 		return h, nil
 
-	case worktreeDirtyCheckMsg:
-		// Update worktree dirty status cache
-		if msg.err == nil {
-			h.worktreeDirtyMu.Lock()
-			h.worktreeDirtyCache[msg.sessionID] = msg.isDirty
-			h.worktreeDirtyCacheTs[msg.sessionID] = time.Now()
-			h.worktreeDirtyMu.Unlock()
-		}
+	case gitStateFetchedMsg:
+		h.gitState.Put(msg.path, msg.state, time.Now())
 		// Also update the finish dialog if it's open for this session
-		if h.worktreeFinishDialog.IsVisible() && h.worktreeFinishDialog.GetSessionID() == msg.sessionID && msg.err == nil {
-			h.worktreeFinishDialog.SetDirtyStatus(msg.isDirty)
+		if msg.state.Err == nil && h.worktreeFinishDialog.IsVisible() && h.worktreeFinishDialog.GetSessionID() == msg.sessionID {
+			h.worktreeFinishDialog.SetDirtyStatus(msg.state.Dirty)
 		}
 		return h, nil
 
@@ -4592,10 +4645,9 @@ func (h *Home) updateInner(msg tea.Msg) (tea.Model, tea.Cmd) {
 		delete(h.analyticsCacheTime, msg.sessionID)
 		h.analyticsCacheMu.Unlock()
 		h.invalidateContextReport(msg.sessionID)
-		h.worktreeDirtyMu.Lock()
-		delete(h.worktreeDirtyCache, msg.sessionID)
-		delete(h.worktreeDirtyCacheTs, msg.sessionID)
-		h.worktreeDirtyMu.Unlock()
+		if inst != nil {
+			h.gitState.Invalidate(h.gitCheckoutPath(inst))
+		}
 		h.logActivityMu.Lock()
 		delete(h.lastLogActivity, msg.sessionID)
 		h.logActivityMu.Unlock()
@@ -4940,7 +4992,7 @@ func (h *Home) updateInner(msg tea.Msg) (tea.Model, tea.Cmd) {
 		// restarted (update --check --json).
 		h.maybeWriteHeartbeat(now)
 
-		cmds := []tea.Cmd{h.tick(), previewCmd, remoteFetchCmd, remoteLatencyCmd, h.syncRemotePaneWatch(), updateCheckCmd, binaryProbeCmd, autoRestartCmd, h.askDialog.PollCmd(now)}
+		cmds := []tea.Cmd{h.tick(), previewCmd, remoteFetchCmd, remoteLatencyCmd, h.syncRemotePaneWatch(), updateCheckCmd, binaryProbeCmd, autoRestartCmd, h.askDialog.PollCmd(now), h.forgeOnTick()}
 		if h.fullRepaint {
 			cmds = append(cmds, tea.ClearScreen)
 		}
@@ -5181,6 +5233,12 @@ func (h *Home) updateInner(msg tea.Msg) (tea.Model, tea.Cmd) {
 		if h.contextPager.IsVisible() {
 			return h.handleContextPagerKey(msg)
 		}
+		if h.forgeMergeVisible() {
+			return h.handleForgeMergeKey(msg)
+		}
+		if h.forgeOverlayVisible() {
+			return h.handleForgeOverlayKey(msg)
+		}
 		if h.sessionPickerDialog.IsVisible() {
 			return h.handleSessionPickerDialogKey(msg)
 		}
@@ -5309,6 +5367,12 @@ func newGlobalSearchInstance(result *GlobalSearchResult, group string) *session.
 
 // handleMouse handles mouse events (click to select, double-click to activate)
 func (h *Home) handleMouse(msg tea.MouseMsg) (tea.Model, tea.Cmd) {
+	// The forge overlay takes clicks on its tab row; it is drawn under the
+	// panels and pagers the wheel routing above also checks first.
+	if h.forgeOverlayVisible() && !h.forgeMergeVisible() && msg.Button == tea.MouseButtonLeft && msg.Action == tea.MouseActionPress &&
+		!h.settingsPanel.IsVisible() && !h.helpOverlay.IsVisible() && !h.scrollbackPager.IsVisible() && !h.contextPager.IsVisible() {
+		return h, h.handleForgeOverlayClick(msg.X, msg.Y)
+	}
 	if h.hasModalVisible() {
 		// A modal opening mid-drag shouldn't leave the divider stuck grabbed.
 		// Treat it as a release so the dragged-to ratio is preserved.
@@ -5329,6 +5393,13 @@ func (h *Home) handleMouse(msg tea.MouseMsg) (tea.Model, tea.Cmd) {
 	case tea.MouseButtonLeft:
 		if msg.Action != tea.MouseActionPress {
 			return h, nil
+		}
+
+		// The tab strip and the forge lists ([github] enabled).
+		if h.forge.enabled {
+			if handled, cmd := h.handleForgeMouseClick(msg.X, msg.Y); handled {
+				return h, cmd
+			}
 		}
 
 		// Check if click is in the session list panel
@@ -5447,6 +5518,13 @@ func (h *Home) handleMainKey(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 	raw := msg.String()
 	key := h.normalizeMainKey(raw)
 	uiLog.Info("keypress", "raw", raw, "normalized", key, "type", msg.Type, "runes", string(msg.Runes))
+	// The forge key space ([github] enabled): tab keys from every tab, and
+	// on Issues/PRs the forge handler sees keys before the global switch.
+	if h.forge.enabled {
+		if handled, model, cmd := h.handleForgeKey(msg, raw, key); handled {
+			return model, cmd
+		}
+	}
 	if key == "" {
 		return h, nil
 	}
@@ -6150,13 +6228,8 @@ func (h *Home) handleMainKey(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 				}
 				h.worktreeFinishDialog.SetSize(h.width, h.height)
 				h.worktreeFinishDialog.Show(inst.ID, inst.Title, inst.WorktreeBranch, inst.WorktreeRepoRoot, inst.WorktreePath, defaultBranch)
-				// Trigger async dirty check
-				sid := inst.ID
-				wtPath := inst.WorktreePath
-				return h, func() tea.Msg {
-					dirty, err := git.HasUncommittedChanges(wtPath)
-					return worktreeDirtyCheckMsg{sessionID: sid, isDirty: dirty, err: err}
-				}
+				// Trigger an async dirty check, fresh even within the TTL
+				return h, h.gitStateCmd(inst, true)
 			}
 		}
 		return h, nil
@@ -7158,7 +7231,12 @@ func (h *Home) performFinalShutdown(shutdownPool bool) tea.Cmd {
 	// Deletes still on the undo stack can no longer be undone once the TUI
 	// exits: take them here, on the Update goroutine, and sweep them below.
 	finalDeletes := undoEntryIDs(h.takeUndoStack())
+	// The forge's gh work (fetches, Project resolution) and the Attention
+	// signal poller are cancelled and joined below; take their handles
+	// here, on the Update goroutine.
+	stopForge := h.forgeShutdown()
 	return func() tea.Msg {
+		stopForge()
 		if len(finalDeletes) > 0 {
 			runBounded(5*time.Second, func() { finalizeRemovedSessions(h.storage, "delete", finalDeletes) })
 		}
@@ -8408,6 +8486,13 @@ func (h *Home) renderSessionItem(
 		worktreeBadge = wtStyle.Render(" [" + branch + "]")
 	}
 
+	// Link badge (#12 / PR#34) from the session's stored Issue/PR links,
+	// with their Attention signal glyphs while the poller runs.
+	linkBadge := ""
+	if text := h.linkBadgeText(inst); text != "" {
+		linkBadge = renderLinkBadge(text, selected)
+	}
+
 	// Sandbox badge for containerized sessions.
 	sandboxBadge := ""
 	if inst.IsSandboxed() {
@@ -8526,7 +8611,7 @@ func (h *Home) renderSessionItem(
 	reserved := leftGutterWidth + cellWidth(baseIndent) + cellWidth(selectionPrefix) +
 		cellWidth(treeStyle.Render(treeConnector)) + cellWidth(windowChevron) + cellWidth(childFoldBadge) +
 		cellWidth(status) + 1 + cellWidth(tool) +
-		cellWidth(maestroBadge) + cellWidth(yoloBadge) + cellWidth(worktreeBadge) +
+		cellWidth(maestroBadge) + cellWidth(yoloBadge) + cellWidth(worktreeBadge) + cellWidth(linkBadge) +
 		cellWidth(sandboxBadge) + cellWidth(multiRepoBadge) + cellWidth(sshBadge) +
 		cellWidth(agentBadge) + cellWidth(timestampBadge)
 	// Keep a useful title before spending narrow-row space on a worktree badge.
@@ -8545,6 +8630,21 @@ func (h *Home) renderSessionItem(
 				worktreeBadge = lipgloss.NewStyle().Foreground(ColorCyan).Render(badge)
 			}
 			reserved = reserved - originalWidth + cellWidth(badge)
+		}
+	}
+	// The link badge never squeezes the title under its floor: in a column
+	// too narrow for it, it falls back to shorter forms (a session with both
+	// links keeps only the PR; live glyphs go before the label), then drops
+	// (#2201: badges yield to the title).
+	if listWidth > 0 && linkBadge != "" && listWidth-reserved-1 < minSessionTitleWidth {
+		reserved -= cellWidth(linkBadge)
+		linkBadge = ""
+		for _, short := range h.linkBadgeFallbacks(inst) {
+			if listWidth-reserved-cellWidth(short)-2 >= minSessionTitleWidth {
+				linkBadge = renderLinkBadge(short, selected)
+				reserved += cellWidth(linkBadge)
+				break
+			}
 		}
 	}
 	// Reserve the title's floor before the viewers and account badges claim
@@ -8594,7 +8694,7 @@ func (h *Home) renderSessionItem(
 	// The leading gutter (leftGutterWidth) keeps sessions aligned with group
 	// rows, which reserve the same gutter for root hotkey numbers.
 	row := fmt.Sprintf(
-		"%s%s%s%s%s%s %s%s%s%s%s%s%s%s%s%s%s%s%s%s",
+		"%s%s%s%s%s%s %s%s%s%s%s%s%s%s%s%s%s%s%s%s%s",
 		strings.Repeat(" ", leftGutterWidth),
 		baseIndent,
 		selectionPrefix,
@@ -8606,6 +8706,7 @@ func (h *Home) renderSessionItem(
 		maestroBadge,
 		yoloBadge,
 		worktreeBadge,
+		linkBadge,
 		sandboxBadge,
 		multiRepoBadge,
 		sshBadge,

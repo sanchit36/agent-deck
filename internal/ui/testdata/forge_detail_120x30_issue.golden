@@ -1,0 +1,30 @@
+ ●●○ Agent Deck [_test]  no sessions                                                                           v1.16.10 
+  All    ● 0   ◐ 0   ○ 0   !@#& filter • 0 all • % open • ^ archived • t view • * time                                  
+ SESSIONS │ ISSUES 1075 │ PRS              │ ISSUE #14822                                                               
+────────────────────────────────────────── │ ───────────────────────────────────────────────────────────────────────────
+me/widgets ▾  is:open            6 of 1075 │ ○ gh run view --job --log-failed fails on required shared-workflow metadata
+▌ ○ gh run view --job --log-failed fails … │   404                                                                      
+▌   #14822 · 15m  ◉ triage run +1  bug, p… │                                                                            
+                                           │ state     ○ open                                                           
+  ○ gh auth saves plain text token, even … │ author    henrymodisett                                                    
+    #8954 · 3f6a · 48m  bug, needs-triage… │ age       2w                                                               
+                                           │ labels    bug, priority-3, gh-run                                          
+  ○ `gh pr create` reports a generic perm… │ assignee  none                                                             
+    #14874 · will-lynas · 2h  blocked, en… │ comments  5                                                                
+                                           │ sessions  ◉ triage run, repro  a attach                                    
+  ○ Support generating `.gitignore` files… │                                                                            
+    #15047 · antarupdey81 · 3h  needs-tri… │ TIMELINE                                                                   
+                                           │ 15m  henrymodisett commented                                               
+  ○ `gh run view --log` silently drops th… │ 2w   henrymodisett commented                                               
+    #15019 · jeffwall-curlewlabs · 6h  ne… │ 2w   henrymodisett commented                                               
+                                           │ 2w   duongynhi000005-oss commented                                         
+  ○ `gh cs create` doesn't offer location… │ 2w   cli-triage commented                                                  
+    #14558 · ghost · 10h  enhancement, gh… │                                                                            
+                                           │                                                                            
+                                           │                                                                            
+                                           │                                                                            
+                                           │                                                                            
+                                           │                                                                            
+                                           │                                                                            
+────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────
+[/] tabs  enter view  n new  a attach  o open  y copy url  / filter  r refresh  p project  P parent  S settings  ? help 

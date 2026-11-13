@@ -1,0 +1,20 @@
+ ◌ #14927  Add guided multi-account … draft
+   Conversation   [ Files ] 
+─────────────────────────────────────────────
+ ⚠ large PR: 4,836 changed lines in 21 files
+ A …ites/SKILL.md +79 −0  file 1/21 · f list 
+ @@ -0,0 +1,79 @@                            
+     1 + ---                                 
+     2 + name: setting-up-identites          
+     3 + description: Use when a user wants ›
+     4 + ---                                 
+     5 +                                     
+     6 + # Setting up GitHub CLI identities  
+     7 +                                     
+     8 + Guide setup of this **unreleased pr›
+     9 + language; ask one focused question,›
+    10 + [workflow reference](references/wor›
+    11 +                                     
+    12 + ## 1. Establish the target          
+ 1–13 of 80
+ c/d tabs · f files · n/N hunk · ]/[ file · …

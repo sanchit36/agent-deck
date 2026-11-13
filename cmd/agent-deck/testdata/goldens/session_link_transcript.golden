@@ -1,0 +1,112 @@
+$ agent-deck session link golden-sess-1 issue 12 --repo acme/app
+exit 0
+--- stdout
+✓ Linked 'claude idle' to github.com/acme/app #12
+--- stderr
+
+$ agent-deck session link golden-sess-1 pr 34 --repo ghe.corp.example/team/svc --json
+exit 0
+--- stdout
+{
+  "badge": "PR#34",
+  "kind": "pr",
+  "linked": true,
+  "number": 34,
+  "profile": "goldens",
+  "repo": "ghe.corp.example/team/svc",
+  "session_id": "golden-sess-1",
+  "success": true,
+  "title": "claude idle"
+}
+--- stderr
+
+$ agent-deck session link golden-sess-1 issue #13 --repo acme/app --json
+exit 0
+--- stdout
+{
+  "badge": "#13",
+  "kind": "issue",
+  "linked": true,
+  "number": 13,
+  "profile": "goldens",
+  "repo": "github.com/acme/app",
+  "session_id": "golden-sess-1",
+  "success": true,
+  "title": "claude idle"
+}
+--- stderr
+
+$ agent-deck session link golden-sess-1 pull 3 --repo acme/app
+exit 1
+--- stdout
+--- stderr
+Error: invalid link kind "pull": want issue or pr
+
+$ agent-deck session link golden-sess-1 issue 0 --repo acme/app
+exit 1
+--- stdout
+--- stderr
+Error: invalid number "0": want a positive issue or PR number
+
+$ agent-deck session link golden-sess-1 issue 5 --repo not-a-repo
+exit 1
+--- stdout
+--- stderr
+Error: invalid repo "not-a-repo": want OWNER/NAME or HOST/OWNER/NAME
+
+$ agent-deck session link golden-sess-1 issue 5
+exit 1
+--- stdout
+--- stderr
+Error: finding the repo of session 'claude idle' (pass --repo): reading the git repository of /repo/app: not a git repository
+
+$ agent-deck session link no-such-session issue 5 --repo acme/app
+exit 2
+--- stdout
+--- stderr
+Error: session 'no-such-session' not found
+
+$ agent-deck session link golden-sess-1
+exit 1
+--- stdout
+Usage: agent-deck session link <session> issue|pr <number> [--repo [HOST/]OWNER/NAME]
+
+Link a session to a GitHub issue or pull request. A session holds at most
+one issue link and one PR link; linking again replaces the old one.
+The TUI shows the link as a #12 / PR#34 badge on the session row.
+
+Options:
+--- stderr
+  -json
+    	Output as JSON
+  -q	Minimal output (short)
+  -quiet
+    	Minimal output
+  -repo string
+    	Repo as OWNER/NAME or HOST/OWNER/NAME (default: the session checkout's origin, else its first GitHub remote by name)
+
+$ agent-deck session unlink golden-sess-1 pr --json
+exit 0
+--- stdout
+{
+  "kind": "pr",
+  "linked": false,
+  "profile": "goldens",
+  "session_id": "golden-sess-1",
+  "success": true,
+  "title": "claude idle"
+}
+--- stderr
+
+$ agent-deck session unlink golden-sess-1 pr
+exit 1
+--- stdout
+--- stderr
+Error: session 'claude idle' has no pr link
+
+$ agent-deck session unlink golden-sess-1 pull
+exit 1
+--- stdout
+--- stderr
+Error: invalid link kind "pull": want issue or pr
+

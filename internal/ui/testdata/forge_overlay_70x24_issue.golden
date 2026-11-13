@@ -1,0 +1,24 @@
+ ○ #14822  gh run view --job --log-failed fails on required sh… open
+ [ Conversation ] 
+──────────────────────────────────────────────────────────────────────
+ henrymodisett · 2w
+ Symptom
+ 
+ gh run view RUN --job JOB --log-failed fails before fetching logs
+ for a completed organization-required workflow run:
+ 
+ failed to get run: HTTP 404: Not Found (https://api.github.com/repo›
+ 
+ The same authenticated CLI can read the run metadata and download
+ that job's logs directly. The workflow is required by an
+ organization ruleset and originates in a shared workflow repository,
+ rather than a workflow file in the consumer checkout.
+ 
+ Repro
+ 
+ 1. Configure a ruleset-required workflow from a shared repository
+    and let its run complete for a consumer PR.
+ 2. Obtain the run/job IDs from the PR check URL.
+ 3. Run gh run view RUN --repo ORG/CONSUMER --job JOB --log-failed;
+ 1–19 of 120
+ j/k scroll · e expand hidden · o open · y copy url · esc close

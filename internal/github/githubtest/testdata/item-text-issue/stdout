@@ -1,0 +1,1 @@
+{"data":{"repository":{"issueOrPullRequest":{"__typename":"Issue","body":"Pressing n on an empty list crashes.\r\n\r\nSteps: open the Issues tab, press n.","comments":{"totalCount":2,"nodes":[{"author":{"login":"alice"},"body":"I can reproduce this on main.","createdAt":"2026-11-10T09:00:00Z"},{"author":null,"body":"Same here.","createdAt":"2026-11-11T10:30:00Z"}]}}}}}

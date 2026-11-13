@@ -120,6 +120,12 @@ For remote group headers, `Enter`/`Tab` toggles collapse and `h`/Left collapses 
 
 Local parent rows with sub-sessions (for example a conductor and the sessions it spawned) carry a `▾N`/`▸N` child-fold badge after the row title. `Tab`/`l`/`→` toggles just that child list; `h`/`←` folds it shut, and on an already-folded parent continues to the window fold or the group collapse. Unfolding a parent also reopens its window rows, and a search jump or focus request to a hidden child unfolds its parent. Folded parents keep their own row, mirroring a collapsed group header, and the fold state persists per machine alongside the other view preferences.
 
+A session linked to a GitHub issue or pull request carries a static `#12` / `PR#34` badge after its worktree branch, both when it has both (`#12 PR#34`); the embedded sidebar card shows the same text on its metadata line. The badge is drawn from the stored link only, with no network or `git` call on the render path, and yields to the title in a narrow column: it keeps only `PR#34`, then drops. Links are made with `agent-deck session link` / `unlink`, or by the PRs tab's head-branch auto-detect (see GitHub tabs); there is no TUI key for them.
+
+Attention signals (off with `[github] signals = false` or `[github] enabled = false`) add the linked item's live state after each label: for a PR `✗` checks failing, `±` changes requested or `✔` approved, `◆` merged, `✕` closed; for an Issue `✓` closed (`#12 ✓ PR#34 ✗±`). A badge shows while its condition holds; nothing is acknowledged or saved. A host `gh` is not logged in to shows `⚠` on its own badges only. In a narrow column the badge falls back to the PR with its glyphs, then to the bare label. The header shows `⇠ n reviews` for open PRs that request your review by name (team requests do not count), and the `PRS` chip shows the on-screen Project's share (`PRS 12 ⇠1`); no key jumps from them. The state comes from one batched `gh api graphql` request per host every `[github] refresh_interval` (one request covers every linked item on the host and the review search), made by a poller that runs while the TUI runs, attached or not; the session list only reads its last result.
+
+Only a change raises a notification, never the first load or a restart: checks going to failing, a review going to changes requested or to approved, the PR merged or closed (a closed Issue does not notify), and a new review request. Each one marks the linked session on the tmux notification bar with the signal's glyph before its title (`[1] ✗ fix login`), even when the session is not waiting, until you attach to it or jump to it from the bar; with `[notifications] desktop = true` it also raises a desktop notification naming the session and what changed.
+
 ### Copy & Text Selection
 
 Dragging with the mouse does **not** select text: the TUI puts the terminal in
@@ -203,6 +209,286 @@ Inside the search prompt, `/waiting`, `/running` and `/idle` filter by status.
 | `Alt+W` | Show me around: "What you can do" (sessions, switching, send, conductor, remotes, each with its key), then `Tab` for your agents and sign-in (`show_around`, **rebindable**) |
 | `Alt+N` | What's new: this version's highlights and any of your reports it fixed, each with "Is it fixed for you?" (`y`/`n`, optional comment, then the exact public comment and the GitHub account that posts it; posted only after you press `y`, never while gh is not logged in). Also opens by itself on the first start after an update (`whats_new`, **rebindable**) |
 | `q` / `Ctrl+C` | Quit (**rebindable**) |
+
+### GitHub tabs
+
+The GitHub integration is on by default. It reaches GitHub only through the
+`gh` CLI, so it needs `gh` on `PATH` and logged in to the host (`gh auth
+login`, `-h <host>` for GitHub Enterprise). `[github] enabled = false` in
+`config.toml` turns it off: no tab strip, no forge keys, no signal poller and
+no `gh` calls (see the configuration reference).
+
+The left panel's title row is a tab strip,
+`SESSIONS │ ISSUES n │ PRS n` (`AGENTS` in the embedded layout, where the
+`FLAT`/`GROUPED` label moves to the right end of the row). The active tab is
+the inverted chip; the counts are the open Issues and PRs once a list has
+loaded. The strip takes no extra row, and a click on a chip switches to it.
+Each tab keeps its own cursor and scroll position.
+
+The first row of the Issues and PRs tabs is the Project line: `owner/repo ▾`
+and the filter, or one line saying why the group has no GitHub Project (`not a
+git repository`, `no GitHub remote`, `remote is on gitlab.com, not GitHub`, ...).
+The Project is resolved the first time a forge tab shows the group, never while
+the list is drawn. Click the `owner/repo ▾` chip or press `p` to choose among a
+group's Projects; it starts on the selected session's Project.
+
+The Issues tab lists the 100 most recently updated open Issues, fetched in one
+GitHub GraphQL request. Each Issue is two lines and a blank: the state glyph
+(`○` open, `✓` closed) and the title, then `#n · author · age` and the labels,
+dim. The selected row has a `▌` bar; long titles and labels are cut at the
+pane's edge with `…`. A repository with Issues turned off says `Issues are
+disabled for owner/repo`; an empty list says `No open issues`.
+
+The PRs tab lists the 100 most recently updated open pull requests the same
+way, in one GraphQL request that asks for each PR's overall check state only
+(never the individual checks). Line 1 is the state glyph (`●` open, `◌` draft,
+`◆` merged, `✕` closed) and the title; line 2 is `#n · author · age`, then the
+checks (`✓ ci` passing, `✗ ci` failing, `◷ ci` running, `· ci` none) and the
+review (`✔ review` approved, `± review` changes requested, `? review` review
+required, `· review` none). An empty list says `No open pull requests`.
+
+A row linked to a session ends with `◉ <session title>` (`+n` when more
+sessions are linked), on both tabs. When the PRs list arrives, a session in a
+git worktree whose branch is a PR's head branch, in the repository the
+session's Project resolves to, is linked to that PR, the most recently updated
+one if several match. A session that already has a PR link keeps it; SSH
+sessions are never linked this way, and neither is a session whose PR link
+you removed with `session unlink <id> pr` (until you link a PR to it again). This runs in the background, never while
+the list is drawn.
+
+On the Issues and PRs tabs the right pane (the lower one in the stacked
+layout) is the selected row's detail, titled `ISSUE #n` or `PR #n`: the
+title, then a key/value block and a short timeline, newest first. An Issue
+shows its state, author, age, labels, assignee, comment count and linked
+sessions; a PR shows its state, head branch (`owner:branch` from a fork),
+base branch (`into`), checks (`✗ 1 failed · 11 passed`), review, merge state
+(`⇢` clean, `≠` conflict, `↓` behind, `⊘` blocked), diff size
+(`+120 −30 · 7 files`), linked sessions and `local`. The timeline lists the last
+comments, reviews, pushes, check results and state changes. The body and
+comments are in the overlay (`Enter`). The detail is one GraphQL request: its cached
+copy shows at once, it is fetched fresh each time you open it (once the
+cursor rests on the row), and it refetches while on screen every
+`[github] refresh_interval` and when the list reports the item changed. In the single column the list has the screen;
+`Enter` opens the selected row's detail full screen and `Esc` returns to the
+list.
+
+A PR's `local` row is your local copy of its head, for example
+`local  feature/42-x · ↑2 unpushed · dirty  +1 more`. The checkouts are the
+worktrees of the sessions linked to the PR, then any worktree or branch of the
+Project's local repo that tracks the PR head (its head branch, or GitHub's
+`pull/N/head` ref; for a fork PR only a remote of the fork's owner). The first
+one is shown, a linked session's first, then `+n more`. Its commit is compared
+with the PR head without fetching: `in sync`, `↑n unpushed`, `↓n behind`,
+`↑a ↓b` when both sides have commits, or `↓ PR has newer commits` when the head
+commit is not in your repo yet; `dirty` marks uncommitted changes. The row
+reads `none` with no checkout, `unavailable` when git could not be read (or
+for a jj checkout), and `checking…` before the first read. Agent Deck reads it
+in the background (each git call has a 5 s limit) when the PR opens, when its
+head commit changes, and on `r`; it is never polled.
+
+`Enter` on a row (in the single column, from the full-screen detail) opens the
+item full screen in an overlay: a header from the list row (state glyph,
+`#n`, title, state), a tab row (`Conversation`, plus `Files` for a PR), the
+tab's body and a footer with the position and the keys (when they do not
+fit, the keys every tab shares, `r`, `y`, `o` and `j`/`k`, are left out
+first; the help, `?` on the list, has them all). It opens at once
+with a loading line and fetches the Conversation in one GraphQL request; the
+cached copy shows at once on a later open. The Conversation tab is the body
+(`No description provided.` when empty), then the comments and PR review
+summaries (verdict and body) oldest first, each under `author · age` with
+`[bot]` and `(edited)` marks and a dim rule between them. Up to 100 are
+shown, then `N more comments: open in browser`; inline review comments are
+only counted (`N inline review comments: open in browser`), and timeline
+events are not shown. A comment GitHub minimized is one line
+(`▸ author · age · hidden as spam`) until you expand it. Markdown is drawn
+by a light renderer: bold headings, kept bullets, styled `**bold**` and
+`` `code` ``, links as `text (url)`, images as `[image: alt]`, prose wrapped
+at 100 columns, code blocks and tables unwrapped, cut with `›` and pannable.
+While the overlay is open the list keeps polling: when the list reports the
+item changed, the Conversation refetches without moving the scroll, and the
+footer says `N new comments` until you scroll to the end. Each tab keeps its
+own scroll.
+
+The Files tab (`d` on a PR row, or `d` / `2` in the overlay) shows a file list
+(status `A` added, `M` modified, `D` deleted, `R` renamed, `C` copied; the dim
+directory and the file name; `+a −d`, or `bin`) beside one file's unified diff
+under a header (`+a −d`, `file i/N`). Added and removed lines get a green or
+red background tint with both line numbers in the gutter; there is no syntax
+colouring. Long lines are cut with `›` and pan with `h`/`l`, never wrapped.
+Generated files (`go.sum` and lockfiles, anything under `testdata/`, goldens
+and snapshots, `.pb.go`, `_gen.go`, minified `.min.js`/`.min.css`) and files
+with more than 400 changed lines start collapsed to one line with their size
+until `Enter` expands them; a binary file shows a note. A diff over 1,500
+changed lines or 50 files gets a `⚠ large PR` line on top. Under 90 columns
+the list hides, the header carries the position, and `f` opens the list full
+screen. The diff is one `gh api` request with the diff media type, made after
+the PR's detail gives its head commit; it is cached by head commit and never
+refetched for the same head (`r` refreshes the head, and a new head fetches
+the new diff while the old one stays on screen).
+
+| Overlay key | Action |
+|-----|--------|
+| `c` / `d`, `1` / `2` | Conversation / Files tab (Files: PRs only; **rebindable**: `forge_conversation`, `forge_files`, `forge_conversation_alt`, `forge_files_alt`) |
+| `j`/`k`, `↑`/`↓`, `Ctrl+D`/`Ctrl+U`, `Space`/`PgDn`, `PgUp`, mouse wheel | Scroll |
+| `g`/`G`, `Home`/`End` | Top / bottom |
+| `h`/`l`, `←`/`→` | Pan code blocks and tables |
+| `Enter` | Expand or collapse the minimized comment on screen |
+| `e` | Expand every minimized comment, or collapse them all (**rebindable**: `forge_expand`) |
+| `o` `y` `n` `a` `m` `r` | As on the list, for the open item (`n` closes the overlay for the chooser or the dialog; `m` opens the merge dialog over the overlay, PRs only) |
+| `Esc` / `q` | Close the overlay; only quit (`Ctrl+C`) still reaches the global keys |
+
+| Files key | Action |
+|-----|--------|
+| `Tab` | Move the keys between the file list and the diff (90 columns and up; **rebindable**: `forge_focus`) |
+| `j`/`k`, `↑`/`↓`, `Ctrl+D`/`Ctrl+U`, `Space`/`PgDn`, `PgUp`, `g`/`G`, mouse wheel | Scroll the diff; with the list focused (or full screen), move the file cursor |
+| `n` / `N` | Next / previous hunk, crossing into the next or previous file that shows hunks (so `S` starts a session here; **rebindable**: `forge_next_hunk`, `forge_prev_hunk`) |
+| `]` / `[` | Next / previous file (**rebindable**: `forge_next_file`, `forge_prev_file`) |
+| `Enter` | Expand or collapse a collapsed file; on the focused list, back to the diff; on the full-screen list, show the picked file |
+| `h`/`l`, `←`/`→` | Pan long lines |
+| `f` | File list full screen (under 90 columns); `Esc` closes it (**rebindable**: `forge_file_list`) |
+| `s` | Split view: old \| new side by side, each removed line beside the added line it pairs with inside a change block, blank cells where one side has fewer lines; `s` again goes back to unified. It needs 120 columns: narrower, the diff stays unified and a line says why (**rebindable**: `forge_split`) |
+| `\|` / `\` | Send the selected file's diff (`\|`) or the whole PR's (`\`) on stdin to `[github] diff_pager` (empty: `delta` when it is on `PATH`, else `$PAGER`, else `less -R`); the terminal is the pager's until you quit it, then the overlay is back as it was (**rebindable**: `forge_pager_file`, `forge_pager_pr`) |
+| `S` | Start a session on the PR, as `n` on the list (**rebindable**: `forge_files_new`; it follows `forge_new`: rebind `forge_new` to a key no Files action uses and that key starts the session here instead of `S`) |
+
+The right end of the Project line says how fresh the list is: `updated 2m ago`
+(`N open · 2m ago` once the count is known, or `100 of 342 · 2m ago` when
+GitHub has more open items than the list fetched), a spinner while it loads, or
+`⚠ stale` when the last refetch failed and the previous list is still shown,
+with one line over the rows saying why (`⚠ offline · retrying`, a login
+hint, ...); a stale detail or overlay says `⚠ stale: <reason>`. The visible
+list and the open detail refetch every `[github] refresh_interval` (default
+60 s) while the TUI is in the foreground and no session is attached. With nothing
+cached yet, a failure fills the pane with what to do: an install hint when
+`gh` is missing, `gh auth login -h <host>` for a missing login or bad token,
+the authorize URL for SAML SSO, `gh has no login for <host>`, `offline ·
+retrying`, or `rate-limited until HH:MM` (polling stops until then).
+
+`/` opens a one-line query bar in the Project line, filled with the filter in
+use, in GitHub search syntax. Plain words narrow the fetched rows as you type
+(title, number, author, labels) and the right end says `N match`. A qualifier
+(`label:bug`, `author:@me`, `is:closed`, ...) runs on `Enter` as one GitHub
+search scoped to the Project and to Issues or PRs. When GitHub has more items
+than the 100 fetched, the bar says `showing matches in the latest 100 · enter
+to search all`, and `Enter` sends the words to GitHub too. `↑`/`↓` fill the bar
+with a preset (Issues: Open, Assigned to me, Created by me, Closed; PRs: Open,
+Review requested from me, Created by me, Drafts, Merged), then this Project's
+recent queries; the filled query stays editable. `Esc` closes the bar without
+changing the filter. A query GitHub rejects shows its message under the bar;
+the bar stays open and the previous rows stay. The applied filter shows as a
+dim chip after `owner/repo ▾`, and is kept per Project and tab until the TUI
+quits; `Esc` on the list resets it to the starting filter (`[github]
+issue_filter` / `pr_filter`, default `is:open`). The tab chip always counts
+the open items, whatever the filter. The default `is:open` list is fetched
+from the repository directly; any other filter goes through GitHub search,
+whose index can lag new changes by a few minutes. Only the default PRs list
+links worktree sessions to their PR.
+
+| Key | Action |
+|-----|--------|
+| `[` / `]` | Previous / next tab, wrapping; from every tab (**rebindable**: `forge_prev_tab`, `forge_next_tab`) |
+| `Alt+S` / `Alt+I` / `Alt+P` | Sessions / Issues / PRs tab; from every tab (**rebindable**: `forge_tab_sessions`, `forge_tab_issues`, `forge_tab_prs`) |
+| `p` | Project selector: `j`/`k` move, `Enter` selects, `Esc` closes (Issues, PRs; **rebindable**: `forge_project`) |
+| `P` | Toggle between the Project and its Parent Repository (from GitHub's fork metadata; a Project that is not a fork says so) (Issues, PRs; **rebindable**: `forge_parent`) |
+| `r` | Refresh: refetch the list and the open detail now (and re-read a PR's `local` row; under a filter, also the tab chip's unfiltered total), resolve the group's Projects again, re-poll the Attention signals of every host, join a fetch already running, and restart the poll timer; nothing while GitHub's rate limit lasts (Issues, PRs; **rebindable**: `forge_refresh`; `Ctrl+R` stays the global reload) |
+| `o` / `y` | Open the selected Issue or PR in the browser / copy its URL; on the SAML message, the authorize URL. Both run in the background, never blocking the TUI (Issues, PRs; **rebindable**: `forge_open`, `forge_copy`) |
+| `/` | Filter: open the query bar on the current filter; `Enter` applies, `↑`/`↓` presets and recent queries, `Esc` cancels, `Ctrl+U` clears, `Ctrl+W` deletes a word (Issues, PRs; **rebindable**: `forge_filter`) |
+| `Esc` | Reset a filter other than the starting one; otherwise as on Sessions (Issues, PRs) |
+| `n` | Start a session on the selected Issue or PR: the chooser first when sessions are linked to it (`Enter` attaches, `n` starts a new one anyway, `Esc` cancels), then the new-session dialog, prefilled (see below) (Issues, PRs; **rebindable**: `forge_new`) |
+| `a` | Attach to the session linked to the selected Issue or PR; with several, a picker (`j`/`k` move, `Enter` attaches, `Esc` closes); with none, a message says so (Issues, PRs; **rebindable**: `forge_attach`) |
+| `m` | Merge the selected PR: reads it fresh, then opens the merge dialog (see below) (PRs; **rebindable**: `forge_merge`) |
+| `Enter` | Open the selected row in the overlay; in the single column the first `Enter` opens its detail full screen and `Esc` returns to the list (Issues, PRs; **rebindable**: `forge_view`) |
+| `d` | Open the selected PR in the overlay on its Files tab (PRs; **rebindable**: `forge_files`) |
+| `j`/`k`, `↑`/`↓`, `Ctrl+U/D`, `PgUp`/`PgDn`, `Ctrl+B/F`, `Home`/`End` | Move in the tab's list (Issues, PRs) |
+
+`n` on an Issue or PR opens the new-session dialog prefilled: the tab's
+group, the local checkout of the Project (its main worktree), Worktree ticked
+whatever `[worktree] default_enabled` says, the tool (the group's newest
+session's, then `default_tool`, then `claude`) and the title `#123 <title>` /
+`PR#34 <title>`. An Issue's branch is `<branch_prefix><number>-<slug>` (the
+title lowercased, other characters turned into `-`, cut to 40 characters on a
+word boundary); an existing branch or worktree is reused and the field is
+editable. The main checkout is never reused: an Issue branch checked out
+there is refused with the reason (switch it, or untick Worktree). A PR gets a
+new worktree detached at its base (`origin/<base>`, else the local `<base>`;
+a base the repository does not have stops the launch: fetch it first), then
+`gh pr checkout <n>` inside it; its branch field shows the PR's head branch
+and is read-only. The dialog fills from the item's detail, or from its list
+row until that loads; a PR's detail is fetched for the launch and `Enter`
+waits for it (`waiting for the PR details…`).
+With Worktree unticked, `gh pr checkout` runs in the checkout itself, and only
+on a clean tree: otherwise the launch is refused with the reason.
+
+The dialog's Template field holds the first message, from the
+`[prompt_templates]` that match the item (see the configuration reference).
+`←`/`→` on it cycle the label matches, the other templates, then `none` (no
+first message; the session is still linked); when several match or a
+template file is missing it opens with the list. A template file is read
+again at launch: one missing then stops the launch and opens the list. Under it are the first lines
+of the filled message and its size. `Ctrl+E` opens the message in `$VISUAL` /
+`$EDITOR` (`vi` by default); after an edit the field reads `<name> (edited)`,
+and changing the template asks first (press `←`/`→` again to discard the
+edit). The body, and the comments and review threads a template uses, load
+in the background (`loading comments…`); `Enter` during that waits for them,
+and if they fail the dialog asks before launching with them empty. `Enter`
+launches: the worktree, the checkout and the start run in the background
+while the dialog waits. A failure there leaves no session and removes the
+worktree and branch made for the launch (never ones that were already there);
+the error shows in the dialog, which stays
+open. Once the session runs it is linked to the Issue or PR; if only the
+first message fails, the session and link are kept and a warning says so.
+
+`m` on a PR (the list row, its detail or the overlay) reads the PR fresh from
+GitHub and opens the merge dialog: the title, `#n`, `base ← head` with the
+short head SHA, one line each for checks and review, the merge method (only
+the methods the repository allows, your GitHub default chosen; `←`/`→` cycle
+them, hidden when only one is allowed), the Delete branch toggle (`Space`;
+it starts at the repository's "automatically delete head branches" setting,
+deletes the remote branch only, and is hidden for a PR from a fork, whose
+branch gh does not delete) and GitHub's default commit title. A yellow `⚠`
+says when a local checkout of the PR has unpushed commits or uncommitted
+changes. `y` confirms, `r` reads the PR again, `Esc` / `q` cancel.
+
+What `y` does follows GitHub's merge state, and nothing ever bypasses a
+block (agent-deck never passes `--admin`):
+
+| State | Dialog |
+|-------|--------|
+| ready (`CLEAN`, `HAS_HOOKS`) | `y merge` |
+| some checks failing (`UNSTABLE`) | `y merge`, with a red warning |
+| draft | blocked: mark it ready on GitHub |
+| conflicts (`DIRTY`) | blocked: start a session (`n`) to resolve them |
+| behind the base branch | blocked: update the branch first |
+| blocked on checks or review only | `y enable auto-merge` (GitHub merges once they pass), when the repository allows auto-merge; otherwise blocked |
+| blocked by other branch protection | blocked |
+| auto-merge already on | `y disable auto-merge` |
+| base branch has a merge queue | `y add to merge queue` (the queue sets the method) |
+| GitHub still computing (`UNKNOWN`) | read again once, then blocked until `r` |
+| merged, closed, already queued | blocked |
+
+The merge is pinned to the head SHA the dialog shows (`gh pr merge
+--match-head-commit`). If the PR got new commits since, GitHub refuses it and
+the dialog stays open, reads the PR again and says `PR changed since you
+looked: review and confirm again`; only another `y` merges the new head. Any
+other refusal shows GitHub's reason in the dialog. While gh runs the dialog
+shows a spinner and takes no keys; gh gets up to 60 s (no cancel). A done
+merge closes the dialog with a toast (`Merged #34 (squash)`, `Auto-merge
+enabled for #34 (squash)`, ...) and refreshes the list at once.
+
+After a direct merge of a PR with linked sessions, a follow-up dialog lists
+them and offers **Keep all** (the default), **Stop all** or **Delete all**
+(`←`/`→` choose, `Enter` confirms, `Esc` keeps them). Delete removes each
+session as `d` does, worktree included; it first reads every worktree, and
+one with uncommitted changes (or that cannot be read) is kept and asked
+about separately: `y` deletes it too, `n` keeps it.
+
+On the Issues and PRs tabs every other session key is ignored except these,
+which work as on Sessions: quit (`q`, `Ctrl+C`), help (`?`), `Esc`, group
+navigation (`Alt+J`/`Alt+K`, `1`-`9`; the tab follows the selected group),
+layout (`<` `>` `O`), settings (`S`), report a problem (`Z`), what's new
+(`Alt+N`), show me around (`Alt+W`) and reload (`Ctrl+R`). There, `?` opens a
+GitHub help section with the forge keys and these global keys (on a terminal
+too short for it, `j`/`k`, `PgUp`/`PgDn` and `g`/`G` scroll it; any other key
+closes it), and the bottom bar shows the forge keys.
 
 ### Worktree Shortcuts
 
@@ -363,6 +649,27 @@ enabled = true
 - Shows last ~500 lines of session's tmux pane
 - Auto-updates every 2 seconds
 - Launch animation: 6-15s for Claude/Gemini
+
+### Git section (session detail)
+
+Every session whose path is in a git repository shows a **Git** section in the preview (worktree sessions always do):
+
+```
+Branch:  feature/x
+Repo:    /work/repo
+Path:    /work/repo/.worktrees/feature-x
+Status:  dirty (uncommitted changes)
+Upstream: origin/feature/x · ↑2 ↓1
+Setup:   b re-run setup script
+Finish:  W merge + cleanup
+```
+
+- **Status**: `clean`, `dirty (uncommitted changes)` (untracked files count as dirty), `checking...` before the first read, `unavailable` when git failed or took longer than 5 s.
+- **Upstream**: the tracked branch with commits ahead (`↑`) and behind (`↓`) as of the last `git fetch` (agent-deck never fetches), the bare branch name when the remote branch is gone, or `no upstream`.
+- **Setup** / **Finish** hints show for worktree sessions only.
+- In a short preview (under 30 rows, e.g. an 80x24 terminal) the section is one row, `Git:     feature/x · clean · origin/feature/x · ↑2 ↓1`, plus one row of Setup/Finish keys for a worktree session, so the session's output still fits.
+- A Jujutsu workspace keeps its Branch, Repo and Path rows and shows `jj workspace: not shown in v1` in place of Status and Upstream.
+- The state comes from one `git status --porcelain=v2 --branch` per checkout, run in the background when the selection settles and cached for 10 s per path. Rendering never runs git. Opening the Finish dialog (`W`) always reads it fresh.
 
 ## Updates
 

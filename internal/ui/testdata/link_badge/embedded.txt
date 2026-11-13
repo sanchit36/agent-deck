@@ -1,0 +1,10 @@
+    ○ no link                           
+    ╰ idle · claude                     
+    ○ fix login                         
+    ╰ idle · claude · #12               
+    ○ review svc                        
+    ╰ idle · claude · PR#34             
+    ○ issue and pr                      
+    ╰ idle · claude · #12 PR#34         
+    ○ a long worktree session title     
+    ╰ idle · claude · #12 PR#34         

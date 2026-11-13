@@ -18,6 +18,17 @@ type NotificationEntry struct {
 	AssignedKey  string
 	WaitingSince time.Time
 	Status       Status // For icon rendering when show_all enabled
+	// Mark is the glyph of an Attention signal on the session (spec #18
+	// §15), shown before its title; empty when none.
+	Mark string
+}
+
+// NotificationMark is an Attention signal marking a session on the bar: a
+// linked Issue or PR changed on GitHub. A marked session is shown even when
+// it is not waiting, sorted by At.
+type NotificationMark struct {
+	Glyph string
+	At    time.Time
 }
 
 // NotificationManager tracks waiting sessions for the notification bar
@@ -28,6 +39,7 @@ type NotificationManager struct {
 	minimal      bool           // Show compact icon+count summary only (no names, no key bindings)
 	statusCounts map[Status]int // Per-status counts across all sessions (for minimal mode)
 	sortMode     string         // NotificationSortWaiting (default) or NotificationSortLastAccessed
+	marks        map[string]NotificationMark
 	mu           sync.RWMutex
 }
 
@@ -52,6 +64,17 @@ func (nm *NotificationManager) SetSortMode(mode string) {
 	nm.mu.Lock()
 	defer nm.mu.Unlock()
 	nm.sortMode = normalizeNotificationSort(mode)
+}
+
+// SetMarks replaces the Attention signal marks, by session ID. The next
+// SyncFromInstances shows them.
+func (nm *NotificationManager) SetMarks(marks map[string]NotificationMark) {
+	nm.mu.Lock()
+	defer nm.mu.Unlock()
+	nm.marks = make(map[string]NotificationMark, len(marks))
+	for id, m := range marks {
+		nm.marks[id] = m
+	}
 }
 
 // IsMinimal reports whether this manager is in minimal (icon+count) mode.
@@ -187,13 +210,17 @@ func (nm *NotificationManager) FormatBar() string {
 	var parts []string
 	for _, e := range nm.entries {
 		var formatted string
+		title := tmux.FormatLiteral(e.Title)
+		if e.Mark != "" {
+			title = tmux.FormatLiteral(e.Mark) + " " + title
+		}
 		if nm.showAll {
 			// Show status icon when in show_all mode
 			icon := statusIcon(e.Status)
-			formatted = fmt.Sprintf("[%s] %s %s", e.AssignedKey, icon, tmux.FormatLiteral(e.Title))
+			formatted = fmt.Sprintf("[%s] %s %s", e.AssignedKey, icon, title)
 		} else {
 			// Original format without icons (backward compatible)
-			formatted = fmt.Sprintf("[%s] %s", e.AssignedKey, tmux.FormatLiteral(e.Title))
+			formatted = fmt.Sprintf("[%s] %s", e.AssignedKey, title)
 		}
 		parts = append(parts, formatted)
 	}
@@ -294,7 +321,8 @@ func (nm *NotificationManager) SyncFromInstances(instances []*Instance, currentS
 		// Show only waiting sessions (backward compatible)
 		sessionSet = make(map[string]*Instance)
 		for _, inst := range instances {
-			if inst.GetStatusThreadSafe() == StatusWaiting && inst.ID != currentSessionID {
+			_, marked := nm.marks[inst.ID]
+			if (marked || inst.GetStatusThreadSafe() == StatusWaiting) && inst.ID != currentSessionID {
 				sessionSet[inst.ID] = inst
 			}
 		}
@@ -306,6 +334,10 @@ func (nm *NotificationManager) SyncFromInstances(instances []*Instance, currentS
 		if inst, stillPresent := sessionSet[e.SessionID]; stillPresent {
 			// Update status for existing entries
 			e.Status = inst.GetStatusThreadSafe()
+			e.Mark = nm.marks[inst.ID].Glyph
+			if m, ok := nm.marks[inst.ID]; ok && m.At.After(e.WaitingSince) {
+				e.WaitingSince = m.At
+			}
 			newEntries = append(newEntries, e)
 			delete(sessionSet, e.SessionID) // Don't re-add
 		} else {
@@ -326,6 +358,12 @@ func (nm *NotificationManager) SyncFromInstances(instances []*Instance, currentS
 			Title:        inst.Title,
 			WaitingSince: inst.GetWaitingSince(),
 			Status:       inst.GetStatusThreadSafe(),
+		}
+		if m, ok := nm.marks[inst.ID]; ok {
+			entry.Mark = m.Glyph
+			if m.At.After(entry.WaitingSince) {
+				entry.WaitingSince = m.At
+			}
 		}
 		nm.entries = append(nm.entries, entry)
 		added = append(added, inst.ID)

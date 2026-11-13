@@ -1,0 +1,11 @@
+terminal_width=80 list_width=28
+   ├─ ○ no link
+  ▶├─ ○ no link
+   ├─ ○ fix login #12 ✓
+  ▶├─ ○ fix login #12 ✓
+   ├─ ○ review svc PR#34
+  ▶├─ ○ review svc PR#34
+   ├─ ○ issue and pr PR#34
+  ▶├─ ○ issue and pr PR#34
+   └─ ○ a long workt… PR#34
+  ▶└─ ○ a long workt… PR#34

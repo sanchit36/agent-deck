@@ -28,6 +28,7 @@ import (
 	"github.com/asheshgoplani/agent-deck/internal/agentpaths"
 	"github.com/asheshgoplani/agent-deck/internal/atomicfile"
 	"github.com/asheshgoplani/agent-deck/internal/git"
+	"github.com/asheshgoplani/agent-deck/internal/github/prompttemplate"
 	"github.com/asheshgoplani/agent-deck/internal/logging"
 	"github.com/asheshgoplani/agent-deck/internal/platform"
 	"github.com/asheshgoplani/agent-deck/internal/safeio"
@@ -358,6 +359,166 @@ type UserConfig struct {
 	// Harnesses overrides the core install/login table per harness
 	// ([harnesses.<name>] binary, install_command, login_command, docs_url).
 	Harnesses map[string]harness.Override `toml:"harnesses,omitempty"`
+
+	// PromptTemplates are the [prompt_templates.<name>] Prompt Templates
+	// for sessions launched from a GitHub Issue or PR: applies_to ("issue",
+	// the default, or "pr"), labels, default, repos (owner/name; empty = all)
+	// and exactly one of text or file. A name matching a built-in (issue,
+	// pr-review) replaces it. Read through BuildPromptTemplates.
+	PromptTemplates map[string]prompttemplate.Def `toml:"prompt_templates,omitempty"`
+
+	// GitHub holds the [github] settings of the TUI's Issues and PRs tabs.
+	GitHub GitHubSettings `toml:"github,omitempty"`
+}
+
+// GitHubSettings is the [github] section: the GitHub integration in the TUI.
+type GitHubSettings struct {
+	// Enabled turns on the Issues and PRs tabs, their keys and every gh call
+	// they make. Default true (nil = true); false is the off switch: no tab
+	// strip, no forge keys, no poller, no gh calls. Read through
+	// GitHubEnabled.
+	Enabled *bool `toml:"enabled,omitempty"`
+
+	// RefreshInterval is how often, in seconds, the visible Issues or PRs
+	// list refetches while the TUI is in the foreground. Default 60; values
+	// below 30 are raised to 30; 0 = manual refresh (r) only. Read through
+	// GitHubRefreshInterval.
+	RefreshInterval *int `toml:"refresh_interval,omitempty"`
+
+	// Signals runs the Attention signal poller while the TUI runs: live
+	// badges on sessions linked to an Issue or PR, the review request
+	// count, and notifications on a change. Default true (nil = true);
+	// false turns the poller off. It also needs enabled and a non-zero
+	// refresh_interval. Read through GitHubSignals.
+	Signals *bool `toml:"signals,omitempty"`
+
+	// IssueFilter is the Issues tab's starting filter, in GitHub search
+	// syntax (e.g. "is:open assignee:@me"). Default "is:open" (empty =
+	// default): the 100 most recently updated open Issues, fetched without
+	// search. Read through GitHubIssueFilter.
+	IssueFilter string `toml:"issue_filter,omitempty"`
+
+	// PRFilter is the PRs tab's starting filter, in GitHub search syntax
+	// (e.g. "is:open review-requested:@me"). Default "is:open" (empty =
+	// default). Read through GitHubPRFilter.
+	PRFilter string `toml:"pr_filter,omitempty"`
+
+	// DiffPager is the shell command the Files tab's | (the file) and \
+	// (the whole PR) feed the diff on stdin, e.g. "delta --side-by-side".
+	// Default "" (auto): delta when it is on PATH, else $PAGER, else
+	// "less -R". Read through GitHubDiffPager.
+	DiffPager string `toml:"diff_pager,omitempty"`
+}
+
+// GitHubDiffPager is [github] diff_pager, trimmed; "" (auto) when unset or
+// blank.
+func (c *UserConfig) GitHubDiffPager() string {
+	if c == nil {
+		return ""
+	}
+	return strings.TrimSpace(c.GitHub.DiffPager)
+}
+
+// defaultGitHubFilter is the starting filter of both forge tabs.
+const defaultGitHubFilter = "is:open"
+
+// GitHubIssueFilter is [github] issue_filter, trimmed; "is:open" when
+// unset or blank.
+func (c *UserConfig) GitHubIssueFilter() string {
+	if c == nil {
+		return defaultGitHubFilter
+	}
+	return githubFilterOrDefault(c.GitHub.IssueFilter)
+}
+
+// GitHubPRFilter is [github] pr_filter, trimmed; "is:open" when unset or
+// blank.
+func (c *UserConfig) GitHubPRFilter() string {
+	if c == nil {
+		return defaultGitHubFilter
+	}
+	return githubFilterOrDefault(c.GitHub.PRFilter)
+}
+
+func githubFilterOrDefault(s string) string {
+	if s = strings.TrimSpace(s); s != "" {
+		return s
+	}
+	return defaultGitHubFilter
+}
+
+// Bounds of [github] refresh_interval.
+const (
+	defaultGitHubRefreshInterval = 60 * time.Second
+	minGitHubRefreshInterval     = 30 * time.Second
+)
+
+// GitHubEnabled reports whether [github] enabled is on: true unless it is
+// set to false. A nil config has the default (on).
+func (c *UserConfig) GitHubEnabled() bool {
+	return c == nil || c.GitHub.Enabled == nil || *c.GitHub.Enabled
+}
+
+// GitHubRefreshInterval is [github] refresh_interval as a duration: 60 s
+// when unset, 0 for manual only, and never below 30 s otherwise.
+func (c *UserConfig) GitHubRefreshInterval() time.Duration {
+	if c == nil || c.GitHub.RefreshInterval == nil {
+		return defaultGitHubRefreshInterval
+	}
+	secs := *c.GitHub.RefreshInterval
+	if secs == 0 {
+		return 0
+	}
+	return max(time.Duration(secs)*time.Second, minGitHubRefreshInterval)
+}
+
+// GitHubSignals reports whether the Attention signal poller runs: the gate
+// is on, [github] signals is not false and refresh_interval is not 0.
+func (c *UserConfig) GitHubSignals() bool {
+	if !c.GitHubEnabled() || c.GitHubRefreshInterval() == 0 {
+		return false
+	}
+	return c == nil || c.GitHub.Signals == nil || *c.GitHub.Signals
+}
+
+// BuildPromptTemplates merges [prompt_templates] over the built-ins and
+// returns the config-load warnings. configDir resolves relative file paths
+// and home expands ~ (PromptTemplateDirs gives both for the live config).
+func (c *UserConfig) BuildPromptTemplates(configDir, home string) ([]prompttemplate.Template, []prompttemplate.Warning) {
+	return prompttemplate.Build(c.PromptTemplates, configDir, home)
+}
+
+// PromptTemplateDirs returns the directory of config.toml and the home
+// directory, which resolve a Prompt Template's file path.
+func PromptTemplateDirs() (configDir, home string, err error) {
+	configPath, err := GetUserConfigPath()
+	if err != nil {
+		return "", "", fmt.Errorf("resolving config path for prompt templates: %w", err)
+	}
+	home, err = os.UserHomeDir()
+	if err != nil {
+		return "", "", fmt.Errorf("resolving home directory for prompt templates: %w", err)
+	}
+	return filepath.Dir(configPath), home, nil
+}
+
+// warnPromptTemplates logs the [prompt_templates] config-load warnings
+// (unknown or wrong-kind variables, invalid entries, clashing defaults).
+func warnPromptTemplates(c *UserConfig) {
+	if len(c.PromptTemplates) == 0 {
+		return
+	}
+	configDir, home, err := PromptTemplateDirs()
+	if err != nil {
+		registryLog.Warn("prompt_templates_check_skipped", slog.String("error", err.Error()))
+		return
+	}
+	_, warnings := c.BuildPromptTemplates(configDir, home)
+	for _, w := range warnings {
+		registryLog.Warn("prompt_template_config_warning",
+			slog.String("template", w.Template),
+			slog.String("warning", w.String()))
+	}
 }
 
 // TraceSettings is the [trace] section.
@@ -4703,6 +4864,7 @@ func LoadUserConfig() (*UserConfig, error) {
 
 	normalizeUIHiddenTools(&config.UI, config.Tools)
 	normalizeUIPreviewFields(&config.UI)
+	warnPromptTemplates(&config)
 	for _, socket := range misnamedTmuxBinarySockets(config.Tmux.Binaries) {
 		registryLog.Warn("tmux.binaries entry is not named tmux",
 			"socket", socket,

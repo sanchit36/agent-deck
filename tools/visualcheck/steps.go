@@ -246,6 +246,19 @@ func stepPreview(w *widthRun) error {
 	if err := w.waitContains(visualCheckI18NReply, 5*time.Second); err != nil {
 		return err
 	}
+	// The gallery directory is a git repository, so the preview gains its
+	// Git section once the async git read lands: the full section, or the
+	// one-row form in the 24-line preview. Capture after it, not before.
+	gitRow := "Branch:  master"
+	if w.spec.height < 30 {
+		gitRow = "Git:     master"
+	}
+	if err := w.waitContains(gitRow, 10*time.Second); err != nil {
+		return fmt.Errorf("preview never showed its Git section: %w", err)
+	}
+	if err := w.waitContains(visualCheckI18NReply, 5*time.Second); err != nil {
+		return err
+	}
 	w.capture("02-preview")
 	return nil
 }
@@ -679,9 +692,10 @@ func stepFork(w *widthRun) error {
 			return false, err
 		}
 		if w.spec.width == 80 {
-			// The 24-line preview has no room to show the client's output.
+			// The 24-line preview has no room to show the client's output,
+			// and its Git section is the one-row form ("Git: <branch> · clean").
 			return strings.Contains(pane, "claude-waiting (fork)  ◐ waiting") &&
-				strings.Contains(pane, "Status:  clean"), nil
+				strings.Contains(pane, " · clean"), nil
 		}
 		return strings.Contains(pane, "claude-waiting (fork)  ◐ waiting") &&
 			strings.Contains(pane, "Claude Code synthetic fixture") &&

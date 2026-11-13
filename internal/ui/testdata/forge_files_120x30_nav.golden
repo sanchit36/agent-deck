@@ -1,0 +1,30 @@
+ ◌ #14927  Add guided multi-account setup and evaluation                                                         draft
+   Conversation   [ Files ] 
+────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────
+ Files 6  +454 −2                   │ M a.go                                                            +2 −1  file 1/6 
+▌M a.go                       +2 −1 │ @@ -1,3 +1,3 @@ package a                                                         
+ M go.sum                     +1 −0 │  1  1   package a                                                                 
+ M img/logo.png                 bin │  2    -     var x = 1                                                             
+ A big.txt                  +450 −0 │     2 +     var x = 2                                                             
+ M b.go                       +1 −1 │  3  3                                                                             
+ R old.md → new.md            +0 −0 │ @@ -50,3 +50,4 @@ func f() {                                                      
+                                    │ 50 50       return                                                                
+                                    │    51 +     // 012345678901234567890123456789012345678901234567890123456789012345›
+                                    │ 51 52   }                                                                         
+                                    │ 52 53                                                                             
+                                    │                                                                                   
+                                    │                                                                                   
+                                    │                                                                                   
+                                    │                                                                                   
+                                    │                                                                                   
+                                    │                                                                                   
+                                    │                                                                                   
+                                    │                                                                                   
+                                    │                                                                                   
+                                    │                                                                                   
+                                    │                                                                                   
+                                    │                                                                                   
+                                    │                                                                                   
+                                    │                                                                                   
+ 
+ c/d tabs · tab focus · n/N hunk · ]/[ file · h/l pan · s split · |/\ pager · S new session · m merge · esc close

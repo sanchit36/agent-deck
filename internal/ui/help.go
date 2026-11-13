@@ -95,6 +95,16 @@ type HelpOverlay struct {
 	// allKeys selects the full key list. '?' opens on the short "5 keys to
 	// start" view (onboarding, ASK-211); Tab switches between the two.
 	allKeys bool
+
+	// forgeRows, when set, is the GitHub section shown in place of the key
+	// list while an Issues/PRs tab is active ([github] enabled): the forge
+	// keys, a blank row, then the global keys that still work there.
+	forgeRows [][2]string
+}
+
+// SetForgeRows sets the GitHub section; nil restores the normal help.
+func (h *HelpOverlay) SetForgeRows(rows [][2]string) {
+	h.forgeRows = rows
 }
 
 // SetHasAgents records whether anything has been adopted.
@@ -188,6 +198,16 @@ func (h *HelpOverlay) Update(msg tea.Msg) (*HelpOverlay, tea.Cmd) {
 	}
 
 	if key, ok := msg.(tea.KeyMsg); ok {
+		// The GitHub section scrolls when it does not fit; any other key
+		// (any key at all when it fits) closes it.
+		if h.forgeRows != nil {
+			if maxScroll := helpMaxScroll(len(h.forgeLines()), h.height); maxScroll > 0 && h.scrollKey(key.String()) {
+				h.scrollOffset = min(h.scrollOffset, maxScroll)
+				return h, nil
+			}
+			h.Hide()
+			return h, nil
+		}
 		// Tab switches between "5 keys to start" and all keys.
 		if key.String() == "tab" {
 			h.allKeys = !h.allKeys
@@ -199,38 +219,7 @@ func (h *HelpOverlay) Update(msg tea.Msg) (*HelpOverlay, tea.Cmd) {
 			h.Hide()
 			return h, nil
 		}
-		switch key.String() {
-		case "j", "down":
-			h.scrollOffset++
-			return h, nil
-		case "k", "up":
-			if h.scrollOffset > 0 {
-				h.scrollOffset--
-			}
-			return h, nil
-		case "ctrl+d", "pgdown":
-			h.scrollOffset += 10
-			return h, nil
-		case "ctrl+u", "pgup":
-			if h.scrollOffset > 10 {
-				h.scrollOffset -= 10
-			} else {
-				h.scrollOffset = 0
-			}
-			return h, nil
-		case "home":
-			h.scrollOffset = 0
-			return h, nil
-		case "end":
-			h.scrollOffset = 9999 // Will be clamped in View()
-			return h, nil
-		case "g":
-			h.scrollOffset = 0
-			return h, nil
-		case "G":
-			h.scrollOffset = 9999 // Will be clamped in View()
-			return h, nil
-		default:
+		if !h.scrollKey(key.String()) {
 			// Any other key closes the help overlay
 			h.Hide()
 		}
@@ -238,10 +227,88 @@ func (h *HelpOverlay) Update(msg tea.Msg) (*HelpOverlay, tea.Cmd) {
 	return h, nil
 }
 
+// scrollKey moves the scroll offset for a scroll key (j/k, arrows,
+// ctrl+d/ctrl+u, pgdown/pgup, g/G, home/end) and reports whether k was
+// one. The offset is clamped where the view is drawn.
+func (h *HelpOverlay) scrollKey(k string) bool {
+	switch k {
+	case "j", "down":
+		h.scrollOffset++
+	case "k", "up":
+		if h.scrollOffset > 0 {
+			h.scrollOffset--
+		}
+	case "ctrl+d", "pgdown":
+		h.scrollOffset += 10
+	case "ctrl+u", "pgup":
+		if h.scrollOffset > 10 {
+			h.scrollOffset -= 10
+		} else {
+			h.scrollOffset = 0
+		}
+	case "home", "g":
+		h.scrollOffset = 0
+	case "end", "G":
+		h.scrollOffset = 9999 // Will be clamped in View()
+	default:
+		return false
+	}
+	return true
+}
+
+// helpContentHeight is how many content rows a help dialog shows on a
+// screen of height rows (dialog border, padding and footer aside), and
+// whether total rows need scrolling there. A scrolling view reserves one
+// row each for the top and bottom indicators unconditionally (even on a
+// page where one stays blank) so the clamp and the render share one
+// content budget: reserving them only when shown made the last page
+// unreachable and left "▼ more below" lit forever.
+func helpContentHeight(total, height int) (int, bool) {
+	available := max(height-8, 10)
+	if total <= available {
+		return available, false
+	}
+	return max(available-2, 1), true
+}
+
+// helpMaxScroll is the furthest a help view of total rows scrolls on a
+// screen of height rows.
+func helpMaxScroll(total, height int) int {
+	content, _ := helpContentHeight(total, height)
+	return max(total-content, 0)
+}
+
+// helpScrollWindow clamps the scroll offset and returns the rows of lines
+// to draw: all of them when they fit, else the window at the offset under
+// a top indicator row (blank at the top) and over "▼ more below" while
+// rows remain below.
+func (h *HelpOverlay) helpScrollWindow(lines []string) ([]string, bool) {
+	total := len(lines)
+	contentHeight, needsScroll := helpContentHeight(total, h.height)
+	h.scrollOffset = max(0, min(h.scrollOffset, helpMaxScroll(total, h.height)))
+	if !needsScroll {
+		return lines, false
+	}
+	indicator := lipgloss.NewStyle().Foreground(ColorYellow).Bold(true)
+	topIndicator := ""
+	if h.scrollOffset > 0 {
+		topIndicator = indicator.Render("▲ more above")
+	}
+	endIdx := min(h.scrollOffset+contentHeight, total)
+	rows := append([]string{topIndicator}, lines[h.scrollOffset:endIdx]...)
+	if endIdx < total {
+		rows = append(rows, indicator.Render("▼ more below"))
+	}
+	return rows, true
+}
+
 // View renders the help overlay
 func (h *HelpOverlay) View() string {
 	if !h.visible {
 		return ""
+	}
+	if h.forgeRows != nil {
+		return h.viewForge()
 	}
 	if !h.allKeys {
 		return h.viewShort()
@@ -565,9 +632,6 @@ func (h *HelpOverlay) View() string {
 	footerStyle := lipgloss.NewStyle().
 		Foreground(ColorComment).
 		Italic(true)
-	scrollIndicatorStyle := lipgloss.NewStyle().
-		Foreground(ColorYellow).
-		Bold(true)
 
 	// Build content as lines for scrolling support
 	var lines []string
@@ -595,59 +659,10 @@ func (h *HelpOverlay) View() string {
 	// dialogWidth minus border (2) and padding (4) is the row budget.
 	lines = append(lines, withBrandMark(versionStyle.Render("Agent Deck v"+Version), dialogWidth-6))
 
-	totalLines := len(lines)
-
-	// Calculate available height for content (screen height minus dialog borders, padding, footer)
-	// Dialog box has 2 lines for border (top/bottom) + 1 padding each side + 2 for footer area
-	availableHeight := h.height - 8
-	if availableHeight < 10 {
-		availableHeight = 10
-	}
-
-	// Check if scrolling is needed
-	needsScroll := totalLines > availableHeight
-
-	// When scrolling, reserve one line each for the top and bottom indicator
-	// slots unconditionally — even on a page where one stays blank — so the
-	// clamp below and the render below share one content budget. Reserving
-	// them only when shown made maxScroll larger than any page could
-	// actually render, so the last page was unreachable and "▼ more below"
-	// stayed lit forever.
-	contentHeight := availableHeight
-	if needsScroll {
-		contentHeight = max(availableHeight-2, 1)
-	}
-
-	// Clamp scroll offset
-	maxScroll := totalLines - contentHeight
-	if maxScroll < 0 {
-		maxScroll = 0
-	}
-	if h.scrollOffset > maxScroll {
-		h.scrollOffset = maxScroll
-	}
-	if h.scrollOffset < 0 {
-		h.scrollOffset = 0
-	}
-
 	// Build visible content as discrete rows, then join once — no ad hoc
 	// newline bookkeeping that could leave a stray blank line before the
 	// footer.
-	visibleRows := lines
-	if needsScroll {
-		// The top indicator always occupies a row, blank when at the top, so
-		// the content budget stays fixed across every scroll position.
-		topIndicator := ""
-		if h.scrollOffset > 0 {
-			topIndicator = scrollIndicatorStyle.Render("▲ more above")
-		}
-		endIdx := min(h.scrollOffset+contentHeight, totalLines)
-
-		visibleRows = append([]string{topIndicator}, lines[h.scrollOffset:endIdx]...)
-		if endIdx < totalLines {
-			visibleRows = append(visibleRows, scrollIndicatorStyle.Render("▼ more below"))
-		}
-	}
+	visibleRows, needsScroll := h.helpScrollWindow(lines)
 
 	var content strings.Builder
 	content.WriteString(strings.Join(visibleRows, "\n"))
@@ -689,6 +704,51 @@ func (h *HelpOverlay) shortHelpKeys() [][2]string {
 		}
 	}
 	return out
+}
+
+// forgeHelpDialogWidth is the GitHub section's dialog width.
+func (h *HelpOverlay) forgeHelpDialogWidth() int {
+	return fitDialogWidth(64, 35, h.width)
+}
+
+// viewForge renders the GitHub section: forge keys, then the global keys
+// that still work on a forge tab, scrolling as the full key list does
+// when the screen is too short for it.
+func (h *HelpOverlay) viewForge() string {
+	dimStyle := lipgloss.NewStyle().Foreground(ColorComment).Italic(true)
+	rows, scrolls := h.helpScrollWindow(h.forgeLines())
+	footer := "any key to close"
+	if scrolls {
+		footer = "j/k scroll • any other key to close"
+	}
+	content := strings.Join(rows, "\n") + "\n\n" + dimStyle.Render(footer)
+	box := renderSurfaceBox(DialogBoxStyle.Width(h.forgeHelpDialogWidth()), content)
+	return centerInScreen(box, h.width, h.height)
+}
+
+// forgeLines are the GitHub section's rows, one per screen row, footer
+// aside. Rows with an unbound key are dropped.
+func (h *HelpOverlay) forgeLines() []string {
+	titleStyle := lipgloss.NewStyle().Bold(true).Foreground(ColorAccent)
+	sectionStyle := lipgloss.NewStyle().Foreground(ColorCyan).Bold(true)
+	keyStyle := lipgloss.NewStyle().Foreground(ColorPurple).Width(14)
+	descStyle := lipgloss.NewStyle().Foreground(ColorText)
+
+	dialogWidth := h.forgeHelpDialogWidth()
+	keyWidth := 14
+	descWidth := max(10, dialogWidth-2-4-2-keyWidth-1)
+	lines := []string{titleStyle.Render("GITHUB"), ""}
+	for _, r := range h.forgeRows {
+		if r[0] == "" && r[1] == "" {
+			lines = append(lines, "", sectionStyle.Render("ALSO ON THIS TAB"))
+			continue
+		}
+		if strings.TrimSpace(r[0]) == "" {
+			continue
+		}
+		lines = append(lines, renderHelpRow(r[0], r[1], keyWidth, descWidth, keyStyle, descStyle)...)
+	}
+	return lines
 }
 
 // viewShort renders "5 keys to start": the keys a new user needs, with Tab

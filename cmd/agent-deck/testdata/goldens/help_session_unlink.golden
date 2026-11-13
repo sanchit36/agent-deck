@@ -1,0 +1,10 @@
+Usage: agent-deck session unlink <session> issue|pr
+
+Remove a session's issue or pull request link.
+
+Options:
+  -json
+    	Output as JSON
+  -q	Minimal output (short)
+  -quiet
+    	Minimal output
