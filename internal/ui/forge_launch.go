@@ -269,18 +269,29 @@ func (h *Home) submitForgeLaunch() tea.Cmd {
 	if f.launching {
 		return nil
 	}
+	if f.detailPending {
+		// The detail's gh call times out on its own (20 s).
+		f.waitDetail = true
+		return nil
+	}
+	// A template file is read at launch (spec §12): a missing one is the
+	// launch's error, and the picker opens.
+	if !f.edited {
+		f.reloadFile()
+	}
 	if f.loadErr != nil {
 		d.SetError(f.loadErr.Error())
+		f.open = true
 		if i := d.indexOf(focusTemplate); i >= 0 {
 			d.focusIndex = i
 			d.updateFocus()
 		}
 		return nil
 	}
-	if f.detailPending {
-		// The detail's gh call times out on its own (20 s).
-		f.waitDetail = true
-		return nil
+	// The file as read now may use comments the old text did not.
+	if cmd := h.forgeLaunchFetch(); cmd != nil {
+		f.waitLaunch = true
+		return cmd
 	}
 	usesText := !f.edited && f.at < len(f.order)
 	if usesText && f.fetching {

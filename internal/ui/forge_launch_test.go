@@ -296,6 +296,59 @@ func TestForgeLaunchMissingTemplateFile(t *testing.T) {
 	if !h.newDialog.IsVisible() || h.newDialog.forge.launching {
 		t.Fatal("launched with a missing template file")
 	}
+	if !h.newDialog.forge.open || h.newDialog.currentTarget() != focusTemplate {
+		t.Fatal("enter with a missing template file did not open the picker")
+	}
+}
+
+// TestForgeLaunchTemplateFileReadAtLaunch: a template file is read again
+// at launch (spec §12): one that went missing after it was picked is a
+// launch-time error that opens the picker, and an edit to it is what the
+// launch sends.
+func TestForgeLaunchTemplateFileReadAtLaunch(t *testing.T) {
+	file := filepath.Join(t.TempDir(), "bug.md")
+	if err := os.WriteFile(file, []byte("first {number}"), 0o600); err != nil {
+		t.Fatal(err)
+	}
+	extra := fmt.Sprintf("\n[prompt_templates.bug]\nlabels = [\"bug\"]\nfile = %q\n", file)
+	t.Run("missing at launch", func(t *testing.T) {
+		_, local := launchRepoCheckout(t)
+		h, _ := launchHome(t, extra, false, local, githubtest.ItemTextIssue)
+		h = launchDrive(t, h, runeKey('n'))
+		f := h.newDialog.forge
+		if f.name() != "bug" || f.loadErr != nil || f.open {
+			t.Fatalf("template %q err %v open %v", f.name(), f.loadErr, f.open)
+		}
+		if err := os.Rename(file, file+".gone"); err != nil {
+			t.Fatal(err)
+		}
+		t.Cleanup(func() { _ = os.Rename(file+".gone", file) })
+		h = launchDrive(t, h, tea.KeyMsg{Type: tea.KeyCtrlS})
+		d := h.newDialog
+		if !d.IsVisible() || d.forge.launching {
+			t.Fatal("launched with a template file that went missing")
+		}
+		if d.forge.loadErr == nil || !d.forge.open || d.currentTarget() != focusTemplate || !strings.Contains(d.validationErr, "bug.md") {
+			t.Fatalf("err %v open %v focus %v validation %q", d.forge.loadErr, d.forge.open, d.currentTarget(), d.validationErr)
+		}
+	})
+	t.Run("edited before launch", func(t *testing.T) {
+		_, local := launchRepoCheckout(t)
+		h, _ := launchHome(t, extra, false, local, githubtest.ItemTextIssue)
+		var sent []string
+		h.forge.launcher = forgeLauncher{
+			start:   func(_ *session.Instance, m string) error { sent = append(sent, m); return nil },
+			running: func(*session.Instance) bool { return true },
+		}
+		h = launchDrive(t, h, runeKey('n'))
+		if err := os.WriteFile(file, []byte("second {number}"), 0o600); err != nil {
+			t.Fatal(err)
+		}
+		h = launchDrive(t, h, tea.KeyMsg{Type: tea.KeyCtrlS})
+		if !slices.Equal(sent, []string{"second 14822"}) {
+			t.Fatalf("sent %q, want the file as it is at launch", sent)
+		}
+	})
 }
 
 // TestForgeLaunchBeforeDetailLoads: n before the detail is cached (the

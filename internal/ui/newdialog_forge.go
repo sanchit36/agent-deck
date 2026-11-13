@@ -132,6 +132,14 @@ func (f *forgeLaunchField) selectAt(i int) {
 	}
 }
 
+// reloadFile reads the selected template's file again, as a launch does;
+// an inline template or none is left as it is.
+func (f *forgeLaunchField) reloadFile() {
+	if t, ok := f.templates[f.name()]; ok && t.File != "" {
+		f.text, f.loadErr = t.Load(f.configDir, f.home)
+	}
+}
+
 // message is the first message the launch sends: the edit, else the
 // selected template filled with the item's variables ("" for none).
 func (f *forgeLaunchField) message() string {
