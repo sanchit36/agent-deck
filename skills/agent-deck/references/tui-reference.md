@@ -364,6 +364,26 @@ enabled = true
 - Auto-updates every 2 seconds
 - Launch animation: 6-15s for Claude/Gemini
 
+### Git section (session detail)
+
+Every session whose path is in a git repository shows a **Git** section in the preview (worktree sessions always do):
+
+```
+Branch:  feature/x
+Repo:    /work/repo
+Path:    /work/repo/.worktrees/feature-x
+Status:  dirty (uncommitted changes)
+Upstream: origin/feature/x · ↑2 ↓1
+Setup:   b re-run setup script
+Finish:  W merge + cleanup
+```
+
+- **Status**: `clean`, `dirty (uncommitted changes)` (untracked files count as dirty), `checking...` before the first read, `unavailable` when git failed or took longer than 5 s.
+- **Upstream**: the tracked branch with commits ahead (`↑`) and behind (`↓`) as of the last `git fetch` (agent-deck never fetches), the bare branch name when the remote branch is gone, or `no upstream`.
+- **Setup** / **Finish** hints show for worktree sessions only.
+- A Jujutsu workspace shows `jj workspace: not shown in v1`.
+- The state comes from one `git status --porcelain=v2 --branch` per checkout, run in the background when the selection settles and cached for 10 s per path. Rendering never runs git. Opening the Finish dialog (`W`) always reads it fresh.
+
 ## Updates
 
 The TUI checks for a new release on startup and every 5 minutes, and watches its own binary on disk once per tick (one `stat`; a `version` probe only when the file changed). What happens next depends on `[updates]` in config.toml (both default to `true`, both also in the Settings panel under UPDATES):
