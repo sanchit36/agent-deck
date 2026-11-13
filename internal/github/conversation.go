@@ -144,10 +144,15 @@ func (c *Client) Conversation(ctx context.Context, repo Repo, number int) (Conve
 		conv.Comments = append(conv.Comments, x.comment(x.CreatedAt))
 	}
 	for _, r := range n.Reviews.Nodes {
+		// A pending review is the viewer's draft: neither it nor its inline
+		// comments are published.
+		if r.State == "PENDING" {
+			continue
+		}
 		conv.InlineComments += r.Comments.TotalCount
-		// A pending review is the viewer's draft; a COMMENTED review with
-		// no body only holds inline comments, which are counted above.
-		if r.State == "PENDING" || (r.State == "COMMENTED" && strings.TrimSpace(r.Body) == "") {
+		// A COMMENTED review with no body only holds inline comments, which
+		// are counted above.
+		if r.State == "COMMENTED" && strings.TrimSpace(r.Body) == "" {
 			continue
 		}
 		cm := r.comment(r.SubmittedAt)
