@@ -20,6 +20,13 @@ const (
 	// hotkeyForgeParent toggles the list between the Project and its
 	// Parent Repository.
 	hotkeyForgeParent = "forge_parent"
+	// hotkeyForgeRefresh refetches the list and the open detail now
+	// (ctrl+r stays the global reload).
+	hotkeyForgeRefresh = "forge_refresh"
+	// hotkeyForgeOpen opens the shown URL in the browser and hotkeyForgeCopy
+	// copies it: for now the SAML authorize URL of the failure message.
+	hotkeyForgeOpen = "forge_open"
+	hotkeyForgeCopy = "forge_copy"
 )
 
 // forgeHotkeyActionOrder is every forge action; later slices append theirs.
@@ -31,6 +38,9 @@ var forgeHotkeyActionOrder = []string{
 	hotkeyForgeTabPRs,
 	hotkeyForgeProject,
 	hotkeyForgeParent,
+	hotkeyForgeRefresh,
+	hotkeyForgeOpen,
+	hotkeyForgeCopy,
 }
 
 // forgeTabActions switch tabs and work from every tab, Sessions included.
@@ -50,6 +60,9 @@ var defaultForgeHotkeyBindings = map[string]string{
 	hotkeyForgeTabPRs:      "alt+p",
 	hotkeyForgeProject:     "p",
 	hotkeyForgeParent:      "P",
+	hotkeyForgeRefresh:     "r",
+	hotkeyForgeOpen:        "o",
+	hotkeyForgeCopy:        "y",
 }
 
 // forgeFallThroughKeys are the overview keys (canonical, as normalizeMainKey

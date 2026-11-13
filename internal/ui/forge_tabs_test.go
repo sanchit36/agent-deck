@@ -59,7 +59,7 @@ func runCmds(t *testing.T, h *Home, cmd tea.Cmd) *Home {
 		for _, c := range m {
 			h = runCmds(t, h, c)
 		}
-	case forgeGroupResolvedMsg, forgeParentResolvedMsg:
+	case forgeGroupResolvedMsg, forgeParentResolvedMsg, forgeFetchedMsg, forgeURLDoneMsg:
 		model, next := h.Update(m)
 		h = runCmds(t, model.(*Home), next)
 	}

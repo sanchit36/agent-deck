@@ -2227,7 +2227,14 @@ func (h *Home) updateInner(msg tea.Msg) (tea.Model, tea.Cmd) {
 		// is enabled only for the embedded layout; classic mode never sees
 		// this message.)
 		h.clearDividerHover()
+		// The forge stops polling while the terminal is in the background.
+		h.forge.background = true
 		return h, nil
+
+	case tea.FocusMsg:
+		// Back in the foreground: fetch whatever the forge view missed.
+		h.forge.background = false
+		return h, h.forgeRefreshDue()
 
 	case tea.WindowSizeMsg:
 		h.width = msg.Width
@@ -4498,11 +4505,17 @@ func (h *Home) updateInner(msg tea.Msg) (tea.Model, tea.Cmd) {
 		return h, nil
 
 	case forgeGroupResolvedMsg:
-		h.applyForgeGroupResolved(msg)
-		return h, nil
+		return h, h.applyForgeGroupResolved(msg)
 
 	case forgeParentResolvedMsg:
-		h.applyForgeParentResolved(msg)
+		return h, h.applyForgeParentResolved(msg)
+
+	case forgeFetchedMsg:
+		h.applyForgeFetched(msg)
+		return h, nil
+
+	case forgeURLDoneMsg:
+		h.applyForgeURLDone(msg)
 		return h, nil
 
 	case analyticsFetchedMsg:
@@ -4943,7 +4956,7 @@ func (h *Home) updateInner(msg tea.Msg) (tea.Model, tea.Cmd) {
 		// restarted (update --check --json).
 		h.maybeWriteHeartbeat(now)
 
-		cmds := []tea.Cmd{h.tick(), previewCmd, remoteFetchCmd, remoteLatencyCmd, h.syncRemotePaneWatch(), updateCheckCmd, binaryProbeCmd, autoRestartCmd, h.askDialog.PollCmd(now)}
+		cmds := []tea.Cmd{h.tick(), previewCmd, remoteFetchCmd, remoteLatencyCmd, h.syncRemotePaneWatch(), updateCheckCmd, binaryProbeCmd, autoRestartCmd, h.askDialog.PollCmd(now), h.forgeOnTick()}
 		if h.fullRepaint {
 			cmds = append(cmds, tea.ClearScreen)
 		}
@@ -7170,7 +7183,13 @@ func (h *Home) performFinalShutdown(shutdownPool bool) tea.Cmd {
 	// Deletes still on the undo stack can no longer be undone once the TUI
 	// exits: take them here, on the Update goroutine, and sweep them below.
 	finalDeletes := undoEntryIDs(h.takeUndoStack())
+	// The forge's gh work (fetches, Project resolution) is cancelled and
+	// joined below; take its handle here, on the Update goroutine.
+	forgeJobs := h.forgeJobs()
 	return func() tea.Msg {
+		if !forgeJobs.stop(forgeStopTimeout) {
+			uiLog.Warn("forge_jobs_stop_timeout")
+		}
 		if len(finalDeletes) > 0 {
 			runBounded(5*time.Second, func() { finalizeRemovedSessions(h.storage, "delete", finalDeletes) })
 		}

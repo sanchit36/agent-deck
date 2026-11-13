@@ -224,12 +224,24 @@ The Project is resolved the first time a forge tab shows the group, never while
 the list is drawn. Click the `owner/repo ▾` chip or press `p` to choose among a
 group's Projects; it starts on the selected session's Project.
 
+The right end of the Project line says how fresh the list is: `updated 2m ago`
+(`N open · 2m ago` once the count is known), a spinner while it loads, or
+`⚠ stale` when the last refetch failed and the previous list is still shown.
+The visible list refetches every `[github] refresh_interval` (default 60 s)
+while the TUI is in the foreground and no session is attached. With nothing
+cached yet, a failure fills the pane with what to do: an install hint when
+`gh` is missing, `gh auth login -h <host>` for a missing login or bad token,
+the authorize URL for SAML SSO, `gh has no login for <host>`, `offline ·
+retrying`, or `rate-limited until HH:MM` (polling stops until then).
+
 | Key | Action |
 |-----|--------|
 | `[` / `]` | Previous / next tab, wrapping; from every tab (**rebindable**: `forge_prev_tab`, `forge_next_tab`) |
 | `Alt+S` / `Alt+I` / `Alt+P` | Sessions / Issues / PRs tab; from every tab (**rebindable**: `forge_tab_sessions`, `forge_tab_issues`, `forge_tab_prs`) |
 | `p` | Project selector: `j`/`k` move, `Enter` selects, `Esc` closes (Issues, PRs; **rebindable**: `forge_project`) |
 | `P` | Toggle between the Project and its Parent Repository (from GitHub's fork metadata; a Project that is not a fork says so) (Issues, PRs; **rebindable**: `forge_parent`) |
+| `r` | Refresh: refetch the list and the open detail now, joining a fetch already running, and restart the poll timer; nothing while GitHub's rate limit lasts (Issues, PRs; **rebindable**: `forge_refresh`; `Ctrl+R` stays the global reload) |
+| `o` / `y` | On the SAML message: open / copy the authorize URL (Issues, PRs; **rebindable**: `forge_open`, `forge_copy`) |
 | `j`/`k`, `↑`/`↓`, `Ctrl+U/D`, `PgUp`/`PgDn`, `Ctrl+B/F`, `Home`/`End` | Move in the tab's list (Issues, PRs) |
 
 On the Issues and PRs tabs every other session key is ignored except these,
