@@ -25,6 +25,7 @@ import (
 	"github.com/asheshgoplani/agent-deck/internal/docker"
 	"github.com/asheshgoplani/agent-deck/internal/feedback"
 	"github.com/asheshgoplani/agent-deck/internal/git"
+	"github.com/asheshgoplani/agent-deck/internal/gitstate"
 	"github.com/asheshgoplani/agent-deck/internal/health"
 	"github.com/asheshgoplani/agent-deck/internal/intervalhook"
 	"github.com/asheshgoplani/agent-deck/internal/jujutsu"
@@ -503,10 +504,12 @@ type Home struct {
 	// rules and remoteOrder for why the scoping is nested).
 	remoteSessionOrder remoteOrder
 
-	// Worktree dirty status cache (lazy, 10s TTL)
-	worktreeDirtyCache   map[string]bool      // sessionID -> isDirty
-	worktreeDirtyCacheTs map[string]time.Time // sessionID -> cache timestamp
-	worktreeDirtyMu      sync.Mutex           // Protects dirty cache maps
+	// Local git state per checkout path (10s TTL), filled by an async fetch
+	// from the preview-debounce handler and read by the render path, which
+	// never runs git. gitStateFetch is the reader (gitstate.Fetch; tests
+	// swap in a fake).
+	gitState      *gitstate.Cache
+	gitStateFetch func(ctx context.Context, path string) gitstate.State
 
 	// Memory management: periodic cache pruning
 	lastCachePrune time.Time
@@ -4450,23 +4453,9 @@ func (h *Home) updateInner(msg tea.Msg) (tea.Model, tea.Cmd) {
 				}
 			}
 
-			// Worktree dirty status check (lazy, 10s TTL)
-			if inst.IsWorktree() && inst.WorktreePath != "" {
-				h.worktreeDirtyMu.Lock()
-				cacheTs, hasCached := h.worktreeDirtyCacheTs[inst.ID]
-				needsCheck := !hasCached || time.Since(cacheTs) > 10*time.Second
-				if needsCheck {
-					h.worktreeDirtyCacheTs[inst.ID] = time.Now() // Prevent duplicate fetches
-				}
-				h.worktreeDirtyMu.Unlock()
-				if needsCheck {
-					sid := inst.ID
-					wtPath := inst.WorktreePath
-					cmds = append(cmds, func() tea.Msg {
-						dirty, err := git.HasUncommittedChanges(wtPath)
-						return worktreeDirtyCheckMsg{sessionID: sid, isDirty: dirty, err: err}
-					})
-				}
+			// Local git state (async, 10s TTL per checkout path)
+			if cmd := h.gitStateCmd(inst, false); cmd != nil {
+				cmds = append(cmds, cmd)
 			}
 
 			if len(cmds) > 0 {
@@ -4533,17 +4522,11 @@ func (h *Home) updateInner(msg tea.Msg) (tea.Model, tea.Cmd) {
 		}
 		return h, nil
 
-	case worktreeDirtyCheckMsg:
-		// Update worktree dirty status cache
-		if msg.err == nil {
-			h.worktreeDirtyMu.Lock()
-			h.worktreeDirtyCache[msg.sessionID] = msg.isDirty
-			h.worktreeDirtyCacheTs[msg.sessionID] = time.Now()
-			h.worktreeDirtyMu.Unlock()
-		}
+	case gitStateFetchedMsg:
+		h.gitState.Put(msg.path, msg.state, time.Now())
 		// Also update the finish dialog if it's open for this session
-		if h.worktreeFinishDialog.IsVisible() && h.worktreeFinishDialog.GetSessionID() == msg.sessionID && msg.err == nil {
-			h.worktreeFinishDialog.SetDirtyStatus(msg.isDirty)
+		if msg.state.Err == nil && h.worktreeFinishDialog.IsVisible() && h.worktreeFinishDialog.GetSessionID() == msg.sessionID {
+			h.worktreeFinishDialog.SetDirtyStatus(msg.state.Dirty)
 		}
 		return h, nil
 
@@ -4592,10 +4575,9 @@ func (h *Home) updateInner(msg tea.Msg) (tea.Model, tea.Cmd) {
 		delete(h.analyticsCacheTime, msg.sessionID)
 		h.analyticsCacheMu.Unlock()
 		h.invalidateContextReport(msg.sessionID)
-		h.worktreeDirtyMu.Lock()
-		delete(h.worktreeDirtyCache, msg.sessionID)
-		delete(h.worktreeDirtyCacheTs, msg.sessionID)
-		h.worktreeDirtyMu.Unlock()
+		if inst != nil {
+			h.gitState.Invalidate(h.gitCheckoutPath(inst))
+		}
 		h.logActivityMu.Lock()
 		delete(h.lastLogActivity, msg.sessionID)
 		h.logActivityMu.Unlock()
@@ -6150,13 +6132,8 @@ func (h *Home) handleMainKey(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 				}
 				h.worktreeFinishDialog.SetSize(h.width, h.height)
 				h.worktreeFinishDialog.Show(inst.ID, inst.Title, inst.WorktreeBranch, inst.WorktreeRepoRoot, inst.WorktreePath, defaultBranch)
-				// Trigger async dirty check
-				sid := inst.ID
-				wtPath := inst.WorktreePath
-				return h, func() tea.Msg {
-					dirty, err := git.HasUncommittedChanges(wtPath)
-					return worktreeDirtyCheckMsg{sessionID: sid, isDirty: dirty, err: err}
-				}
+				// Trigger an async dirty check, fresh even within the TTL
+				return h, h.gitStateCmd(inst, true)
 			}
 		}
 		return h, nil

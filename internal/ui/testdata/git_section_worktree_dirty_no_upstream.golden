@@ -1,0 +1,8 @@
+─────────────────────────────────── Git ───────────────────────────────────
+Branch:  feature/x
+Repo:    /work/repo
+Path:    /work/repo/.worktrees/feature-x
+Status:  dirty (uncommitted changes)
+Upstream: no upstream
+Setup:   b re-run setup script
+Finish:  W merge + cleanup
