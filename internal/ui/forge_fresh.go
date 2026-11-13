@@ -39,6 +39,8 @@ func defaultForgeFetchers() map[freshness.Kind]forgeFetchFunc {
 		freshness.Detail:    fetchDetail,
 		// The overlay's Conversation tab (forge_overlay.go).
 		freshness.Conversation: fetchConversation,
+		// The overlay's Files tab (forge_files.go).
+		freshness.Diff: fetchDiff,
 	}
 }
 
@@ -166,8 +168,9 @@ func (h *Home) forgeListKey() (freshness.Key, bool) {
 	return h.forgeListKeyFor(h.forge.tab)
 }
 
-// forgeVisibleKeys are the keys on screen: the list, and the open detail
-// once the detail pane sets forge.detail.
+// forgeVisibleKeys are the keys on screen: the list, the open detail once
+// the detail pane sets forge.detail, the overlay's Conversation, and the
+// Files tab's detail and diff.
 func (h *Home) forgeVisibleKeys() []freshness.Key {
 	k, ok := h.forgeListKey()
 	if !ok {
@@ -179,6 +182,11 @@ func (h *Home) forgeVisibleKeys() []freshness.Key {
 	}
 	if ck, open := h.forgeOverlayKey(); open {
 		keys = append(keys, ck)
+	}
+	for _, fk := range h.forgeFilesKeys() {
+		if fk != h.forge.detail {
+			keys = append(keys, fk)
+		}
 	}
 	return keys
 }
@@ -225,6 +233,11 @@ func (h *Home) forgeManualRefresh() tea.Cmd {
 		if _, limited := h.forgeCache().RateLimited(k.Repo.Host, now); limited {
 			continue
 		}
+		// A diff is immutable for its head SHA: never refetched once
+		// cached (a new head is a new key).
+		if e, ok := h.forgeCache().Get(k); ok && k.Kind == freshness.Diff && e.HasData() {
+			continue
+		}
 		cmds = append(cmds, h.forgeFetch(k))
 	}
 	return tea.Batch(cmds...)
@@ -258,7 +271,7 @@ func (h *Home) applyForgeFetched(msg forgeFetchedMsg) tea.Cmd {
 	}
 	h.applyForgeFilterFetched(msg)
 	h.syncForgeLists()
-	open := h.syncForgeDetail()
+	open := tea.Batch(h.syncForgeDetail(), h.forgeFilesFetch())
 	if _, ok := msg.value.(github.PRDetail); ok && msg.err == nil && msg.key == h.forge.detail {
 		open = tea.Batch(open, h.forgePRLocalDue(true))
 	}

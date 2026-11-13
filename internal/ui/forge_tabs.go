@@ -278,6 +278,14 @@ func (h *Home) handleForgeKey(msg tea.KeyMsg, raw, key string) (bool, tea.Model,
 		return true, h, h.forgeNew()
 	case hotkeyForgeView:
 		return true, h, h.forgeOpenItem()
+	case hotkeyForgeFiles:
+		if h.forge.tab != tabPRs {
+			return true, h, nil
+		}
+		if _, ok := h.forgeSelectedRow(); !ok {
+			return true, h, nil
+		}
+		return true, h, h.openForgeOverlay(forgeOverlayFiles)
 	case hotkeyForgeFilter:
 		h.openForgeBar()
 		return true, h, nil
