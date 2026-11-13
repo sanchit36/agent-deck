@@ -271,6 +271,29 @@ func TestCacheRateLimitStopsHost(t *testing.T) {
 	}
 }
 
+// TestCacheRateLimitManualOnly: with refresh_interval = 0 (manual only) a
+// rate-limited key is not refetched automatically once the limit lifts.
+func TestCacheRateLimitManualOnly(t *testing.T) {
+	c := New()
+	k := ListKey(widgets, IssueList, "is:open")
+	reset := t0.Add(20 * time.Minute)
+	var ge *github.Error
+	if !errors.As(fixtureErr(t, githubtest.RateLimited), &ge) {
+		t.Fatal("rate-limited fixture is not a *github.Error")
+	}
+	ge.Reset = reset
+	c.Begin(k)
+	c.Done(k, nil, ge, t0)
+	for _, at := range []time.Time{reset, reset.Add(time.Hour)} {
+		if c.Due(k, at, 0) {
+			t.Fatalf("refetched automatically at %v with refresh_interval = 0", at.Sub(t0))
+		}
+	}
+	if !c.Due(k, reset, time.Minute) {
+		t.Fatal("polling did not resume at the reset with an interval")
+	}
+}
+
 // TestCacheRateLimitUnknownReset backs off like any transient failure.
 func TestCacheRateLimitUnknownReset(t *testing.T) {
 	c := New()

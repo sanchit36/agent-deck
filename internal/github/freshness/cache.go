@@ -134,9 +134,11 @@ func (c *Cache) Get(k Key) (Entry, bool) {
 // Due reports whether an automatic fetch of k should start at now, given
 // the refresh interval (0 = manual only): never while a fetch of k is in
 // flight or k's host is rate-limited; at once for a key never fetched or
-// invalidated; for a list or a detail, interval after its last success; after a
+// invalidated; for a list or a detail, interval after its last success;
+// after a rate limit with a known reset, at the reset; after another
 // transient failure, Backoff later; after any other failure, never (the
-// user refreshes by hand).
+// user refreshes by hand). With interval 0 nothing that was fetched is
+// refetched by time alone.
 func (c *Cache) Due(k Key, now time.Time, interval time.Duration) bool {
 	c.mu.Lock()
 	defer c.mu.Unlock()
@@ -151,7 +153,8 @@ func (c *Cache) Due(k Key, now time.Time, interval time.Duration) bool {
 		return false
 	case e.Err != nil:
 		if reset := resetAt(e.Err); !reset.IsZero() {
-			return !now.Before(reset)
+			// Manual only (interval 0) waits for the user even then.
+			return interval > 0 && !now.Before(reset)
 		}
 		if !transient(e.Err) {
 			return false
