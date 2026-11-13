@@ -196,7 +196,7 @@ func (h *Home) forgeRefreshDue() tea.Cmd {
 		return nil
 	}
 	now := h.forgeNow()
-	cmds := []tea.Cmd{h.syncForgeDetail()}
+	cmds := []tea.Cmd{h.syncForgeDetail(), h.forgePRLocalDue(false)}
 	for _, k := range h.forgeVisibleKeys() {
 		if h.forgeCache().Due(k, now, h.forge.interval) {
 			cmds = append(cmds, h.forgeFetch(k))
@@ -216,6 +216,7 @@ func (h *Home) forgeOnTick() tea.Cmd {
 // already in flight; nothing while the host is rate-limited. The poll timer
 // restarts when the fetch lands.
 func (h *Home) forgeManualRefresh() tea.Cmd {
+	h.forgeExpirePRLocal()
 	now := h.forgeNow()
 	var cmds []tea.Cmd
 	for _, k := range h.forgeVisibleKeys() {
@@ -253,6 +254,9 @@ func (h *Home) applyForgeFetched(msg forgeFetchedMsg) tea.Cmd {
 	}
 	h.syncForgeLists()
 	open := h.syncForgeDetail()
+	if _, ok := msg.value.(github.PRDetail); ok && msg.err == nil && msg.key == h.forge.detail {
+		open = tea.Batch(open, h.forgePRLocalDue(true))
+	}
 	if l, ok := msg.value.(github.PRList); ok && msg.err == nil {
 		return tea.Batch(open, h.forgeAutoLinkCmd(msg.key.Repo, l))
 	}

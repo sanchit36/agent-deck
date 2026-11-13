@@ -10,6 +10,7 @@ import (
 
 	"github.com/asheshgoplani/agent-deck/internal/github"
 	"github.com/asheshgoplani/agent-deck/internal/github/freshness"
+	"github.com/asheshgoplani/agent-deck/internal/gitstate"
 	"github.com/asheshgoplani/agent-deck/internal/session"
 	tea "github.com/charmbracelet/bubbletea"
 	"github.com/charmbracelet/lipgloss"
@@ -122,6 +123,12 @@ type forgeState struct {
 	// signals is the Attention signal poller and what it publishes
 	// (forge_signals.go).
 	signals signalsState
+
+	// local caches the PR detail's local row by PR head SHA; localRead
+	// reads it (gitstate.ReadPRLocal; injectable for tests). See
+	// forge_local.go.
+	local     map[prLocalKey]prLocalEntry
+	localRead func(context.Context, gitstate.PRQuery) gitstate.PRLocal
 }
 
 type forgeGroupResolvedMsg struct {

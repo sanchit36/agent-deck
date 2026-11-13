@@ -113,6 +113,7 @@ func (h *Home) syncForgeDetail() tea.Cmd {
 	if want.Kind == "" {
 		return nil
 	}
+	h.forgeExpirePRLocal()
 	return h.forgeOpenDetail(want)
 }
 
@@ -427,7 +428,7 @@ func (h *Home) issueDetailRows(d github.IssueDetail, now time.Time) []forgeKV {
 }
 
 // prDetailRows are a PR's key/value rows (spec #18 §3): state, branch,
-// into, checks, review, merge, diff, sessions. Slice #33 adds local.
+// into, checks, review, merge, diff, sessions, local (forge_local.go).
 func (h *Home) prDetailRows(repo github.Repo, d github.PRDetail) []forgeKV {
 	p := github.PullRequest{State: d.State, Draft: d.Draft}
 	state := lipgloss.NewStyle().Foreground(prGlyphColor(p)).Render(prGlyph(p)) + " " + prStateWord(p)
@@ -450,6 +451,7 @@ func (h *Home) prDetailRows(repo github.Repo, d github.PRDetail) []forgeKV {
 		{"merge", lipgloss.NewStyle().Foreground(mergeGlyphColor(d.MergeState)).Render(mergeGlyph(d.MergeState)) + " " + mergeWord(d.MergeState)},
 		{"diff", diff},
 		{"sessions", h.forgeSessionsValue(h.forgeLinkedSessions(repo, session.LinkPR, d.Number))},
+		{"local", h.prLocalRow(repo, d)},
 	}
 }
 

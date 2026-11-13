@@ -4521,6 +4521,10 @@ func (h *Home) updateInner(msg tea.Msg) (tea.Model, tea.Cmd) {
 	case forgeFetchedMsg:
 		return h, h.applyForgeFetched(msg)
 
+	case forgePRLocalReadMsg:
+		h.applyForgePRLocalRead(msg)
+		return h, nil
+
 	case forgeAutoLinkedMsg:
 		h.applyForgeAutoLinked(msg)
 		return h, nil
