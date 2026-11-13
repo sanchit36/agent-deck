@@ -459,6 +459,27 @@ func TestForgeLaunchTitleAndTool(t *testing.T) {
 	}
 }
 
+// TestForgeLaunchFromOverlay: n in the overlay launches on the overlay's
+// item (not the list cursor's row) and the dialog replaces the overlay.
+func TestForgeLaunchFromOverlay(t *testing.T) {
+	h, fake := overlayIssueHome(t, 120, 30)
+	serveItemText(fake, githubtest.MustLoad(t, githubtest.ItemTextIssue))
+	h = openOverlay(t, h)
+	k, _ := h.forgeListKey()
+	e, _ := h.forge.fresh.Get(k)
+	l := e.Value.(github.IssueList)
+	l.Issues = append(slices.Clone(l.Issues[1:]), l.Issues[0])
+	h = drive(t, h, forgeFetchedMsg{key: k, value: l})
+
+	h = launchDrive(t, h, runeKey('n'))
+	if !h.newDialog.IsVisible() || h.newDialog.forge == nil || h.newDialog.forge.number != 14822 {
+		t.Fatalf("n in the overlay did not open the launch dialog for #14822: %+v", h.newDialog.forge)
+	}
+	if h.forgeOverlayVisible() {
+		t.Fatal("the overlay stayed open under the dialog")
+	}
+}
+
 // TestForgeLaunchDialogGolden freezes the launch dialog for an Issue and a
 // PR, and the chooser, at dual, stacked and single widths.
 func TestForgeLaunchDialogGolden(t *testing.T) {

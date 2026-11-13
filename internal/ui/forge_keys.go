@@ -79,6 +79,10 @@ var defaultForgeHotkeyBindings = map[string]string{
 	hotkeyForgeAttach:      "a",
 	hotkeyForgeView:        "enter",
 	hotkeyForgeNew:         "n",
+	// The overlay's own key space (forge_overlay.go).
+	hotkeyForgeConversation: "c",
+	hotkeyForgeFiles:        "d",
+	hotkeyForgeExpand:       "e",
 }
 
 // forgeFallThroughKeys are the overview keys (canonical, as normalizeMainKey

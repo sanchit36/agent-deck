@@ -1,0 +1,30 @@
+ ○ #14822  gh run view --job --log-failed fails on required shared-workflow metadata 404                          open
+ [ Conversation ] 
+────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────
+ henrymodisett · 2w
+ Symptom
+ 
+ gh run view RUN --job JOB --log-failed fails before fetching logs for a completed
+ organization-required workflow run:
+ 
+ failed to get run: HTTP 404: Not Found (https://api.github.com/repos/ORG/CONSUMER/actions/workflows/WORKFLOW_ID)
+ 
+ The same authenticated CLI can read the run metadata and download that job's logs directly. The
+ workflow is required by an organization ruleset and originates in a shared workflow repository,
+ rather than a workflow file in the consumer checkout.
+ 
+ Repro
+ 
+ 1. Configure a ruleset-required workflow from a shared repository and let its run complete for a
+    consumer PR.
+ 2. Obtain the run/job IDs from the PR check URL.
+ 3. Run gh run view RUN --repo ORG/CONSUMER --job JOB --log-failed; it fails on the consumer
+    repository's workflow metadata lookup above.
+ 4. With the same authentication, gh api repos/ORG/CONSUMER/actions/runs/RUN succeeds, and gh api
+    --allow-escape-sequences repos/ORG/CONSUMER/actions/jobs/JOB/logs > job.log succeeds. In the
+    observed case the latter retrieved 81,118 bytes. Escape sequences were captured to a file, not
+    printed to the terminal.
+ 
+ The run metadata's workflow_id is the ID in the failing URL, and path is
+ 1–25 of 97
+ j/k scroll · e expand hidden · o open · y copy url · r refresh · esc close

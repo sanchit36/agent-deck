@@ -19,8 +19,8 @@ const ItemTextQuery = `query($owner:String!,$name:String!,$number:Int!,$comments
 	`reviewThreads(last:50) @include(if:$review){nodes{path line originalLine isResolved ` +
 	`comments(first:20){nodes{author{login} body}}}}}}}}`
 
-// Comment is one conversation comment.
-type Comment struct {
+// TextComment is one comment as a launch's {comments} reads it.
+type TextComment struct {
 	Author    string
 	Body      string
 	CreatedAt time.Time
@@ -32,13 +32,13 @@ type ReviewThread struct {
 	Path     string
 	Line     int
 	Resolved bool
-	Comments []Comment
+	Comments []TextComment
 }
 
 // ItemText is an Issue's or PR's body, comments and review threads.
 type ItemText struct {
 	Body     string
-	Comments []Comment
+	Comments []TextComment
 	Threads  []ReviewThread
 }
 
@@ -73,14 +73,14 @@ func (t ItemText) ReviewText() string {
 	return strings.Join(parts, "\n\n")
 }
 
-type gqlComment struct {
+type gqlTextComment struct {
 	Author    *gqlActor `json:"author"`
 	Body      string    `json:"body"`
 	CreatedAt time.Time `json:"createdAt"`
 }
 
-func (c gqlComment) comment() Comment {
-	return Comment{Author: c.Author.login(), Body: normalizeNewlines(c.Body), CreatedAt: c.CreatedAt}
+func (c gqlTextComment) textComment() TextComment {
+	return TextComment{Author: c.Author.login(), Body: normalizeNewlines(c.Body), CreatedAt: c.CreatedAt}
 }
 
 func normalizeNewlines(s string) string {
@@ -96,7 +96,7 @@ func (c *Client) ItemText(ctx context.Context, repo Repo, number int, comments, 
 			Item *struct {
 				Body     string `json:"body"`
 				Comments *struct {
-					Nodes []gqlComment `json:"nodes"`
+					Nodes []gqlTextComment `json:"nodes"`
 				} `json:"comments"`
 				Threads *struct {
 					Nodes []struct {
@@ -105,7 +105,7 @@ func (c *Client) ItemText(ctx context.Context, repo Repo, number int, comments, 
 						OriginalLine *int   `json:"originalLine"`
 						IsResolved   bool   `json:"isResolved"`
 						Comments     struct {
-							Nodes []gqlComment `json:"nodes"`
+							Nodes []gqlTextComment `json:"nodes"`
 						} `json:"comments"`
 					} `json:"nodes"`
 				} `json:"reviewThreads"`
@@ -125,7 +125,7 @@ func (c *Client) ItemText(ctx context.Context, repo Repo, number int, comments, 
 	out := ItemText{Body: normalizeNewlines(n.Body)}
 	if n.Comments != nil {
 		for _, cm := range n.Comments.Nodes {
-			out.Comments = append(out.Comments, cm.comment())
+			out.Comments = append(out.Comments, cm.textComment())
 		}
 	}
 	if n.Threads != nil {
@@ -138,7 +138,7 @@ func (c *Client) ItemText(ctx context.Context, repo Repo, number int, comments, 
 				rt.Line = *th.OriginalLine
 			}
 			for _, cm := range th.Comments.Nodes {
-				rt.Comments = append(rt.Comments, cm.comment())
+				rt.Comments = append(rt.Comments, cm.textComment())
 			}
 			out.Threads = append(out.Threads, rt)
 		}

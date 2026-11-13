@@ -463,6 +463,7 @@ func (h *Home) hasModalVisible() bool {
 		h.geminiModelDialog.IsVisible() || h.promptInputDialog.IsVisible() || h.sessionPickerDialog.IsVisible() ||
 		h.codeBlockDialog.IsVisible() ||
 		h.sessionSwitcher.IsVisible() || h.scrollbackPager.IsVisible() || h.contextPager.IsVisible() ||
+		h.forgeOverlayVisible() ||
 		h.worktreeFinishDialog.IsVisible() || h.editPathsDialog.IsVisible() ||
 		h.editSessionDialog.IsVisible() ||
 		(h.telemetryDialog != nil && h.telemetryDialog.IsVisible()) ||
