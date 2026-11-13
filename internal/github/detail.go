@@ -251,10 +251,8 @@ func (c *Client) Detail(ctx context.Context, repo Repo, number int) (Detail, err
 			at := x.CompletedAt
 			if x.Typename == "StatusContext" {
 				at = x.CreatedAt
-				d.CheckCounts.add(statusOutcome(x.State))
-			} else {
-				d.CheckCounts.add(checkRunOutcome(x.Status, x.Conclusion))
 			}
+			d.CheckCounts.addContext(x.Typename, x.Status, x.Conclusion, x.State)
 			if at.After(last) {
 				last = at
 			}
@@ -275,6 +273,16 @@ const (
 	outcomeRunning
 	outcomeSkipped
 )
+
+// addContext counts one check context of a rollup: a CheckRun by its
+// status and conclusion, a StatusContext by its state.
+func (c *CheckCounts) addContext(typename, status, conclusion, state string) {
+	if typename == "StatusContext" {
+		c.add(statusOutcome(state))
+		return
+	}
+	c.add(checkRunOutcome(status, conclusion))
+}
 
 func (c *CheckCounts) add(o checkOutcome) {
 	switch o {
