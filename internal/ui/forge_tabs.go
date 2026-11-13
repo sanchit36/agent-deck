@@ -59,9 +59,18 @@ type forgeList struct {
 // forgeGroupView is what a group's forge tabs show: its resolved Projects,
 // the selected one, and the Parent Repository toggle. In memory only.
 type forgeGroupView struct {
+	// resolving is true while the group's first resolution (or a retry
+	// after one that found no Project) runs: there is nothing to show yet.
 	resolving bool
-	group     github.Group
-	err       error
+	// inflight is true while any resolution of the group runs; sig is the
+	// paths it (or the last one) resolved, so a changed session path set
+	// resolves the group again; forget makes the next resolution forget
+	// the resolver's cached answers first (r).
+	inflight bool
+	sig      string
+	forget   bool
+	group    github.Group
+	err      error
 	// unsupported replaces resolution for groups the forge never resolves
 	// (SSH remote groups).
 	unsupported string
@@ -250,7 +259,7 @@ func (h *Home) switchForgeTab(t leftTab) tea.Cmd {
 	h.forge.sessionPick = nil
 	h.forge.detailFull = false
 	h.syncForgeHelp()
-	return h.forgeEnsureProject()
+	return h.forgeEnsureProject(true)
 }
 
 // handleForgeKey routes a key while the gate is on. Tab keys work from
@@ -350,7 +359,7 @@ func (h *Home) forgeFallThrough(msg tea.KeyMsg, key string) (bool, tea.Model, te
 	model, cmd := h.handleMainKey(msg)
 	h.forge.bypass = false
 	if hm, ok := model.(*Home); ok {
-		return true, hm, tea.Batch(cmd, hm.forgeEnsureProject())
+		return true, hm, tea.Batch(cmd, hm.forgeEnsureProject(false))
 	}
 	return true, model, cmd
 }
@@ -487,21 +496,31 @@ func (h *Home) forgeView() *forgeGroupView {
 	return h.forge.views[h.forge.groupPath]
 }
 
-// forgeEnsureProject points the forge tabs at the cursor's group and, the
-// first time a forge tab shows that group, resolves its Projects in a
-// tea.Cmd (spec #18 §2: lazily, on opening a forge tab, never on render).
-// A group already resolved fetches whatever its visible view is due for.
-func (h *Home) forgeEnsureProject() tea.Cmd {
-	cmd, resolving := h.forgeResolveProject()
+// forgeEnsureProject points the forge tabs at the cursor's group and
+// resolves its Projects in a tea.Cmd when they need it (spec #18 §2:
+// lazily, on opening a forge tab, never on render); retry is true on
+// opening a tab, which also retries a resolution that could not finish.
+// A group with something to show fetches whatever its visible view is due
+// for.
+func (h *Home) forgeEnsureProject(retry bool) tea.Cmd {
+	cmd, resolving := h.forgeResolveProject(retry)
 	if resolving {
 		return cmd
 	}
-	return h.forgeRefreshDue()
+	return tea.Batch(cmd, h.forgeRefreshDue())
 }
 
-// forgeResolveProject starts resolving the cursor group's Projects the
-// first time a forge tab shows it; false when it needs no resolving.
-func (h *Home) forgeResolveProject() (tea.Cmd, bool) {
+// forgePathsSig identifies the paths a group resolves from.
+func forgePathsSig(defaultPath string, sessionPaths []string) string {
+	return defaultPath + "\x00" + strings.Join(sessionPaths, "\x00")
+}
+
+// forgeResolveProject starts resolving the cursor group's Projects when a
+// forge tab shows it and it was never resolved, its session paths changed,
+// r asked for it, or (retry) its last resolution failed. One resolution
+// per group runs at a time; one asked for meanwhile starts when it lands.
+// resolving is true when the group has nothing to show until it lands.
+func (h *Home) forgeResolveProject(retry bool) (cmd tea.Cmd, resolving bool) {
 	if !h.forgeTabActive() {
 		return nil, false
 	}
@@ -513,15 +532,30 @@ func (h *Home) forgeResolveProject() (tea.Cmd, bool) {
 	if h.forge.views == nil {
 		h.forge.views = map[string]*forgeGroupView{}
 	}
-	if _, ok := h.forge.views[groupPath]; ok {
-		return nil, false
-	}
-	if remote {
+	v := h.forge.views[groupPath]
+	if v == nil && remote {
 		h.forge.views[groupPath] = &forgeGroupView{unsupported: "remote groups have no GitHub tabs"}
 		return nil, false
 	}
-	h.forge.views[groupPath] = &forgeGroupView{resolving: true}
+	sig := forgePathsSig(defaultPath, sessionPaths)
+	if v == nil {
+		v = &forgeGroupView{}
+		h.forge.views[groupPath] = v
+	} else if v.unsupported != "" || v.inflight || (!v.forget && sig == v.sig && (!retry || v.err == nil)) {
+		return nil, v.resolving
+	}
 	r := h.forgeResolver()
+	if v.forget {
+		v.forget = false
+		r.InvalidateHosts()
+		r.Invalidate(defaultPath)
+		for _, p := range sessionPaths {
+			r.Invalidate(p)
+		}
+	}
+	v.inflight, v.sig = true, sig
+	// A group with Projects keeps showing them while it resolves again.
+	v.resolving = len(v.group.Projects) == 0
 	return h.forgeJobs().run(func(jobCtx context.Context) tea.Msg {
 		ctx, cancel := context.WithTimeout(jobCtx, forgeResolveTimeout)
 		defer cancel()
@@ -538,11 +572,25 @@ func (h *Home) forgeResolveProject() (tea.Cmd, bool) {
 			}
 		}
 		return msg
-	}), true
+	}), v.resolving
 }
 
-// applyForgeGroupResolved installs a group's Projects and fetches what the
-// visible view is due for.
+// forgeReResolve is r's part in resolution: the shown group resolves again
+// from scratch (paths and host logins asked afresh), now or once the
+// resolution in flight lands.
+func (h *Home) forgeReResolve() tea.Cmd {
+	v := h.forgeView()
+	if v == nil || v.unsupported != "" {
+		return nil
+	}
+	v.forget = true
+	cmd, _ := h.forgeResolveProject(false)
+	return cmd
+}
+
+// applyForgeGroupResolved installs a group's Projects, keeping the selected
+// Project while it is still one of them, starts a resolution asked for
+// while this one ran, and fetches what the visible view is due for.
 func (h *Home) applyForgeGroupResolved(msg forgeGroupResolvedMsg) tea.Cmd {
 	if h.forge.views == nil {
 		h.forge.views = map[string]*forgeGroupView{}
@@ -552,12 +600,39 @@ func (h *Home) applyForgeGroupResolved(msg forgeGroupResolvedMsg) tea.Cmd {
 		v = &forgeGroupView{}
 		h.forge.views[msg.groupPath] = v
 	}
-	v.resolving = false
-	v.group, v.err, v.selected = msg.group, msg.err, msg.selected
+	prev, hadPrev := v.project()
+	v.resolving, v.inflight = false, false
+	switch {
+	case msg.err != nil && hadPrev:
+		// A resolution that could not finish leaves the Projects on
+		// screen; the next tab open (or r) tries again.
+		v.err = msg.err
+	case hadPrev:
+		v.group, v.err = msg.group, nil
+		v.selected = -1
+		for i, p := range v.group.Projects {
+			if p.Repo == prev {
+				v.selected = i
+				break
+			}
+		}
+		if v.selected < 0 {
+			v.selected, v.parent, v.note = 0, false, ""
+		}
+	default:
+		v.group, v.err, v.selected = msg.group, msg.err, msg.selected
+	}
 	if v.selected >= len(v.group.Projects) {
 		v.selected = 0
 	}
-	return h.forgeRefreshDue()
+	if h.forge.pickerAt >= len(v.group.Projects) {
+		h.forge.pickerAt = v.selected
+	}
+	var again tea.Cmd
+	if msg.groupPath == h.forge.groupPath {
+		again, _ = h.forgeResolveProject(false)
+	}
+	return tea.Batch(again, h.forgeRefreshDue())
 }
 
 // forgeProject is the selected Project of the shown group.
@@ -835,7 +910,7 @@ func (h *Home) renderForgeProjectLine(width int) string {
 		left = dim.Render("resolving project…")
 	case v.unsupported != "":
 		left = dim.Render(v.unsupported)
-	case v.err != nil:
+	case v.err != nil && len(v.group.Projects) == 0:
 		left = warn.Render("⚠ " + forgeErrorText(v.err))
 	case len(v.group.Projects) == 0:
 		left = dim.Render("No GitHub project: " + v.group.Empty.Message())

@@ -192,6 +192,44 @@ func TestResolverIsLazyAndCached(t *testing.T) {
 	}
 }
 
+// TestResolverInvalidateHosts: a GHE host gh did not know stays "unknown"
+// until InvalidateHosts, which makes the next Resolve ask gh again (after
+// `gh auth login`); paths stay cached until invalidated.
+func TestResolverInvalidateHosts(t *testing.T) {
+	loc := newFakeLocal(map[string]github.Local{
+		"/src/corp": local("/src/corp", "origin", "https://ghe.example.com/corp/widgets.git"),
+	})
+	loggedIn := false
+	fake := githubtest.NewFake().
+		ServeFunc(githubtest.MustLoad(t, githubtest.AuthStatusNoHost), func(args []string) bool {
+			return !loggedIn && fmt.Sprint(args) == fmt.Sprint(authStatus("ghe.example.com"))
+		}).
+		ServeFunc(githubtest.MustLoad(t, githubtest.AuthStatusOK), func(args []string) bool {
+			return loggedIn && fmt.Sprint(args) == fmt.Sprint(authStatus("ghe.example.com"))
+		})
+	r := github.NewResolver(github.NewClient(fake), loc.read)
+	ctx := context.Background()
+
+	res, err := r.Resolve(ctx, "/src/corp")
+	if err != nil || res.Reason != github.ReasonUnknownHost {
+		t.Fatalf("Resolve before login = %+v, %v; want ReasonUnknownHost", res, err)
+	}
+	loggedIn = true
+	r.Invalidate("/src/corp")
+	if res, _ := r.Resolve(ctx, "/src/corp"); res.Found() {
+		t.Fatal("Invalidate alone forgot the host answer")
+	}
+	r.InvalidateHosts()
+	if _, ok := r.Cached("/src/corp"); !ok {
+		t.Fatal("InvalidateHosts forgot a path")
+	}
+	r.Invalidate("/src/corp")
+	res, err = r.Resolve(ctx, "/src/corp")
+	if err != nil || !res.Found() || res.Repo.String() != "ghe.example.com/corp/widgets" {
+		t.Fatalf("Resolve after login = %+v, %v; want ghe.example.com/corp/widgets", res, err)
+	}
+}
+
 func TestResolveGroup(t *testing.T) {
 	loc := newFakeLocal(map[string]github.Local{
 		"/src/widgets":     local("/src/widgets", "origin", "git@github.com:me/widgets.git"),

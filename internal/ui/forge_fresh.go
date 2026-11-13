@@ -215,20 +215,26 @@ func (h *Home) forgeRefreshDue() tea.Cmd {
 	return tea.Batch(cmds...)
 }
 
-// forgeOnTick is the main tick's poll. It also hands the Attention signal
-// poller the current links.
+// forgeOnTick is the main tick's poll: unless paused, it also resolves the
+// shown group again when its session paths changed. It hands the
+// Attention signal poller the current links.
 func (h *Home) forgeOnTick() tea.Cmd {
 	h.signalsOnTick()
-	return h.forgeRefreshDue()
+	var resolve tea.Cmd
+	if !h.forgePaused() {
+		resolve, _ = h.forgeResolveProject(false)
+	}
+	return tea.Batch(resolve, h.forgeRefreshDue())
 }
 
-// forgeManualRefresh is r: fetch the visible keys now, joining a fetch
-// already in flight; nothing while the host is rate-limited. The poll timer
-// restarts when the fetch lands.
+// forgeManualRefresh is r: resolve the shown group's Projects again (paths
+// and host logins asked afresh), fetch the visible keys now, joining a
+// fetch already in flight; nothing while the host is rate-limited. The
+// poll timer restarts when the fetch lands.
 func (h *Home) forgeManualRefresh() tea.Cmd {
 	h.forgeExpirePRLocal()
 	now := h.forgeNow()
-	var cmds []tea.Cmd
+	cmds := []tea.Cmd{h.forgeReResolve()}
 	for _, k := range h.forgeVisibleKeys() {
 		if _, limited := h.forgeCache().RateLimited(k.Repo.Host, now); limited {
 			continue

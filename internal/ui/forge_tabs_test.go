@@ -187,7 +187,7 @@ func TestForgeProjectLine(t *testing.T) {
 		if line := frameLines(h.View())[h.getListContentStartY()]; !strings.Contains(line, "me/widgets ▾") || !strings.Contains(line, "is:open") {
 			t.Fatalf("Project line = %q", line)
 		}
-		if cmd := h.forgeEnsureProject(); cmd != nil {
+		if cmd := h.forgeEnsureProject(true); cmd != nil {
 			t.Fatal("a resolved group was resolved again")
 		}
 	})

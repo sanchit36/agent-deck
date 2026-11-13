@@ -378,12 +378,16 @@ func TestForgeFreshnessFailureMessages(t *testing.T) {
 }
 
 // forgeShowRepo makes the widgets group's only Project repo, skipping
-// resolution.
+// resolution: the view records the group's current paths as resolved.
 func forgeShowRepo(h *Home, repo github.Repo) {
 	if h.forge.views == nil {
 		h.forge.views = map[string]*forgeGroupView{}
 	}
-	h.forge.views["widgets"] = &forgeGroupView{group: github.Group{Projects: []github.Project{{Repo: repo, Root: "/src/widgets"}}}}
+	_, defaultPath, sessionPaths, _, _ := h.forgeTarget()
+	h.forge.views["widgets"] = &forgeGroupView{
+		group: github.Group{Projects: []github.Project{{Repo: repo, Root: "/src/widgets"}}},
+		sig:   forgePathsSig(defaultPath, sessionPaths),
+	}
 }
 
 // TestForgeFreshnessRateLimitStopsPolling: after a rate limit polling stops
