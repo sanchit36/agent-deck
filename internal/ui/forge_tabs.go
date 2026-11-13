@@ -772,6 +772,7 @@ func (h *Home) renderForgeList(width, height int) string {
 	} else if body := h.renderForgeListBody(width); body != nil {
 		lines = append(lines, body...)
 	} else {
+		lines = append(lines, h.renderForgeStaleNote(width)...)
 		lines = append(lines, h.renderForgeRows(width, height-len(lines))...)
 	}
 	if len(lines) > height {
@@ -1145,6 +1146,7 @@ func (h *Home) forgeListItemAt(y int) (int, int) {
 	if h.forgeBarShowing(h.forge.tab) {
 		header += len(h.renderForgeBarNotes(width))
 	}
+	header += len(h.renderForgeStaleNote(width))
 	height := h.getVisibleHeight() - header
 	rel := y - h.getListContentStartY() - header
 	if rel < 0 || rel >= height {

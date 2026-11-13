@@ -394,6 +394,55 @@ func TestForgeFilterConfigStart(t *testing.T) {
 	}
 }
 
+// TestForgeFilterConfigStartChipTotal: with a non-default starting filter
+// the tab chip still shows the unfiltered open total: the default list is
+// fetched once alongside the search (it is not polled).
+func TestForgeFilterConfigStartChipTotal(t *testing.T) {
+	q := "repo:me/widgets is:issue is:open assignee:@me sort:updated-desc"
+	clk := &forgeClock{now: issuesT0}
+	h, fake := filterConfigHome(t, "issue_filter = \"is:open assignee:@me\"\n", func(f *githubtest.Fake) {
+		serveSearch(f, github.IssueSearchQuery, q, githubtest.MustLoad(t, githubtest.IssueSearch))
+		serveIssueList(f, githubtest.MustLoad(t, githubtest.IssueList))
+	})
+	h.forge.now = clk.Now
+	h = runCmds(t, h, h.forgeOnTick())
+	if strip := tabStrip(h); !strings.Contains(strip, "ISSUES 1075") {
+		t.Fatalf("tab chip %q, want the unfiltered ISSUES 1075", strip)
+	}
+	if k, _ := h.forgeListKey(); k.Filter != "is:open assignee:@me" {
+		t.Fatalf("list filter %q, want the starting filter", k.Filter)
+	}
+	if n := listCalls(fake) - len(searchCalls(fake)); n != 1 {
+		t.Fatalf("%d default list fetches, want 1", n)
+	}
+	clk.advance(10 * time.Minute)
+	_ = runCmds(t, h, h.forgeOnTick())
+	if n := listCalls(fake) - len(searchCalls(fake)); n != 1 {
+		t.Fatalf("%d default list fetches after 10 minutes, want 1 (not polled)", n)
+	}
+}
+
+// TestForgeFilterConfigStartRejected: a starting filter GitHub rejects
+// does not offer esc (it is the filter esc resets to); it points at the
+// config key instead.
+func TestForgeFilterConfigStartRejected(t *testing.T) {
+	q := "repo:me/widgets is:issue is:open label:(bug sort:updated-desc"
+	h, _ := filterConfigHome(t, "issue_filter = \"is:open label:(bug\"\n", func(f *githubtest.Fake) {
+		serveSearch(f, github.IssueSearchQuery, q, githubtest.MustLoad(t, githubtest.SearchRejected))
+		serveIssueList(f, githubtest.MustLoad(t, githubtest.IssueList))
+	})
+	pane := squash(listPane(h))
+	if !strings.Contains(pane, squash("GitHub rejected the filter")) {
+		t.Fatalf("no rejection message:\n%s", listPane(h))
+	}
+	if strings.Contains(pane, "escreset") {
+		t.Fatalf("offers esc reset, which does nothing on the starting filter:\n%s", listPane(h))
+	}
+	if !strings.Contains(pane, squash("[github] issue_filter")) {
+		t.Fatalf("does not name the config key:\n%s", listPane(h))
+	}
+}
+
 // TestForgeFilterConfigDefault: issue_filter = "is:open" is the default
 // list, never a search.
 func TestForgeFilterConfigDefault(t *testing.T) {

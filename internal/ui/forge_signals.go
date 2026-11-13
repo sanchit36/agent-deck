@@ -41,6 +41,9 @@ type signalsState struct {
 	// links are the linked items, refreshed on the UI goroutine and read
 	// by the poller.
 	links atomic.Pointer[[]signalLink]
+	// projectHosts are the hosts of the resolved Projects, refreshed with
+	// links: each gets its review search even with nothing linked there.
+	projectHosts atomic.Pointer[[]string]
 	// interval is [github] refresh_interval, for the poller goroutine.
 	interval atomic.Int64
 
@@ -84,6 +87,7 @@ func (h *Home) syncSignalsPoller(cfg *session.UserConfig) {
 			Client:   h.forgeClient(),
 			Cache:    h.forgeCache(),
 			Targets:  s.targets,
+			Hosts:    s.hosts,
 			Interval: func() time.Duration { return time.Duration(s.interval.Load()) },
 			Now:      h.forge.now,
 			Ticks:    s.ticks,
@@ -141,6 +145,27 @@ func (h *Home) refreshSignalLinks() {
 		}
 	}
 	h.forge.signals.links.Store(&links)
+	var hosts []string
+	for _, v := range h.forge.views {
+		if v == nil {
+			continue
+		}
+		for _, p := range v.group.Projects {
+			if host := p.Repo.HostOrDefault(); !slices.Contains(hosts, host) {
+				hosts = append(hosts, host)
+			}
+		}
+	}
+	slices.Sort(hosts)
+	h.forge.signals.projectHosts.Store(&hosts)
+}
+
+// hosts are the resolved Projects' hosts, for the poller.
+func (s *signalsState) hosts() []string {
+	if p := s.projectHosts.Load(); p != nil {
+		return *p
+	}
+	return nil
 }
 
 // signalsOnTick refreshes the links the poller watches.

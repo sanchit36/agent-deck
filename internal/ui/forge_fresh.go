@@ -129,12 +129,21 @@ func (h *Home) forgeJobs() *forgeJobs {
 	return h.forge.jobs
 }
 
-// stopForge cancels and joins the forge's gh work (see forgeJobs) and the
-// Attention signal poller.
-func (h *Home) stopForge() {
-	h.stopSignals()
-	if h.forge.jobs != nil && !h.forge.jobs.stop(forgeStopTimeout) {
-		uiLog.Warn("forge_jobs_stop_timeout")
+// forgeShutdown is quitting's stop of the forge: it takes the handles of
+// the forge's gh work (see forgeJobs) and the Attention signal poller here,
+// on the Update goroutine, and returns the func that cancels and joins
+// them. performFinalShutdown runs that func off the Update goroutine, so it
+// touches no Home state.
+func (h *Home) forgeShutdown() func() {
+	jobs := h.forgeJobs()
+	poller := h.forge.signals.poller
+	return func() {
+		if !jobs.stop(forgeStopTimeout) {
+			uiLog.Warn("forge_jobs_stop_timeout")
+		}
+		if poller != nil {
+			poller.Stop()
+		}
 	}
 }
 
@@ -199,7 +208,8 @@ func (h *Home) forgePaused() bool {
 }
 
 // forgeRefreshDue starts the fetches the visible keys are due for: a first
-// open, a list older than the refresh interval, a retry after backoff.
+// open, a list or the open detail older than the refresh interval, a retry
+// after backoff.
 func (h *Home) forgeRefreshDue() tea.Cmd {
 	h.syncForgeLists()
 	if h.forgePaused() {
@@ -212,7 +222,23 @@ func (h *Home) forgeRefreshDue() tea.Cmd {
 			cmds = append(cmds, h.forgeFetch(k))
 		}
 	}
+	// The chip's total is fetched once, not polled (interval 0).
+	if dk, ok := h.forgeChipTotalKey(); ok && h.forgeCache().Due(dk, now, 0) {
+		cmds = append(cmds, h.forgeFetch(dk))
+	}
 	return tea.Batch(cmds...)
+}
+
+// forgeChipTotalKey is the default list of the tab on screen while a
+// filter is applied: the tab chip shows its unfiltered open total (spec
+// #18 §6), which a filtered list does not carry. False on the default
+// filter, whose own list is that total.
+func (h *Home) forgeChipTotalKey() (freshness.Key, bool) {
+	k, ok := h.forgeListKey()
+	if !ok || k.Filter == github.DefaultFilter {
+		return freshness.Key{}, false
+	}
+	return forgeDefaultKeyFor(k), true
 }
 
 // forgeOnTick is the main tick's poll. It also hands the Attention signal
@@ -222,14 +248,23 @@ func (h *Home) forgeOnTick() tea.Cmd {
 	return h.forgeRefreshDue()
 }
 
-// forgeManualRefresh is r: fetch the visible keys now, joining a fetch
-// already in flight; nothing while the host is rate-limited. The poll timer
-// restarts when the fetch lands.
+// forgeManualRefresh is r: fetch the visible keys (and the tab chip's
+// total under a filter) now, joining a fetch already in flight; nothing
+// while the host is rate-limited. The poll timer restarts when the fetch
+// lands. The Attention signal poller polls every host again too, so a
+// host's login ⚠ clears after gh auth login.
 func (h *Home) forgeManualRefresh() tea.Cmd {
 	h.forgeExpirePRLocal()
+	if p := h.forge.signals.poller; p != nil {
+		p.Refresh()
+	}
 	now := h.forgeNow()
 	var cmds []tea.Cmd
-	for _, k := range h.forgeVisibleKeys() {
+	keys := h.forgeVisibleKeys()
+	if dk, ok := h.forgeChipTotalKey(); ok {
+		keys = append(keys, dk)
+	}
+	for _, k := range keys {
 		if _, limited := h.forgeCache().RateLimited(k.Repo.Host, now); limited {
 			continue
 		}
@@ -349,7 +384,7 @@ func (h *Home) renderForgeListBody(width int) []string {
 		}
 		return nil
 	}
-	f := forgeFailureFor(e.Err, k, h.forgeNow())
+	f := h.forgeListFailure(k, e.Err)
 	style := lipgloss.NewStyle().Foreground(ColorYellow)
 	if f.empty {
 		style = dim
@@ -364,6 +399,42 @@ func (h *Home) renderForgeListBody(width int) []string {
 		}
 	}
 	return out
+}
+
+// renderForgeStaleNote is the line over stale rows that says why the last
+// refetch failed, by class (spec #18 §5: "rate-limited until HH:MM",
+// "offline · retrying"); nil unless the list on screen is stale.
+func (h *Home) renderForgeStaleNote(width int) []string {
+	k, e, ok := h.forgeVisibleEntry()
+	if !ok || !e.Stale() {
+		return nil
+	}
+	f := h.forgeListFailure(k, e.Err)
+	if len(f.lines) == 0 {
+		return nil
+	}
+	style := lipgloss.NewStyle().Foreground(ColorYellow)
+	if f.empty {
+		style = lipgloss.NewStyle().Foreground(ColorTextDim)
+	}
+	return []string{style.Render(truncateDisplay(f.lines[0], max(1, width), "…"))}
+}
+
+// forgeListFailure is forgeFailureFor for err, the failure of the list on
+// screen (key k). esc resets to the starting filter, so when GitHub rejects
+// that very filter (from [github] issue_filter or pr_filter) the hint
+// names the config key instead of offering esc.
+func (h *Home) forgeListFailure(k freshness.Key, err error) forgeFailure {
+	f := forgeFailureFor(err, k, h.forgeNow())
+	var qe *github.QueryError
+	if errors.As(err, &qe) && h.forgeFilterIsDefault(h.forge.tab) {
+		key := "issue_filter"
+		if h.forge.tab == tabPRs {
+			key = "pr_filter"
+		}
+		f.lines[len(f.lines)-1] = "/ edit · fix [github] " + key
+	}
+	return f
 }
 
 // forgeFailure is the message a failed fetch shows in place of its view.

@@ -68,10 +68,15 @@ func normal(r github.Repo) github.Repo {
 	return r
 }
 
-// polled reports whether the key refetches on the refresh interval: only
-// lists and the Attention signal poll do. A detail refetches when a newer
-// updatedAt is Seen for it, and a diff never changes.
-func (k Key) polled() bool { return k.Kind == IssueList || k.Kind == PRList || k.Kind == Signals }
+// polled reports whether the key refetches on the refresh interval: lists,
+// the detail and the Attention signal poll do (the UI asks Due only about
+// keys on screen, so only the open detail polls). A detail also refetches
+// at once when a newer updatedAt is Seen for it; a PR's checks change
+// without updatedAt, hence the poll. A Conversation follows updatedAt only,
+// and a diff never changes.
+func (k Key) polled() bool {
+	return k.Kind == IssueList || k.Kind == PRList || k.Kind == Detail || k.Kind == Signals
+}
 
 // Versioned is a cached value that knows its GitHub updatedAt, so Seen can
 // tell when it is out of date.
@@ -129,9 +134,11 @@ func (c *Cache) Get(k Key) (Entry, bool) {
 // Due reports whether an automatic fetch of k should start at now, given
 // the refresh interval (0 = manual only): never while a fetch of k is in
 // flight or k's host is rate-limited; at once for a key never fetched or
-// invalidated; for a list, interval after its last success; after a
+// invalidated; for a list or a detail, interval after its last success;
+// after a rate limit with a known reset, at the reset; after another
 // transient failure, Backoff later; after any other failure, never (the
-// user refreshes by hand).
+// user refreshes by hand). With interval 0 nothing that was fetched is
+// refetched by time alone.
 func (c *Cache) Due(k Key, now time.Time, interval time.Duration) bool {
 	c.mu.Lock()
 	defer c.mu.Unlock()
@@ -146,7 +153,8 @@ func (c *Cache) Due(k Key, now time.Time, interval time.Duration) bool {
 		return false
 	case e.Err != nil:
 		if reset := resetAt(e.Err); !reset.IsZero() {
-			return !now.Before(reset)
+			// Manual only (interval 0) waits for the user even then.
+			return interval > 0 && !now.Before(reset)
 		}
 		if !transient(e.Err) {
 			return false

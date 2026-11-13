@@ -29,6 +29,10 @@ type Config struct {
 	// Targets returns the linked items to watch. It is called on the
 	// poller goroutine and must not block.
 	Targets func() []Target
+	// Hosts returns more hosts to poll for the review search: those of
+	// the resolved Projects, which may have no linked item yet. Called
+	// on the poller goroutine; it must not block. nil means none.
+	Hosts func() []string
 	// Interval is [github] refresh_interval; 0 stops polling.
 	Interval func() time.Duration
 	// Now is the clock; nil means time.Now.
@@ -51,6 +55,10 @@ type Poller struct {
 	// polled is, per host, the targets of its last successful poll, so a
 	// new link is fetched at once.
 	polled map[string]string
+	// force makes the next pass poll every host that is not rate-limited
+	// (Refresh); kick wakes the loop for it.
+	force atomic.Bool
+	kick  chan struct{}
 
 	mu     sync.Mutex
 	cancel context.CancelFunc
@@ -68,7 +76,7 @@ func New(cfg Config) *Poller {
 	if cfg.Client == nil {
 		cfg.Client = github.NewClient(nil)
 	}
-	return &Poller{cfg: cfg, polled: map[string]string{}}
+	return &Poller{cfg: cfg, polled: map[string]string{}, kick: make(chan struct{}, 1)}
 }
 
 // Snapshot is the latest published state; nil before the first poll.
@@ -101,6 +109,18 @@ func (p *Poller) Stop() {
 	<-done
 }
 
+// Refresh is the user's refresh (r): the loop polls every host now that is
+// not rate-limited, including one waiting for the user after a login
+// failure (gh auth login), so its ⚠ clears without a restart. It never
+// blocks.
+func (p *Poller) Refresh() {
+	p.force.Store(true)
+	select {
+	case p.kick <- struct{}{}:
+	default:
+	}
+}
+
 // Running reports whether the loop goroutine is running.
 func (p *Poller) Running() bool {
 	p.mu.Lock()
@@ -123,6 +143,8 @@ func (p *Poller) loop(ctx context.Context, done chan struct{}) {
 			return
 		case <-ticks:
 			p.Poll(ctx)
+		case <-p.kick:
+			p.Poll(ctx)
 		}
 	}
 }
@@ -134,7 +156,8 @@ func hostKey(host string) freshness.Key {
 
 // Poll polls every host that is due, one after the other, and publishes
 // the result. github.com is always polled for the review count; other
-// hosts only while an item there is linked.
+// hosts while an item there is linked or a resolved Project is there
+// (Config.Hosts).
 func (p *Poller) Poll(ctx context.Context) {
 	interval := time.Duration(0)
 	if p.cfg.Interval != nil {
@@ -144,6 +167,16 @@ func (p *Poller) Poll(ctx context.Context) {
 		return
 	}
 	byHost := map[string][]Target{github.DefaultHost: nil}
+	if p.cfg.Hosts != nil {
+		for _, host := range p.cfg.Hosts() {
+			if host == "" {
+				host = github.DefaultHost
+			}
+			if _, ok := byHost[host]; !ok {
+				byHost[host] = nil
+			}
+		}
+	}
 	if p.cfg.Targets != nil {
 		for _, t := range p.cfg.Targets() {
 			if t.Repo.Owner == "" || t.Repo.Name == "" || t.Number <= 0 {
@@ -178,13 +211,14 @@ func (p *Poller) Poll(ctx context.Context) {
 		}
 	}
 
+	force := p.force.Swap(false)
 	polledAny := false
 	for _, host := range sortedHosts(byHost) {
 		if ctx.Err() != nil {
 			return
 		}
 		ts := byHost[host]
-		if !p.due(host, ts, interval) {
+		if !(force && p.refreshable(host)) && !p.due(host, ts, interval) {
 			continue
 		}
 		k := hostKey(host)
@@ -235,6 +269,13 @@ func (p *Poller) due(host string, ts []Target, interval time.Duration) bool {
 	}
 	e, ok := p.cfg.Cache.Get(k)
 	return ok && e.Err == nil && !e.Fetching
+}
+
+// refreshable reports whether a Refresh may poll host now: not while it is
+// rate-limited (as the forge's r).
+func (p *Poller) refreshable(host string) bool {
+	_, limited := p.cfg.Cache.RateLimited(host, p.cfg.Now())
+	return !limited
 }
 
 // pollHost runs host's one request. A reply that names a repository or

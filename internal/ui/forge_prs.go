@@ -158,8 +158,7 @@ func linkInRepo(l session.Link, repo github.Repo) bool {
 
 // sameRepo reports whether a and b name the same repository.
 func sameRepo(a, b github.Repo) bool {
-	return strings.EqualFold(a.HostOrDefault(), b.HostOrDefault()) &&
-		strings.EqualFold(a.Owner, b.Owner) && strings.EqualFold(a.Name, b.Name)
+	return github.SameRepo(a, b)
 }
 
 // linkedText is the ◉ mark of a row: the first linked session's title, and

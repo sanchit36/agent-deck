@@ -144,6 +144,22 @@ func TestPollerOneQueryPerHost(t *testing.T) {
 	}
 }
 
+// TestPollerSearchesProjectHosts: a host with a resolved Project but no
+// linked item still gets its review search (one request per host).
+func TestPollerSearchesProjectHosts(t *testing.T) {
+	h := newHarness(t, githubtest.SignalsPoll, pr34)
+	h.p.cfg.Hosts = func() []string { return []string{"ghe.corp.example", "github.com", ""} }
+	h.p.Poll(context.Background())
+	var hosts []string
+	for _, c := range h.runner.graphqlCalls() {
+		hosts = append(hosts, c.Args[2])
+	}
+	slices.Sort(hosts)
+	if !slices.Equal(hosts, []string{"ghe.corp.example", "github.com"}) {
+		t.Fatalf("hosts polled = %v, want one request each for ghe.corp.example and github.com", hosts)
+	}
+}
+
 // TestPollerNoNotificationOnFirstLoad covers the acceptance line: the first
 // poll (a start, or a restart: nothing is persisted) only sets the
 // baseline, then a change raises exactly the transitions.
@@ -218,6 +234,35 @@ func TestPollerAuthFailureWarnsHostOnly(t *testing.T) {
 	h.p.Poll(context.Background())
 	if got := len(h.runner.graphqlCalls()); got != n {
 		t.Fatalf("a login failure was retried automatically (%d calls, want %d)", got, n)
+	}
+}
+
+// TestPollerRefreshClearsLoginWarning: after gh auth login, the user's
+// refresh (r) polls a host that is not retried by itself, at once (no tick
+// needed), and its ⚠ clears.
+func TestPollerRefreshClearsLoginWarning(t *testing.T) {
+	ghe := Target{Repo: github.Repo{Host: "ghe.corp.example", Owner: "team", Name: "svc"}, Number: 5, PR: true}
+	h := newHarness(t, githubtest.NotLoggedIn, pr34, ghe)
+	h.p.Start()
+	t.Cleanup(h.p.Stop)
+	waitFor(t, func() bool { return h.p.Snapshot() != nil })
+	if got := h.p.Snapshot().Badge(ghe); got != "⚠" {
+		t.Fatalf("ghe badge = %q, want ⚠", got)
+	}
+	h.runner.set(githubtest.MustLoad(t, githubtest.SignalsPoll))
+	h.p.Refresh()
+	waitFor(t, func() bool { return h.p.Snapshot().Badge(ghe) != "⚠" })
+}
+
+// waitFor polls cond for up to 5 s.
+func waitFor(t *testing.T, cond func() bool) {
+	t.Helper()
+	deadline := time.Now().Add(5 * time.Second)
+	for !cond() {
+		if time.Now().After(deadline) {
+			t.Fatal("condition not met within 5 s")
+		}
+		time.Sleep(5 * time.Millisecond)
 	}
 }
 

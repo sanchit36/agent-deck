@@ -92,15 +92,23 @@ func TestCacheKeysAreSeparate(t *testing.T) {
 	}
 }
 
-// TestCacheDetailAndDiff: a detail refetches only when a newer updatedAt is
-// seen for it; a diff is keyed by head SHA and never refetched.
+// TestCacheDetailAndDiff: a detail (asked about only while on screen)
+// polls on the interval, like a list, and refetches at once when a newer
+// updatedAt is seen for it; a diff is keyed by head SHA and never
+// refetched.
 func TestCacheDetailAndDiff(t *testing.T) {
 	c := New()
 	d := DetailKey(widgets, 7)
 	c.Begin(d)
 	c.Done(d, versioned{"pr 7", t0}, nil, t0)
-	if c.Due(d, t0.Add(24*time.Hour), time.Minute) {
-		t.Fatal("a detail is polled on the interval")
+	if c.Due(d, t0.Add(59*time.Second), time.Minute) {
+		t.Fatal("a detail is due before the interval")
+	}
+	if !c.Due(d, t0.Add(time.Minute), time.Minute) {
+		t.Fatal("a detail on screen is not polled on the interval (its checks change without updatedAt)")
+	}
+	if c.Due(d, t0.Add(24*time.Hour), 0) {
+		t.Fatal("a detail is polled with refresh_interval = 0")
 	}
 	c.Seen(d, t0)
 	if c.Due(d, t0.Add(time.Second), time.Minute) {
@@ -112,7 +120,7 @@ func TestCacheDetailAndDiff(t *testing.T) {
 	}
 	c.Begin(d)
 	c.Done(d, versioned{"pr 7 v2", t0.Add(time.Minute)}, nil, t0.Add(2*time.Second))
-	if c.Due(d, t0.Add(time.Hour), time.Minute) {
+	if c.Due(d, t0.Add(30*time.Second), time.Minute) {
 		t.Fatal("the refetched detail is still due")
 	}
 
@@ -128,7 +136,7 @@ func TestCacheDetailAndDiff(t *testing.T) {
 		t.Fatal("the same updatedAt invalidated the Conversation")
 	}
 	c.Seen(d, t0.Add(2*time.Minute))
-	if !c.Due(conv, t0.Add(time.Hour), time.Minute) || !c.Due(d, t0.Add(time.Hour), time.Minute) {
+	if !c.Due(conv, t0.Add(time.Hour), time.Minute) || !c.Due(d, t0.Add(30*time.Second), time.Minute) {
 		t.Fatal("a newer row updatedAt did not invalidate both the detail and the Conversation")
 	}
 	if ConversationKey(github.Repo{Owner: "acme", Name: "widgets"}, 7) != conv {
@@ -260,6 +268,29 @@ func TestCacheRateLimitStopsHost(t *testing.T) {
 	}
 	if _, ok := c.RateLimited(github.DefaultHost, reset); ok {
 		t.Fatal("still rate-limited at the reset")
+	}
+}
+
+// TestCacheRateLimitManualOnly: with refresh_interval = 0 (manual only) a
+// rate-limited key is not refetched automatically once the limit lifts.
+func TestCacheRateLimitManualOnly(t *testing.T) {
+	c := New()
+	k := ListKey(widgets, IssueList, "is:open")
+	reset := t0.Add(20 * time.Minute)
+	var ge *github.Error
+	if !errors.As(fixtureErr(t, githubtest.RateLimited), &ge) {
+		t.Fatal("rate-limited fixture is not a *github.Error")
+	}
+	ge.Reset = reset
+	c.Begin(k)
+	c.Done(k, nil, ge, t0)
+	for _, at := range []time.Time{reset, reset.Add(time.Hour)} {
+		if c.Due(k, at, 0) {
+			t.Fatalf("refetched automatically at %v with refresh_interval = 0", at.Sub(t0))
+		}
+	}
+	if !c.Due(k, reset, time.Minute) {
+		t.Fatal("polling did not resume at the reset with an interval")
 	}
 }
 

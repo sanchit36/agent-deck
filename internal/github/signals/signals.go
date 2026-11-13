@@ -9,6 +9,7 @@ import (
 	"cmp"
 	"slices"
 	"strconv"
+	"strings"
 
 	"github.com/asheshgoplani/agent-deck/internal/github"
 )
@@ -167,16 +168,21 @@ func (s *Snapshot) ReviewCount() int {
 	return n
 }
 
-// ReviewCountFor is the share of the review requests that are in repo.
+// ReviewCountFor is the share of the review requests that are in repo,
+// matched as github.SameRepo does (case-insensitively).
 func (s *Snapshot) ReviewCountFor(repo github.Repo) int {
 	if s == nil {
 		return 0
 	}
-	repo.Host = repo.HostOrDefault()
 	n := 0
-	for _, r := range s.Reviews[repo.Host].Requests {
-		if r.Repo == repo {
-			n++
+	for host, hr := range s.Reviews {
+		if !strings.EqualFold(host, repo.HostOrDefault()) {
+			continue
+		}
+		for _, r := range hr.Requests {
+			if github.SameRepo(r.Repo, repo) {
+				n++
+			}
 		}
 	}
 	return n

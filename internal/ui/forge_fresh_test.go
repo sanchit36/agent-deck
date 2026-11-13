@@ -303,8 +303,12 @@ func TestForgeFreshnessStale(t *testing.T) {
 	if line := projectLine(h); !strings.Contains(line, "⚠ stale") {
 		t.Fatalf("Project line: %q", line)
 	}
-	if strings.Contains(listPane(h), "offline") {
+	// No takeover: the list stays, under one line saying why it is stale.
+	if body := h.renderForgeListBody(60); body != nil {
 		t.Fatalf("the error took over a pane that has data:\n%s", listPane(h))
+	}
+	if pane := listPane(h); !strings.Contains(pane, "⚠ offline · retrying") {
+		t.Fatalf("no stale note:\n%s", pane)
 	}
 	if !h.forgeListStale() {
 		t.Fatal("forgeListStale is false: the list slices would not dim the rows")
@@ -315,6 +319,45 @@ func TestForgeFreshnessStale(t *testing.T) {
 	h = runCmds(t, h, h.forgeOnTick())
 	if line := projectLine(h); strings.Contains(line, "stale") || !strings.Contains(line, "updated just now") {
 		t.Fatalf("Project line after recovering: %q", line)
+	}
+}
+
+// TestForgeFreshnessStaleSaysWhy: over the stale rows, one line says what
+// failed by class (spec #18 §5), such as when a rate limit lifts; it goes
+// with the next success.
+func TestForgeFreshnessStaleSaysWhy(t *testing.T) {
+	fake := githubtest.NewFake()
+	limited := false
+	fake.ServeFunc(githubtest.MustLoad(t, githubtest.RateLimited), func(args []string) bool { return limited && len(args) > 3 && args[3] == "graphql" })
+	fake.Serve(githubtest.MustLoad(t, githubtest.RateLimitStatus), "api", "--hostname", "github.com", "rate_limit")
+	serveIssueList(fake, githubtest.MustLoad(t, githubtest.IssueList))
+	h := forgeHome(t, 120, 30, false, fake, widgetsCheckout)
+	clk := &forgeClock{now: freshT0}
+	h.forge.now = clk.Now
+	h.forge.client = github.NewClient(fake)
+	h.forge.fetchers = defaultForgeFetchers()
+	h.forge.interval = time.Minute
+	h = drive(t, h, altKeyMsg('i'))
+
+	limited = true
+	clk.advance(time.Minute)
+	h = runCmds(t, h, h.forgeOnTick())
+	want := "⚠ rate-limited until " + time.Unix(1794569400, 0).Local().Format("15:04")
+	if pane := listPane(h); !strings.Contains(pane, want) || !strings.Contains(projectLine(h), "⚠ stale") {
+		t.Fatalf("stale pane lacks %q:\n%s", want, pane)
+	}
+	if i, _ := h.forgeListItemAt(h.getListContentStartY() + 1); i != -1 {
+		t.Fatalf("a click on the stale note selects item %d", i)
+	}
+	if i, _ := h.forgeListItemAt(h.getListContentStartY() + 2); i != 0 {
+		t.Fatalf("a click on the first row selects item %d, want 0", i)
+	}
+
+	limited = false
+	clk.advance(20 * time.Minute)
+	h = runCmds(t, h, h.forgeOnTick())
+	if pane := listPane(h); strings.Contains(pane, "rate-limited") {
+		t.Fatalf("the note stayed after a success:\n%s", pane)
 	}
 }
 
@@ -536,21 +579,21 @@ func TestForgeStopJoinsFetches(t *testing.T) {
 	<-started
 
 	stopped := make(chan struct{})
-	go func() { h.stopForge(); close(stopped) }()
+	go func() { h.forgeShutdown()(); close(stopped) }()
 	select {
 	case <-stopped:
 	case <-time.After(5 * time.Second):
-		t.Fatal("stopForge did not return")
+		t.Fatal("forgeShutdown did not return")
 	}
 	select {
 	case <-finished:
 	default:
-		t.Fatal("stopForge returned before the fetch did")
+		t.Fatal("forgeShutdown returned before the fetch did")
 	}
 	<-done
 
 	h.forge.fetchers[freshness.PRList] = func(context.Context, *github.Client, freshness.Key) (any, error) {
-		t.Error("a fetch ran after stopForge")
+		t.Error("a fetch ran after forgeShutdown")
 		return nil, nil
 	}
 	_, cmd = h.Update(altKeyMsg('p'))
