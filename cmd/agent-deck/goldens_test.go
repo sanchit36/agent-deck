@@ -88,6 +88,8 @@ var excludedCommands = []excludedCommand{
 	{"session stop", "stops a real tmux process; covered instead by the storage-bytes goldens (deliverable 2)"},
 	{"session restart", "restarts a real tmux process; covered instead by the storage-bytes goldens (deliverable 2)"},
 	{"session fork", "spawns a new tmux session"},
+	{"session link", "mutates the store; covered by session_link_golden_test.go"},
+	{"session unlink", "mutates the store; covered by session_link_golden_test.go"},
 	{"session attach", "requires an interactive TTY attach to tmux"},
 	{"fleet recover", "mutates the store (kills/relaunches sessions)"},
 	{"group create", "mutates the store"},
@@ -271,6 +273,7 @@ func helpSpecs() []goldenSpec {
 	subcommands := []string{
 		"session start", "session stop", "session restart", "session fork", "session attach",
 		"session show", "session viewers", "session context", "session focus",
+		"session link", "session unlink",
 		"fleet status", "fleet recover",
 		"mcp list", "mcp attached", "mcp attach", "mcp detach",
 		"skill list", "skill attached", "skill attach", "skill detach", "skill source", "skill source list",

@@ -324,6 +324,9 @@ func (h *Home) renderEmbeddedSessionItem(
 	if state.substate != "" {
 		metadataParts = append(metadataParts, string(state.substate))
 	}
+	if links := sessionLinkBadgeText(inst); links != "" {
+		metadataParts = append(metadataParts, links)
+	}
 	if restarting {
 		metadataParts = append(metadataParts, "restarting…")
 	}

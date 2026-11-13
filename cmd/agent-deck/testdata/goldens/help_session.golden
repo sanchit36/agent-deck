@@ -46,6 +46,8 @@ Commands:
   annotate <id>|--self    Record durable hints/tags (purpose, ticket, why, decision, outcome) for recall
   set-parent <id> <parent>  Link session as sub-session of parent
   unset-parent <id>       Remove sub-session link
+  link <id> issue|pr <n>  Link session to a GitHub issue or PR (--repo [HOST/]OWNER/NAME)
+  unlink <id> issue|pr    Remove a session's issue or PR link
   update <id> --no-parent          Alias for unset-parent <id>
   update <id> --parent <pid>       Alias for set-parent <id> <pid>
   set-transition-notify <id> <on|off>  Enable/disable transition notifications

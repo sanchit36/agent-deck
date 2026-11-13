@@ -1,0 +1,11 @@
+terminal_width=200 list_width=70
+   ├─ ○ no link claude
+  ▶├─ ○ no link claude
+   ├─ ○ fix login claude #12
+  ▶├─ ○ fix login claude #12
+   ├─ ○ review svc claude PR#34
+  ▶├─ ○ review svc claude PR#34
+   ├─ ○ issue and pr claude #12 PR#34
+  ▶├─ ○ issue and pr claude #12 PR#34
+   └─ ○ a long worktree session title claude [feat/login] #12 PR#34
+  ▶└─ ○ a long worktree session title claude [feat/login] #12 PR#34

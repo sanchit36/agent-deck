@@ -120,6 +120,8 @@ For remote group headers, `Enter`/`Tab` toggles collapse and `h`/Left collapses 
 
 Local parent rows with sub-sessions (for example a conductor and the sessions it spawned) carry a `▾N`/`▸N` child-fold badge after the row title. `Tab`/`l`/`→` toggles just that child list; `h`/`←` folds it shut, and on an already-folded parent continues to the window fold or the group collapse. Unfolding a parent also reopens its window rows, and a search jump or focus request to a hidden child unfolds its parent. Folded parents keep their own row, mirroring a collapsed group header, and the fold state persists per machine alongside the other view preferences.
 
+A session linked to a GitHub issue or pull request (behind `[github] enabled`) carries a static `#12` / `PR#34` badge after its worktree branch, both when it has both (`#12 PR#34`); the embedded sidebar card shows the same text on its metadata line. The badge is drawn from the stored link only, with no network or `git` call on the render path, and yields to the title in a narrow column: it keeps only `PR#34`, then drops. Links are made with `agent-deck session link` / `unlink`; there is no TUI key for them.
+
 ### Copy & Text Selection
 
 Dragging with the mouse does **not** select text: the TUI puts the terminal in
