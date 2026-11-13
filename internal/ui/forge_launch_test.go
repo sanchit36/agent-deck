@@ -270,7 +270,7 @@ func TestForgeLaunchEditedTemplate(t *testing.T) {
 	if f.name() != "issue" || f.message() != "my own words" || !strings.Contains(stripAnsi(h.newDialog.View()), "discard") {
 		t.Fatalf("the edit was dropped without asking: %q %q", f.name(), f.message())
 	}
-	h = launchDrive(t, h, tea.KeyMsg{Type: tea.KeyRight})
+	launchDrive(t, h, tea.KeyMsg{Type: tea.KeyRight})
 	if f.name() != "none" || f.edited {
 		t.Fatalf("second → did not switch: %q edited %v", f.name(), f.edited)
 	}
