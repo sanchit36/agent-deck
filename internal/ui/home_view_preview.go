@@ -1000,7 +1000,7 @@ func (h *Home) renderPreviewPane(width, height int) string {
 
 	// Git section: every session in a git repo, from the git-state cache
 	// (filled asynchronously by the preview-debounce handler; no git here).
-	b.WriteString(h.renderGitSection(selected, width))
+	b.WriteString(h.renderGitSection(selected, width, height))
 
 	// Multi-repo info section
 	if selected.IsMultiRepo() {

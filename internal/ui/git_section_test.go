@@ -212,7 +212,7 @@ func TestGitSection_Goldens(t *testing.T) {
 			if tc.state != nil {
 				h.gitState.Put(h.gitCheckoutPath(inst), *tc.state, time.Now())
 			}
-			assertTextGolden(t, ansi.Strip(h.renderGitSection(inst, 80)), tc.golden)
+			assertTextGolden(t, ansi.Strip(h.renderGitSection(inst, 80, 50)), tc.golden)
 		})
 	}
 }
@@ -221,15 +221,15 @@ func TestGitSection_Goldens(t *testing.T) {
 // until the cache says its path is in a repo, and none when it is not.
 func TestGitSection_HiddenOutsideARepo(t *testing.T) {
 	h, inst := gitSectionHome(t, false)
-	if got := h.renderGitSection(inst, 80); got != "" {
+	if got := h.renderGitSection(inst, 80, 50); got != "" {
 		t.Fatalf("unfetched plain session must render no Git section, got %q", got)
 	}
 	h.gitState.Put(h.gitCheckoutPath(inst), gitstate.State{NotRepo: true}, time.Now())
-	if got := h.renderGitSection(inst, 80); got != "" {
+	if got := h.renderGitSection(inst, 80, 50); got != "" {
 		t.Fatalf("non-repo session must render no Git section, got %q", got)
 	}
 	h.gitState.Put(h.gitCheckoutPath(inst), gitstate.State{Err: errors.New("boom")}, time.Now())
-	if got := h.renderGitSection(inst, 80); got != "" {
+	if got := h.renderGitSection(inst, 80, 50); got != "" {
 		t.Fatalf("a plain session whose repo status is unknown renders nothing, got %q", got)
 	}
 }
@@ -251,5 +251,65 @@ func assertTextGolden(t *testing.T, got, name string) {
 	}
 	if strings.Contains(got, "\t") {
 		t.Fatalf("%s: tab in rendered section", name)
+	}
+}
+
+// TestGitSection_ShortPreviewKeepsOutput: in a short preview (an 80x24
+// terminal) the Git section collapses to one row, so the session's latest
+// output still fits under it (tools/visualcheck 02-preview at 80x24). A
+// tall preview keeps the full section.
+func TestGitSection_ShortPreviewKeepsOutput(t *testing.T) {
+	h, inst := gitSectionHome(t, false)
+	inst.Tool = "claude"
+	inst.ClaudeSessionID = "11111111-2222-3333-4444-555555555555"
+	h.gitState.Put(h.gitCheckoutPath(inst), gitstate.State{Repo: "/work/repo", Branch: "master"}, time.Now())
+	h.previewCacheMu.Lock()
+	h.previewCache[inst.ID] = "Claude Code synthetic fixture\n❯\nfixture received: VC_I18N\nesc to interrupt\nLAST REPLY LINE\n❯"
+	h.previewCacheTime[inst.ID] = time.Now()
+	h.previewCacheMu.Unlock()
+
+	short := ansi.Strip(h.renderPreviewPane(50, 18))
+	if !strings.Contains(short, "LAST REPLY LINE") {
+		t.Fatalf("short preview lost the latest output under the Git section:\n%s", short)
+	}
+	if !strings.Contains(short, "Git:     master · clean · no upstream") || strings.Contains(short, "Branch:") {
+		t.Fatalf("short preview should show the one-row Git section:\n%s", short)
+	}
+
+	tall := ansi.Strip(h.renderPreviewPane(50, 40))
+	for _, want := range []string{"Branch:  master", "Status:  clean", "Upstream: no upstream", "LAST REPLY LINE"} {
+		if !strings.Contains(tall, want) {
+			t.Fatalf("tall preview lacks %q:\n%s", want, tall)
+		}
+	}
+}
+
+// TestGitSection_CompactGoldens freezes the one-row Git section a short
+// preview gets.
+func TestGitSection_CompactGoldens(t *testing.T) {
+	cases := []struct {
+		golden   string
+		worktree bool
+		jjType   bool
+		state    *gitstate.State
+	}{
+		{"git_section_compact_worktree_checking.golden", true, false, nil},
+		{"git_section_compact_worktree_ahead_behind.golden", true, false,
+			&gitstate.State{Repo: "/work/repo/.worktrees/feature-x", Branch: "feature/x", Upstream: "origin/feature/x", HasCounts: true, Ahead: 2, Behind: 1}},
+		{"git_section_compact_worktree_jj.golden", true, true, nil},
+		{"git_section_compact_plain_dirty_cut.golden", false, false,
+			&gitstate.State{Repo: "/work/repo", Branch: "a-very-long-branch-name-that-does-not-fit", Upstream: "origin/a-very-long-branch-name-that-does-not-fit", Dirty: true}},
+	}
+	for _, tc := range cases {
+		t.Run(tc.golden, func(t *testing.T) {
+			h, inst := gitSectionHome(t, tc.worktree)
+			if tc.jjType {
+				inst.WorktreeType = "jujutsu"
+			}
+			if tc.state != nil {
+				h.gitState.Put(h.gitCheckoutPath(inst), *tc.state, time.Now())
+			}
+			assertTextGolden(t, ansi.Strip(h.renderGitSection(inst, 80, gitSectionCompactHeight-1)), tc.golden)
+		})
 	}
 }
