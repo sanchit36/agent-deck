@@ -120,7 +120,7 @@ For remote group headers, `Enter`/`Tab` toggles collapse and `h`/Left collapses 
 
 Local parent rows with sub-sessions (for example a conductor and the sessions it spawned) carry a `▾N`/`▸N` child-fold badge after the row title. `Tab`/`l`/`→` toggles just that child list; `h`/`←` folds it shut, and on an already-folded parent continues to the window fold or the group collapse. Unfolding a parent also reopens its window rows, and a search jump or focus request to a hidden child unfolds its parent. Folded parents keep their own row, mirroring a collapsed group header, and the fold state persists per machine alongside the other view preferences.
 
-A session linked to a GitHub issue or pull request (behind `[github] enabled`) carries a static `#12` / `PR#34` badge after its worktree branch, both when it has both (`#12 PR#34`); the embedded sidebar card shows the same text on its metadata line. The badge is drawn from the stored link only, with no network or `git` call on the render path, and yields to the title in a narrow column: it keeps only `PR#34`, then drops. Links are made with `agent-deck session link` / `unlink`; there is no TUI key for them.
+A session linked to a GitHub issue or pull request (behind `[github] enabled`) carries a static `#12` / `PR#34` badge after its worktree branch, both when it has both (`#12 PR#34`); the embedded sidebar card shows the same text on its metadata line. The badge is drawn from the stored link only, with no network or `git` call on the render path, and yields to the title in a narrow column: it keeps only `PR#34`, then drops. Links are made with `agent-deck session link` / `unlink`, or by the PRs tab's head-branch auto-detect (see GitHub tabs); there is no TUI key for them.
 
 Attention signals (behind `[github] enabled`, off with `[github] signals = false`) add the linked item's live state after each label: for a PR `✗` checks failing, `±` changes requested or `✔` approved, `◆` merged, `✕` closed; for an Issue `✓` closed (`#12 ✓ PR#34 ✗±`). A badge shows while its condition holds; nothing is acknowledged or saved. A host `gh` is not logged in to shows `⚠` on its own badges only. In a narrow column the badge falls back to the PR with its glyphs, then to the bare label. The header shows `⇠ n reviews` for open PRs that request your review by name (team requests do not count), and the `PRS` chip shows the on-screen Project's share (`PRS 12 ⇠1`); no key jumps from them. The state comes from one batched `gh api graphql` request per host every `[github] refresh_interval` (one request covers every linked item on the host and the review search), made by a poller that runs while the TUI runs, attached or not; the session list only reads its last result.
 
@@ -234,6 +234,22 @@ GitHub GraphQL request. Each Issue is two lines and a blank: the state glyph
 dim. The selected row has a `▌` bar; long titles and labels are cut at the
 pane's edge with `…`. A repository with Issues turned off says `Issues are
 disabled for owner/repo`; an empty list says `No open issues`.
+
+The PRs tab lists the 100 most recently updated open pull requests the same
+way, in one GraphQL request that asks for each PR's overall check state only
+(never the individual checks). Line 1 is the state glyph (`●` open, `◌` draft,
+`◆` merged, `✕` closed) and the title; line 2 is `#n · author · age`, then the
+checks (`✓ ci` passing, `✗ ci` failing, `◷ ci` running, `· ci` none) and the
+review (`✔ review` approved, `± review` changes requested, `? review` review
+required, `· review` none). An empty list says `No open pull requests`.
+
+A row linked to a session ends with `◉ <session title>` (`+n` when more
+sessions are linked), on both tabs. When the PRs list arrives, a session in a
+git worktree whose branch is a PR's head branch, in the repository the
+session's Project resolves to, is linked to that PR, the most recently updated
+one if several match. A session that already has a PR link keeps it; SSH
+sessions are never linked this way. This runs in the background, never while
+the list is drawn.
 
 The right end of the Project line says how fresh the list is: `updated 2m ago`
 (`N open · 2m ago` once the count is known, or `100 of 342 · 2m ago` when

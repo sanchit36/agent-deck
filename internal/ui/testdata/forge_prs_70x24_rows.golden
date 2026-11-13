@@ -1,0 +1,24 @@
+ ●●○ Agent Deck [_test]  no sessions                         v1.16.10 
+  All    ● 0   ◐ 0   ○ 0   !@#& filter • 0 all • % open • …           
+ SESSIONS │ ISSUES │ PRS 59                                           
+──────────────────────────────────────────────────────────────────────
+me/widgets ▾  is:open                               6 of 59 · just now
+▌ ● chore(deps): Bump golang.org/x/term from 0.47.0 to 0.48.0         
+▌   #15048 · dependabot · 30m  ✓ ci  ? review                         
+                                                                      
+  ◌ Add guided multi-account setup and evaluation                     
+──────────────────────────────────────────────────────────────────────
+PREVIEW                                                               
+──────────────────────────────────────────────────────────────────────
+fix login  ■ stopped                                                  
+📁 /src/widgets                                                       
+⏱ unknown                                                             
+ claude   widgets                                                     
+───────────────────────────── Claude ─────────────────────────────    
+Status:  ○ Not connected                                              
+Model:   tool default                                                 
+                                                                      
+───────────────────────── Process Exited ─────────────────────────    
+                                                                      
+──────────────────────────────────────────────────────────────────────
+[/] tabs  o open  y copy url  r refresh  p project  S settings  ? help

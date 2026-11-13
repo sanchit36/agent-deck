@@ -816,7 +816,7 @@ agent-deck session link <session> issue|pr <number> [--repo [HOST/]OWNER/NAME] [
 agent-deck session unlink <session> issue|pr [--json] [-q]
 ```
 
-Links a session to a GitHub issue or pull request. A session holds at most one issue link and one PR link (linking again replaces the old one); one issue or PR may be linked to many sessions. The link is the repo plus the number, stored on the session record in the state DB: it survives restarts, is kept after the issue closes or the PR merges, and is deleted with the session. The TUI draws it as a static `#12` / `PR#34` badge on the session row.
+Links a session to a GitHub issue or pull request. A session holds at most one issue link and one PR link (linking again replaces the old one); one issue or PR may be linked to many sessions. The link is the repo plus the number, stored on the session record in the state DB: it survives restarts, is kept after the issue closes or the PR merges, and is deleted with the session. The TUI draws it as a static `#12` / `PR#34` badge on the session row. The TUI's PRs tab also links a worktree session to the open PR whose head branch is the session's branch, unless the session already has a PR link (see tui-reference.md).
 
 `--repo` takes `OWNER/NAME` (host `github.com`), `HOST/OWNER/NAME` for GitHub Enterprise, or a remote URL. Without it the repo comes from the session checkout's `origin` remote (else its only remote, unless that is `upstream`), read locally with `git`. `link` makes no `gh` call and does not check that the number exists. The number may be written `12` or `#12`.
 
