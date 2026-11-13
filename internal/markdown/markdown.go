@@ -7,7 +7,7 @@
 //   - fenced code dim, never wrapped, cut with › and pannable
 //   - **bold** (and __bold__) and `code` styled
 //   - links as "text (url)", images as "[image: alt]"
-//   - HTML comments stripped, other HTML tags reduced to their text
+//   - HTML comments stripped (outside code), other HTML tags reduced to their text
 //     (<img> becomes "[image: alt]")
 //   - tables left as raw text, cut and panned like code
 //   - prose wrapped at min(width, 100) columns; a newline in the source is a
@@ -235,7 +235,9 @@ func (r *renderer) styled(f func(string) string, s string) string {
 	return f(s)
 }
 
-// stripComments removes HTML comments, which may span lines.
+// stripComments removes HTML comments, which may span lines. A comment
+// opener inside a code span is code, not a comment, so code spans (and
+// escaped backticks, which open none) are copied as they are.
 func (r *renderer) stripComments(line string) string {
 	var b strings.Builder
 	for line != "" {
@@ -248,16 +250,38 @@ func (r *renderer) stripComments(line string) string {
 			r.inComment = false
 			continue
 		}
-		start := strings.Index(line, "<!--")
-		if start < 0 {
+		i := commentStart(line)
+		if i < 0 {
 			b.WriteString(line)
 			break
 		}
-		b.WriteString(line[:start])
-		line = line[start+len("<!--"):]
+		b.WriteString(line[:i])
+		line = line[i+len("<!--"):]
 		r.inComment = true
 	}
 	return b.String()
+}
+
+// commentStart is the index of the first HTML comment opener in line
+// outside a code span, or -1. An escaped backtick opens no code span.
+func commentStart(line string) int {
+	for i := 0; i < len(line); {
+		switch {
+		case line[i] == '\\' && i+1 < len(line) && strings.IndexByte(escapable, line[i+1]) >= 0:
+			i += 2
+		case line[i] == '`':
+			if _, n, ok := codeSpan(line[i:]); ok {
+				i += n
+			} else {
+				i += len(line[i:]) - len(strings.TrimLeft(line[i:], "`"))
+			}
+		case strings.HasPrefix(line[i:], "<!--"):
+			return i
+		default:
+			i++
+		}
+	}
+	return -1
 }
 
 func isFenceClose(line, fence string) bool {

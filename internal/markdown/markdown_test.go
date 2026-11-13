@@ -54,6 +54,19 @@ func TestRender(t *testing.T) {
 			want: []string{"x", "y"},
 		},
 		{
+			name: "html comment opener inside a code span does not hide later text",
+			src:  "use `<!--` to start a comment\nshown",
+			want: []string{"use <c><!--</c> to start a comment", "shown"},
+		},
+		{name: "whole html comment inside a code span kept", src: "``<!-- x -->`` kept", want: []string{"<c><!-- x --></c> kept"}},
+		{name: "html comment after a code span stripped", src: "`a` <!-- h --> b", want: []string{"<c>a</c> b"}},
+		{name: "escaped backtick opens no code span", src: "\\`<!-- h -->` b", want: []string{"`` b"}},
+		{
+			name: "code span after a fence keeps its comment opener",
+			src:  "```\nx\n```\n`<!--`\nshown",
+			want: []string{"<d>x</d>", "<c><!--</c>", "shown"},
+		},
+		{
 			name: "template comment then blank",
 			src:  "<!-- Describe the bug -->\n\nIt crashes",
 			want: []string{"It crashes"},
