@@ -1044,6 +1044,8 @@ fire on their Russian ЙЦУКЕН twin.
 | `forge_open` | `o` | Issues, PRs | open the selected row in the browser (the SAML authorize URL while that message shows) |
 | `forge_copy` | `y` | Issues, PRs | copy the selected row's URL (the SAML authorize URL while that message shows) |
 | `forge_filter` | `/` | Issues, PRs | open the query bar (GitHub search syntax) |
+| `forge_attach` | `a` | Issues, PRs | attach to the session linked to the selected row (a picker when several are) |
+| `forge_view` | `enter` | Issues, PRs | single column: open the selected row's detail full screen (`esc` returns) |
 
 ## [display] Section
 

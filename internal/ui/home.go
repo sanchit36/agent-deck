@@ -2386,7 +2386,7 @@ func (h *Home) updateInner(msg tea.Msg) (tea.Model, tea.Cmd) {
 				} else {
 					h.moveForgeCursor(moveDown)
 				}
-				return h, nil
+				return h, h.syncForgeDetail()
 			}
 			// Main session list scroll (cursor movement also resets any
 			// stale preview offset so the new session starts at its tail).
@@ -4516,6 +4516,9 @@ func (h *Home) updateInner(msg tea.Msg) (tea.Model, tea.Cmd) {
 	case forgeAutoLinkedMsg:
 		h.applyForgeAutoLinked(msg)
 		return h, nil
+
+	case forgeDetailOpenMsg:
+		return h, h.applyForgeDetailOpen(msg)
 
 	case forgeURLDoneMsg:
 		h.applyForgeURLDone(msg)

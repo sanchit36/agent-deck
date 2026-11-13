@@ -30,6 +30,12 @@ const (
 	hotkeyForgeCopy = "forge_copy"
 	// hotkeyForgeFilter opens the query bar of the list.
 	hotkeyForgeFilter = "forge_filter"
+	// hotkeyForgeAttach attaches to the session linked to the selected
+	// row, through a picker when several are.
+	hotkeyForgeAttach = "forge_attach"
+	// hotkeyForgeView views the selected row: in the single column the
+	// first press opens the full-screen detail.
+	hotkeyForgeView = "forge_view"
 )
 
 // forgeHotkeyActionOrder is every forge action; later slices append theirs.
@@ -45,6 +51,8 @@ var forgeHotkeyActionOrder = []string{
 	hotkeyForgeOpen,
 	hotkeyForgeCopy,
 	hotkeyForgeFilter,
+	hotkeyForgeAttach,
+	hotkeyForgeView,
 }
 
 // forgeTabActions switch tabs and work from every tab, Sessions included.
@@ -68,6 +76,8 @@ var defaultForgeHotkeyBindings = map[string]string{
 	hotkeyForgeOpen:        "o",
 	hotkeyForgeCopy:        "y",
 	hotkeyForgeFilter:      "/",
+	hotkeyForgeAttach:      "a",
+	hotkeyForgeView:        "enter",
 }
 
 // forgeFallThroughKeys are the overview keys (canonical, as normalizeMainKey

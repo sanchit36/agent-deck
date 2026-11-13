@@ -128,9 +128,14 @@ func (n gqlIssue) issue() Issue {
 // $name bound to repo, and decodes the reply's data into data. It is one
 // gh call; the list and detail queries go through it.
 func (c *Client) RepoGraphQL(ctx context.Context, repo Repo, query string, data any) error {
-	out, err := c.API(ctx, repo.HostOrDefault(), Call{Args: []string{
-		"graphql", "-f", "query=" + query, "-f", "owner=" + repo.Owner, "-f", "name=" + repo.Name,
-	}})
+	return c.repoGraphQL(ctx, repo, query, data)
+}
+
+// repoGraphQL is RepoGraphQL with more gh api arguments after the
+// $owner/$name binding (e.g. -F number=N for a typed variable).
+func (c *Client) repoGraphQL(ctx context.Context, repo Repo, query string, data any, extra ...string) error {
+	args := []string{"graphql", "-f", "query=" + query, "-f", "owner=" + repo.Owner, "-f", "name=" + repo.Name}
+	out, err := c.API(ctx, repo.HostOrDefault(), Call{Args: append(args, extra...)})
 	if err != nil {
 		return err
 	}

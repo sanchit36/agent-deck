@@ -36,6 +36,7 @@ func defaultForgeFetchers() map[freshness.Kind]forgeFetchFunc {
 	return map[freshness.Kind]forgeFetchFunc{
 		freshness.IssueList: fetchIssueList,
 		freshness.PRList:    fetchPRList,
+		freshness.Detail:    fetchDetail,
 	}
 }
 
@@ -192,7 +193,7 @@ func (h *Home) forgeRefreshDue() tea.Cmd {
 		return nil
 	}
 	now := h.forgeNow()
-	var cmds []tea.Cmd
+	cmds := []tea.Cmd{h.syncForgeDetail()}
 	for _, k := range h.forgeVisibleKeys() {
 		if h.forgeCache().Due(k, now, h.forge.interval) {
 			cmds = append(cmds, h.forgeFetch(k))
@@ -250,12 +251,13 @@ func (h *Home) applyForgeFetched(msg forgeFetchedMsg) tea.Cmd {
 	}
 	h.applyForgeFilterFetched(msg)
 	h.syncForgeLists()
+	open := h.syncForgeDetail()
 	// Only the default list links sessions: a filtered one may hold
 	// merged or closed PRs.
 	if l, ok := msg.value.(github.PRList); ok && msg.err == nil && msg.key.Filter == github.DefaultFilter {
-		return h.forgeAutoLinkCmd(msg.key.Repo, l)
+		return tea.Batch(open, h.forgeAutoLinkCmd(msg.key.Repo, l))
 	}
-	return nil
+	return open
 }
 
 // forgeVisibleEntry is the cache entry of the list on screen.

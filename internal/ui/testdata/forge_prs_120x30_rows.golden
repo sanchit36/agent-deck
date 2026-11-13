@@ -1,30 +1,30 @@
  ●●○ Agent Deck [_test]  no sessions                                                                           v1.16.10 
   All    ● 0   ◐ 0   ○ 0   !@#& filter • 0 all • % open • ^ archived • t view • * time                                  
- SESSIONS │ ISSUES │ PRS 59                │ PREVIEW                                                                    
+ SESSIONS │ ISSUES │ PRS 59                │ PR #15048                                                                  
 ────────────────────────────────────────── │ ───────────────────────────────────────────────────────────────────────────
-me/widgets ▾  is:open   6 of 59 · just now │ fix login  ■ stopped                                                       
-▌ ● chore(deps): Bump golang.org/x/term f… │ 📁 /src/widgets                                                            
-▌   #15048 · dependabot · 30m  ✓ ci  ? re… │ ⏱ unknown                                                                  
-                                           │  claude   widgets                                                          
-  ◌ Add guided multi-account setup and ev… │ ─────────────────────────────── Claude ───────────────────────────────     
-    #14927 · williammartin · 2h  ✗ ci  ? … │ Status:  ○ Not connected                                                   
-                                           │ Model:   tool default                                                      
-  ● Don't preallocate the agent task sess… │                                                                            
-    #15046 · compiler-segfault · 9h  ✓ ci… │ ─────────────────────────── Process Exited ───────────────────────────     
-                                           │                                                                            
-  ◌ feat(auth): Better multi-account `gh`… │ ■ Process exited                                                           
-    #13781 · platinummonkey · 6d  · ci  ?… │                                                                            
-                                           │ The process ended or was stopped.                                          
-  ● Update build and release workflow to … │ The session record is preserved for resuming.                              
-    #13665 · steiza · 2mo  ✓ ci  ✔ review  │                                                                            
-                                           │ Actions:                                                                   
-  ● Warn instead of failing when issue fi… │   R Resume  - restart with session resume                                  
-    #13899 · imkp1 · 2mo  ✓ ci  ± review   │   d Delete  - remove from list                                             
-                                           │   Enter - attach (will auto-start)                                         
-                                           │                                                                            
-                                           │                                                                            
-                                           │                                                                            
-                                           │                                                                            
-                                           │                                                                            
+me/widgets ▾  is:open   6 of 59 · just now │ ● chore(deps): Bump golang.org/x/term from 0.47.0 to 0.48.0                
+▌ ● chore(deps): Bump golang.org/x/term f… │                                                                            
+▌   #15048 · dependabot · 30m  ✓ ci  ? re… │ ⚠ gh failed: githubtest: no fixture for gh api --hostname github.com       
+                                           │ graphql -f                                                                 
+  ◌ Add guided multi-account setup and ev… │ query=query($owner:String!,$name:String!,$number:Int!){repository(owner:$ow
+    #14927 · williammartin · 2h  ✗ ci  ? … │ ner,name:$name){issueOrPullRequest(number:$number){__typename ...on        
+                                           │ Issue{number title url issueState:state createdAt updatedAt author{login}  
+  ● Don't preallocate the agent task sess… │ labels(first:20){nodes{name}} assignees(first:10){nodes{login}}            
+    #15046 · compiler-segfault · 9h  ✓ ci… │ comments{totalCount}                                                       
+                                           │ timelineItems(last:10,itemTypes:[ISSUE_COMMENT,CLOSED_EVENT,REOPENED_EVENT,
+  ◌ feat(auth): Better multi-account `gh`… │ CROSS_REFERENCED_EVENT]){nodes{__typename ...on IssueComment{createdAt     
+    #13781 · platinummonkey · 6d  · ci  ?… │ author{login}} ...on ClosedEvent{createdAt actor{login}} ...on             
+                                           │ ReopenedEvent{createdAt actor{login}} ...on CrossReferencedEvent{createdAt 
+  ● Update build and release workflow to … │ actor{login}}}}} ...on PullRequest{number title url prState:state isDraft  
+    #13665 · steiza · 2mo  ✓ ci  ✔ review  │ createdAt updatedAt author{login} labels(first:20){nodes{name}}            
+                                           │ assignees(first:10){nodes{login}} comments{totalCount} headRefName         
+  ● Warn instead of failing when issue fi… │ baseRefName headRefOid headRepository{name owner{login}} reviewDecision    
+    #13899 · imkp1 · 2mo  ✓ ci  ± review   │ mergeStateStatus additions deletions changedFiles                          
+                                           │ commits(last:1){nodes{commit{statusCheckRollup{state                       
+                                           │ contexts(first:100){nodes{__typename ...on CheckRun{conclusion status      
+                                           │ completedAt} ...on StatusContext{state createdAt}}}}}}}                    
+                                           │ timelineItems(last:10,itemTypes:[ISSUE_COMMENT,PULL_REQUEST_REVIEW,PULL_REQ
+                                           │ UEST_COMMIT,HEAD_REF_FORCE_PUSHED_EVENT,CLOSED_EVENT,REOPENED_EVENT,MERGED_
+                                           │ EVENT,READY_FOR_REVIEW_EVENT]){nodes{__typename ...on                      
 ────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────
 [/] tabs  o open  y copy url  / filter  r refresh  p project  P parent  S settings  ? help                              

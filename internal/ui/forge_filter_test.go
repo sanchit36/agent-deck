@@ -247,6 +247,32 @@ func TestForgeFilterEscResets(t *testing.T) {
 	}
 }
 
+// TestForgeFilterEscBeforeDetail: in the single column's full-screen
+// detail, esc first resets a filter, then backs out of the detail.
+func TestForgeFilterEscBeforeDetail(t *testing.T) {
+	h, fake := detailIssuesHome(t, 45, 20)
+	serveSearch(fake, github.IssueSearchQuery, "repo:me/widgets is:issue is:closed sort:updated-desc", githubtest.MustLoad(t, githubtest.IssueSearch))
+	h = filterQuery(t, h, "is:closed")
+	h = drive(t, h, specialKey(tea.KeyEnter))
+	if !h.forgeDetailFull() {
+		t.Fatal("enter did not open the full-screen detail")
+	}
+	h = drive(t, h, specialKey(tea.KeyEsc))
+	if !h.forgeFilterIsDefault(tabIssues) {
+		t.Fatal("the first esc did not reset the filter")
+	}
+	if !h.forgeDetailFull() {
+		t.Fatal("the first esc backed out of the detail before resetting the filter")
+	}
+	h = drive(t, h, specialKey(tea.KeyEsc))
+	if h.forgeDetailFull() {
+		t.Fatal("the second esc did not back out of the detail")
+	}
+	if !h.forgeTabActive() {
+		t.Fatal("esc left the Issues tab")
+	}
+}
+
 // TestForgeFilterPerProjectAndTab: a filter belongs to its Project and tab
 // for the run: the other tab and the Parent Repository keep their own.
 func TestForgeFilterPerProjectAndTab(t *testing.T) {
@@ -381,7 +407,13 @@ func TestForgeFilterGolden(t *testing.T) {
 		for _, c := range []string{"bar", "rejected", "applied"} {
 			name := fmt.Sprintf("forge_filter_%dx%d_%s", sz[0], sz[1], c)
 			t.Run(name, func(t *testing.T) {
-				h, fake := issuesHome(t, sz[0], sz[1], githubtest.IssueList)
+				// The detail pane shows the recorded #14822; the
+				// search's rows have no recorded detail, so the applied
+				// case shows the detail loading.
+				h, fake := detailIssuesHome(t, sz[0], sz[1])
+				if c == "applied" {
+					delete(h.forge.fetchers, freshness.Detail)
+				}
 				switch c {
 				case "bar":
 					h = drive(t, h, runeKey('/'))

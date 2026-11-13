@@ -192,6 +192,7 @@ func (h *Home) openForgeBar() {
 	if !ok {
 		return
 	}
+	h.forge.detailFull = false
 	h.forge.bar = forgeFilterBar{open: true, scope: s, draft: h.forgeAppliedFilter(h.forge.tab).query, pick: -1}
 	h.syncForgeHelp()
 }
@@ -216,7 +217,7 @@ func (h *Home) handleForgeBarKey(msg tea.KeyMsg) (bool, tea.Model, tea.Cmd) {
 		return h.forgeFallThrough(msg, "ctrl+c")
 	case tea.KeyEsc:
 		h.closeForgeBar()
-		return true, h, nil
+		return true, h, h.syncForgeDetail()
 	case tea.KeyEnter:
 		return true, h, h.submitForgeFilter()
 	case tea.KeyUp, tea.KeyDown:
@@ -255,7 +256,7 @@ func (h *Home) handleForgeBarKey(msg tea.KeyMsg) (bool, tea.Model, tea.Cmd) {
 	bar.err = ""
 	bar.pending = nil
 	h.syncForgeLists()
-	return true, h, nil
+	return true, h, h.syncForgeDetail()
 }
 
 // forgeFilterChoices are what ↑/↓ cycle: the tab's presets, then this
@@ -316,7 +317,7 @@ func (h *Home) submitForgeFilter() tea.Cmd {
 	key := freshness.ListKey(s.repo, forgeListKind(s.tab), fetch)
 	if e, ok := h.forgeCache().Get(key); ok && e.HasData() {
 		h.applyForgeFilter(s, f)
-		return h.forgeRefreshDue()
+		return tea.Batch(h.forgeRefreshDue(), h.syncForgeDetail())
 	}
 	bar.err = ""
 	bar.pending = &forgePendingFilter{key: key, filter: f}

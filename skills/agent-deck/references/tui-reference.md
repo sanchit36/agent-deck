@@ -251,6 +251,22 @@ one if several match. A session that already has a PR link keeps it; SSH
 sessions are never linked this way. This runs in the background, never while
 the list is drawn.
 
+On the Issues and PRs tabs the right pane (the lower one in the stacked
+layout) is the selected row's detail, titled `ISSUE #n` or `PR #n`: the
+title, then a key/value block and a short timeline, newest first. An Issue
+shows its state, author, age, labels, assignee, comment count and linked
+sessions; a PR shows its state, head branch (`owner:branch` from a fork),
+base branch (`into`), checks (`✗ 1 failed · 11 passed`), review, merge state
+(`⇢` clean, `≠` conflict, `↓` behind, `⊘` blocked), diff size
+(`+120 −30 · 7 files`) and linked sessions. The timeline lists the last
+comments, reviews, pushes, check results and state changes. The body and
+comments are not shown here. The detail is one GraphQL request: its cached
+copy shows at once, it is fetched fresh each time you open it (once the
+cursor rests on the row), and it refetches while on screen when the list
+reports the item changed. In the single column the list has the screen;
+`Enter` opens the selected row's detail full screen and `Esc` returns to the
+list.
+
 The right end of the Project line says how fresh the list is: `updated 2m ago`
 (`N open · 2m ago` once the count is known, or `100 of 342 · 2m ago` when
 GitHub has more open items than the list fetched), a spinner while it loads, or
@@ -292,6 +308,8 @@ links worktree sessions to their PR.
 | `o` / `y` | Open the selected Issue or PR in the browser / copy its URL; on the SAML message, the authorize URL. Both run in the background, never blocking the TUI (Issues, PRs; **rebindable**: `forge_open`, `forge_copy`) |
 | `/` | Filter: open the query bar on the current filter; `Enter` applies, `↑`/`↓` presets and recent queries, `Esc` cancels, `Ctrl+U` clears, `Ctrl+W` deletes a word (Issues, PRs; **rebindable**: `forge_filter`) |
 | `Esc` | Reset a filter other than the starting one; otherwise as on Sessions (Issues, PRs) |
+| `a` | Attach to the session linked to the selected Issue or PR; with several, a picker (`j`/`k` move, `Enter` attaches, `Esc` closes); with none, a message says so (Issues, PRs; **rebindable**: `forge_attach`) |
+| `Enter` / `Esc` | Single column only: open the selected row's detail full screen / return to the list (Issues, PRs; **rebindable**: `forge_view`) |
 | `j`/`k`, `↑`/`↓`, `Ctrl+U/D`, `PgUp`/`PgDn`, `Ctrl+B/F`, `Home`/`End` | Move in the tab's list (Issues, PRs) |
 
 On the Issues and PRs tabs every other session key is ignored except these,
