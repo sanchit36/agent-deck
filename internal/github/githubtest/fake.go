@@ -63,6 +63,13 @@ const (
 	// RepoNotFound is `gh api repos/...` for a repository that does not
 	// exist or is not visible.
 	RepoNotFound = "repo-not-found"
+	// IssueList is the lean Issues list query (github.IssueListQuery) for
+	// cli/cli, recorded with gh 2.103 and trimmed to six of its 1075 open
+	// Issues; the last one's author is a deleted account (null).
+	IssueList = "issue-list"
+	// IssueListDisabled is the same query for torvalds/linux, which has
+	// Issues turned off.
+	IssueListDisabled = "issue-list-disabled"
 )
 
 // Load returns the fixture named name.
