@@ -68,7 +68,7 @@ func targetOf(kind session.LinkKind, l *session.Link) signals.Target {
 // startSignals is Init's: the TUI runs, so the poller may.
 func (h *Home) startSignals() {
 	h.forge.signals.live = true
-	cfg, _ := session.LoadUserConfig()
+	cfg := loadForgeConfig()
 	h.syncSignalsPoller(cfg)
 }
 

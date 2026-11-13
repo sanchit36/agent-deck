@@ -212,7 +212,9 @@ func scopesOverlap(a, b Template) bool {
 }
 
 // Path resolves a file template's path: ~ expands to home, and a relative
-// path resolves against configDir.
+// path resolves against configDir. The ~ handling is spelled out here, not
+// session.ExpandPath, because internal/session imports this package (for
+// UserConfig.PromptTemplates); home is passed in so tests need no real HOME.
 func (t Template) Path(configDir, home string) string {
 	p := strings.TrimSpace(t.File)
 	switch {

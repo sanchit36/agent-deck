@@ -136,7 +136,7 @@ func (h *Home) forgeOpenLaunch() tea.Cmd {
 		title = forgeLaunchTitle(fmt.Sprintf("PR#%d", r.number), f.vars.Title)
 	}
 
-	cfg, _ := session.LoadUserConfig()
+	cfg := loadForgeConfig()
 	ts := prompttemplate.Builtins()
 	if dir, home, err := session.PromptTemplateDirs(); err == nil {
 		f.configDir, f.home = dir, home

@@ -185,7 +185,7 @@ const forgeResolveTimeout = 30 * time.Second
 // reloadForgeFromConfig reads the gate, the refresh interval and the
 // forge_* hotkeys. Turning the gate off returns to the Sessions tab.
 func (h *Home) reloadForgeFromConfig() {
-	cfg, _ := session.LoadUserConfig()
+	cfg := loadForgeConfig()
 	h.forge.interval = cfg.GitHubRefreshInterval()
 	h.forge.issueFilter, h.forge.prFilter = cfg.GitHubIssueFilter(), cfg.GitHubPRFilter()
 	h.setForgeEnabled(cfg.GitHubEnabled(), session.GetHotkeyOverrides())
