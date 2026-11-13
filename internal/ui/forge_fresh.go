@@ -242,9 +242,13 @@ func (h *Home) forgeOnTick() tea.Cmd {
 // forgeManualRefresh is r: fetch the visible keys (and the tab chip's
 // total under a filter) now, joining a fetch already in flight; nothing
 // while the host is rate-limited. The poll timer restarts when the fetch
-// lands.
+// lands. The Attention signal poller polls every host again too, so a
+// host's login ⚠ clears after gh auth login.
 func (h *Home) forgeManualRefresh() tea.Cmd {
 	h.forgeExpirePRLocal()
+	if p := h.forge.signals.poller; p != nil {
+		p.Refresh()
+	}
 	now := h.forgeNow()
 	var cmds []tea.Cmd
 	keys := h.forgeVisibleKeys()

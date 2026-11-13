@@ -298,6 +298,28 @@ func TestSignalsPollProjectHosts(t *testing.T) {
 	}
 }
 
+// TestSignalsManualRefreshClearsLoginWarning: a host gh was not logged in
+// to shows ⚠; after gh auth login, r re-runs the signal poll and the ⚠
+// clears without a restart.
+func TestSignalsManualRefreshClearsLoginWarning(t *testing.T) {
+	h := forgeFrameHome(t, 120, 30, false, gateOn)
+	runner := &signalsRunner{fixture: githubtest.MustLoad(t, githubtest.NotLoggedIn)}
+	clk := &lockedClock{now: freshT0}
+	h.forge.client = github.NewClient(runner)
+	h.forge.now = clk.Now
+	h.forge.signals.ticks = make(chan time.Time)
+	inst := &session.Instance{ID: "a", Title: "fix login", Tool: "claude", Status: session.StatusIdle}
+	inst.SetLink(session.LinkPR, session.Link{Host: "github.com", Owner: "acme", Name: "widgets", Number: 34})
+	h.instances = []*session.Instance{inst}
+	h.startSignals()
+	t.Cleanup(h.stopSignals)
+	signalsWaitFor(t, "the ⚠", func() bool { return strings.Contains(h.linkBadgeText(inst), "⚠") })
+
+	runner.set(githubtest.MustLoad(t, githubtest.SignalsPoll))
+	_ = h.forgeManualRefresh()
+	signalsWaitFor(t, "the ⚠ to clear", func() bool { return !strings.Contains(h.linkBadgeText(inst), "⚠") })
+}
+
 // TestSignalsOffSwitch: [github] signals = false, the gate off, or
 // refresh_interval = 0 start no poller; a Home that is not running (no
 // Init) never polls.

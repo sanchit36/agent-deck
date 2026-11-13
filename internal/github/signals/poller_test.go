@@ -237,6 +237,35 @@ func TestPollerAuthFailureWarnsHostOnly(t *testing.T) {
 	}
 }
 
+// TestPollerRefreshClearsLoginWarning: after gh auth login, the user's
+// refresh (r) polls a host that is not retried by itself, at once (no tick
+// needed), and its ⚠ clears.
+func TestPollerRefreshClearsLoginWarning(t *testing.T) {
+	ghe := Target{Repo: github.Repo{Host: "ghe.corp.example", Owner: "team", Name: "svc"}, Number: 5, PR: true}
+	h := newHarness(t, githubtest.NotLoggedIn, pr34, ghe)
+	h.p.Start()
+	t.Cleanup(h.p.Stop)
+	waitFor(t, func() bool { return h.p.Snapshot() != nil })
+	if got := h.p.Snapshot().Badge(ghe); got != "⚠" {
+		t.Fatalf("ghe badge = %q, want ⚠", got)
+	}
+	h.runner.set(githubtest.MustLoad(t, githubtest.SignalsPoll))
+	h.p.Refresh()
+	waitFor(t, func() bool { return h.p.Snapshot().Badge(ghe) != "⚠" })
+}
+
+// waitFor polls cond for up to 5 s.
+func waitFor(t *testing.T, cond func() bool) {
+	t.Helper()
+	deadline := time.Now().Add(5 * time.Second)
+	for !cond() {
+		if time.Now().After(deadline) {
+			t.Fatal("condition not met within 5 s")
+		}
+		time.Sleep(5 * time.Millisecond)
+	}
+}
+
 // TestPollerBacksOffAndStopsWhenRateLimited reuses freshness: transient
 // failures back off, a rate limit stops the host until it lifts.
 func TestPollerBacksOff(t *testing.T) {
