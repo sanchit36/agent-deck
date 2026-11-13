@@ -28,8 +28,8 @@ import (
 // (forgeSelectedRow), so the list's row actions (o, y, a, r, and those
 // later slices add) act on it even when a list refresh moves the cursor.
 //
-// The Files tab (slice #30) plugs in through forgeOverlayFilesBody and
-// opens with openForgeOverlay(forgeOverlayFiles).
+// The Files tab (forge_files.go) opens with openForgeOverlay(forgeOverlayFiles)
+// (d on a PR row) and keeps its own state in forgeOverlay.files.
 
 // forgeOverlayTab is one tab of the overlay.
 type forgeOverlayTab int
@@ -88,6 +88,8 @@ type forgeOverlay struct {
 	// lookup maps a pressed key to its overlay action.
 	lookup map[string]string
 	memo   forgeOverlayMemo
+	// files is the Files tab's state (forge_files.go).
+	files forgeFilesView
 }
 
 // forgeOverlayMemo caches the Conversation's rendered lines: every key
@@ -118,7 +120,7 @@ type forgeOverlayMemoKey struct {
 type forgeMinimizedRow struct{ row, comment int }
 
 // Overlay actions ([hotkeys] names). hotkeyForgeFiles is also the list's
-// "open on Files" key once slice #30 adds it to forgeHotkeyActionOrder.
+// "open on Files" key (forgeHotkeyActionOrder).
 const (
 	// hotkeyForgeConversation and hotkeyForgeFiles switch the overlay's
 	// tabs.
@@ -180,7 +182,8 @@ var forgeOverlayFixedKeys = map[string]string{
 func (h *Home) forgeOverlayVisible() bool { return h.forge.overlay.visible }
 
 // openForgeOverlay opens the selected row in the overlay on tab (an Issue
-// has Conversation only) and fetches its Conversation fresh.
+// has Conversation only) and fetches its Conversation fresh, and on Files
+// what the diff needs.
 func (h *Home) openForgeOverlay(tab forgeOverlayTab) tea.Cmd {
 	lk, ok := h.forgeListKey()
 	if !ok {
@@ -205,7 +208,19 @@ func (h *Home) openForgeOverlay(tab forgeOverlayTab) tea.Cmd {
 		o.seen = forgeConversationCount(e.Value)
 	}
 	h.forge.overlay = o
-	return h.forgeFetch(ck)
+	return tea.Batch(h.forgeFetch(ck), h.forgeFilesFetch())
+}
+
+// setForgeOverlayTab shows tab (Files on a PR only) and starts the fetches
+// it needs.
+func (h *Home) setForgeOverlayTab(t forgeOverlayTab) tea.Cmd {
+	o := &h.forge.overlay
+	if t == forgeOverlayFiles && !o.pr {
+		return nil
+	}
+	o.tab = t
+	h.clampForgeOverlay()
+	return h.forgeFilesFetch()
 }
 
 // closeForgeOverlay closes the overlay back to the list (and detail).
@@ -246,6 +261,7 @@ func (h *Home) forgeOverlaySetSize(width, height int) {
 // forgeOverlayFetched notes a Conversation that arrived for the open
 // overlay: its first copy is all seen.
 func (h *Home) forgeOverlayFetched(k freshness.Key) {
+	h.adoptForgeFilesDiff()
 	want, open := h.forgeOverlayKey()
 	if !open || k != want {
 		return
@@ -273,34 +289,40 @@ func (h *Home) forgeOverlayWidth() int {
 	return max(1, h.forge.overlay.width-2)
 }
 
-// forgeOverlayLines are the body lines of the tab on screen.
+// forgeOverlayLines are the body lines of the tab on screen (the Files
+// tab's whole body, as renderForgeFiles draws it).
 func (h *Home) forgeOverlayLines() []string {
 	if h.forge.overlay.tab == forgeOverlayFiles {
-		return h.forgeOverlayFilesBody(h.forgeOverlayWidth())
+		return h.renderForgeFiles(h.forgeOverlayBodyHeight())
 	}
 	return h.forgeConversationLines().lines
 }
 
-// forgeOverlayFilesBody is the Files tab's body. Slice #30 replaces it
-// with the diff viewer.
-func (h *Home) forgeOverlayFilesBody(width int) []string {
-	dim := lipgloss.NewStyle().Foreground(ColorTextDim)
-	return []string{dim.Render(truncateDisplay("Files: not available yet · o opens the PR in the browser", width, "…"))}
-}
-
 // forgeOverlayMaxOffset is the furthest the tab on screen scrolls.
 func (h *Home) forgeOverlayMaxOffset() int {
+	if h.forge.overlay.tab == forgeOverlayFiles {
+		return h.forgeFilesMaxOffset()
+	}
 	return max(0, len(h.forgeOverlayLines())-h.forgeOverlayBodyHeight())
+}
+
+// forgeOverlayPage is how many rows the tab on screen pages by.
+func (h *Home) forgeOverlayPage() int {
+	if h.forge.overlay.tab == forgeOverlayFiles {
+		return h.forgeFilesLayoutNow().diffRows
+	}
+	return h.forgeOverlayBodyHeight()
 }
 
 func (h *Home) clampForgeOverlay() {
 	o := &h.forge.overlay
+	if o.tab == forgeOverlayFiles {
+		h.clampForgeFiles()
+		return
+	}
 	s := &o.scroll[o.tab]
 	s.offset = max(0, min(s.offset, h.forgeOverlayMaxOffset()))
-	maxPan := 0
-	if o.tab == forgeOverlayConversation {
-		maxPan = max(0, h.forgeConversationLines().codeWidth-h.forgeOverlayWidth())
-	}
+	maxPan := max(0, h.forgeConversationLines().codeWidth-h.forgeOverlayWidth())
 	s.pan = max(0, min(s.pan, maxPan))
 	h.markForgeOverlaySeen()
 }
@@ -347,23 +369,24 @@ func (h *Home) forgeOverlayScrollBy(delta int) {
 func (h *Home) handleForgeOverlayKey(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 	o := &h.forge.overlay
 	raw := msg.String()
+	files := o.tab == forgeOverlayFiles
 	if raw == "ctrl+c" || (raw != "q" && o.lookup[raw] == "" && forgeOverlayFixedKeys[raw] == "" &&
+		(!files || forgeFilesFixedKeys[raw] == "") &&
 		h.hotkeyLookup[raw] == defaultHotkeyBindings[hotkeyQuit]) {
 		h.closeForgeOverlay()
 		return h.handleMainKey(msg)
 	}
-	page := h.forgeOverlayBodyHeight()
+	if files {
+		if handled, cmd := h.handleForgeFilesKey(raw); handled {
+			return h, cmd
+		}
+	}
+	page := h.forgeOverlayPage()
 	switch o.lookup[raw] {
 	case hotkeyForgeConversation:
-		o.tab = forgeOverlayConversation
-		h.clampForgeOverlay()
-		return h, nil
+		return h, h.setForgeOverlayTab(forgeOverlayConversation)
 	case hotkeyForgeFiles:
-		if o.pr {
-			o.tab = forgeOverlayFiles
-			h.clampForgeOverlay()
-		}
-		return h, nil
+		return h, h.setForgeOverlayTab(forgeOverlayFiles)
 	case hotkeyForgeExpand:
 		h.toggleForgeMinimized()
 		return h, nil
@@ -394,13 +417,9 @@ func (h *Home) handleForgeOverlayKey(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 	}
 	switch forgeOverlayFixedKeys[raw] {
 	case "conversation":
-		o.tab = forgeOverlayConversation
-		h.clampForgeOverlay()
+		return h, h.setForgeOverlayTab(forgeOverlayConversation)
 	case "files":
-		if o.pr {
-			o.tab = forgeOverlayFiles
-			h.clampForgeOverlay()
-		}
+		return h, h.setForgeOverlayTab(forgeOverlayFiles)
 	case "down":
 		h.forgeOverlayScrollBy(1)
 	case "up":
@@ -435,18 +454,17 @@ func (h *Home) handleForgeOverlayKey(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 
 // handleForgeOverlayClick switches tab on a click on the tab row (row 1).
 // An Issue's overlay has Conversation only.
-func (h *Home) handleForgeOverlayClick(x, y int) {
+func (h *Home) handleForgeOverlayClick(x, y int) tea.Cmd {
 	o := &h.forge.overlay
 	if y != 1 {
-		return
+		return nil
 	}
 	for _, s := range forgeOverlayTabSegments(o.pr, o.tab) {
 		if x >= s.x0 && x < s.x1 {
-			o.tab = s.tab
-			h.clampForgeOverlay()
-			return
+			return h.setForgeOverlayTab(s.tab)
 		}
 	}
+	return nil
 }
 
 // handleForgeOverlayWheel scrolls the overlay a few rows per notch.
@@ -729,18 +747,25 @@ func (h *Home) renderForgeOverlay() string {
 	out = append(out, lipgloss.NewStyle().Foreground(ColorBorder).Render(strings.Repeat("─", width)))
 
 	// Body.
-	lines := h.forgeOverlayLines()
 	body := h.forgeOverlayBodyHeight()
-	offset := max(0, min(o.scroll[o.tab].offset, len(lines)-1))
-	for i := offset; i < len(lines) && i < offset+body; i++ {
-		out = append(out, truncateDisplay(" "+lines[i], width, "…"))
+	var total, offset, page int
+	if o.tab == forgeOverlayFiles {
+		out = append(out, h.renderForgeFiles(body)...)
+		total, offset, page = h.forgeFilesPosition()
+	} else {
+		lines := h.forgeOverlayLines()
+		offset = max(0, min(o.scroll[o.tab].offset, len(lines)-1))
+		for i := offset; i < len(lines) && i < offset+body; i++ {
+			out = append(out, truncateDisplay(" "+lines[i], width, "…"))
+		}
+		total, page = len(lines), body
 	}
 	for len(out) < forgeOverlayHeaderRows+body {
 		out = append(out, "")
 	}
 
 	// Footer: status, then the key hints.
-	out = append(out, truncateDisplay(" "+h.forgeOverlayStatus(len(lines), offset, body), width, "…"))
+	out = append(out, truncateDisplay(" "+h.forgeOverlayStatus(total, offset, page), width, "…"))
 	out = append(out, dim.Render(truncateDisplay(" "+h.forgeOverlayHints(), width, "…")))
 	return strings.Join(out, "\n")
 }
@@ -753,12 +778,16 @@ func (h *Home) forgeOverlayStatus(total, offset, body int) string {
 	if n := h.forgeOverlayNew(); n > 0 {
 		parts = append(parts, lipgloss.NewStyle().Foreground(ColorAccent).Bold(true).Render(forgePlural(n, "new comment", "new comments")))
 	}
-	if k, ok := h.forgeOverlayKey(); ok && h.forge.fresh != nil {
+	k, ok := h.forgeOverlayKey()
+	if h.forge.overlay.tab == forgeOverlayFiles {
+		k, ok = h.forgeFilesStatusKey()
+	}
+	if ok && h.forge.fresh != nil {
 		if e, has := h.forge.fresh.Get(k); has {
 			switch {
-			case e.Fetching && e.HasData():
+			case e.Fetching && (e.HasData() || h.forge.overlay.files.sha != ""):
 				parts = append(parts, lipgloss.NewStyle().Foreground(ColorCyan).Render(forgeSpinnerFrames[h.animationFrame%len(forgeSpinnerFrames)]))
-			case e.Stale():
+			case e.Stale() || (e.Err != nil && h.forge.overlay.tab == forgeOverlayFiles && h.forge.overlay.files.sha != ""):
 				parts = append(parts, lipgloss.NewStyle().Foreground(ColorYellow).Render("⚠ stale: "+forgeFailureFor(e.Err, k, h.forgeNow()).lines[0]))
 			}
 		}
@@ -784,6 +813,9 @@ func (h *Home) forgeOverlayHints() string {
 		add(joinHotkeyLabels(key(hotkeyForgeConversation), key(hotkeyForgeFiles)), "tabs")
 	}
 	add("j/k", "scroll")
+	if o.tab == forgeOverlayFiles {
+		h.forgeFilesHints(add)
+	}
 	if o.tab == forgeOverlayConversation && len(h.forgeConversationLines().minimized) > 0 {
 		add(key(hotkeyForgeExpand), "expand hidden")
 	}

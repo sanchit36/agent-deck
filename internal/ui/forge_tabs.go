@@ -291,6 +291,14 @@ func (h *Home) handleForgeKey(msg tea.KeyMsg, raw, key string) (bool, tea.Model,
 		return true, h, h.openForgeMerge()
 	case hotkeyForgeView:
 		return true, h, h.forgeOpenItem()
+	case hotkeyForgeFiles:
+		if h.forge.tab != tabPRs {
+			return true, h, nil
+		}
+		if _, ok := h.forgeSelectedRow(); !ok {
+			return true, h, nil
+		}
+		return true, h, h.openForgeOverlay(forgeOverlayFiles)
 	case hotkeyForgeFilter:
 		h.openForgeBar()
 		return true, h, nil
@@ -904,6 +912,9 @@ func (h *Home) renderForgeHelpBar() string {
 			} else {
 				add(h.forgeKey(hotkeyForgeView), "view")
 			}
+			if h.forge.tab == tabPRs {
+				add(h.forgeKey(hotkeyForgeFiles), "files")
+			}
 			add(h.forgeKey(hotkeyForgeNew), "new")
 			if insts, _, _ := h.forgeSelectedSessions(); len(insts) > 0 {
 				add(h.forgeKey(hotkeyForgeAttach), "attach")
@@ -955,6 +966,7 @@ var forgeHintPriority = map[string]int{
 	"merge":       8,
 	"project":     9,
 	"parent":      10,
+	"files":       5,
 }
 
 // fitForgeHints keeps the context hints that fit beside the global ones,
@@ -1037,6 +1049,13 @@ func (h *Home) forgeHelpRows() [][2]string {
 		{joinHotkeyLabels(h.forgeKey(hotkeyForgeConversation), h.forgeKey(hotkeyForgeFiles)), "Open item: Conversation / Files"},
 		{h.forgeKey(hotkeyForgeExpand), "Open item: expand hidden comments"},
 		{"Esc / q", "Open item: close"},
+		{"Tab", "Files: focus the file list / the diff"},
+		{"n / N", "Files: next / previous hunk"},
+		{"] / [", "Files: next / previous file"},
+		{"Enter", "Files: expand a collapsed file"},
+		{"h / l", "Files: pan long lines"},
+		{"f", "Files: file list (under 90 columns)"},
+		{"S", "Files: start a session on the PR"},
 		{"", ""},
 		{h.actionKey(hotkeyHelp), "This help"},
 		{h.actionKey(hotkeyQuit), "Quit"},

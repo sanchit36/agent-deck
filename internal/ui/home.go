@@ -5367,8 +5367,7 @@ func (h *Home) handleMouse(msg tea.MouseMsg) (tea.Model, tea.Cmd) {
 	// panels and pagers the wheel routing above also checks first.
 	if h.forgeOverlayVisible() && !h.forgeMergeVisible() && msg.Button == tea.MouseButtonLeft && msg.Action == tea.MouseActionPress &&
 		!h.settingsPanel.IsVisible() && !h.helpOverlay.IsVisible() && !h.scrollbackPager.IsVisible() && !h.contextPager.IsVisible() {
-		h.handleForgeOverlayClick(msg.X, msg.Y)
-		return h, nil
+		return h, h.handleForgeOverlayClick(msg.X, msg.Y)
 	}
 	if h.hasModalVisible() {
 		// A modal opening mid-drag shouldn't leave the divider stuck grabbed.
