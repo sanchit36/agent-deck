@@ -1,0 +1,24 @@
+ ◌ #14927  Add guided multi-account setup and evaluation       draft
+   Conversation   [ Files ] 
+──────────────────────────────────────────────────────────────────────
+ ⚠ large PR: 4,836 changed lines in 21 files
+ Files 21  +4835 −1
+ A .github/skills/setting-up-identites/SKILL.md                +79 −0
+ A .github/skills/setting-up-identites/references/workflow.md +183 −0
+ A .github/skills/setting-up-identites/tests/scenarios.json    +47 −0
+▌M acceptance/README.md                                        +11 −0
+ M acceptance/acceptance_test.go                               +25 −0
+ A acceptance/testdata/identity/identity-lifecycle.txtar      +153 −0
+ A internal/config/identity_isolation_test.go                  +35 −0
+ M internal/debug/config.go                                    +12 −0
+ M internal/debug/config_test.go                                +1 −0
+ A internal/keyring/isolation_test.go                          +31 −0
+ M internal/keyring/keyring.go                                 +10 −0
+ M pkg/cmd/version/version.go                                   +5 −1
+ A script/identity-e2e/README.md                              +823 −0
+ A script/identity-e2e/bootstrap.sh                           +642 −0
+ A script/identity-e2e/fixture_test.go                        +421 −0
+ A script/identity-e2e/offline_test.go                        +456 −0
+ A script/identity-e2e/reset_downgrade_test.go                 +83 −0
+ 1–17 of 21
+ c/d tabs · j/k scroll · f files · n/N hunk · ]/[ file · h/l pan · S …

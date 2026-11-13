@@ -57,6 +57,8 @@ var forgeHotkeyActionOrder = []string{
 	hotkeyForgeAttach,
 	hotkeyForgeView,
 	hotkeyForgeNew,
+	// d opens a PR row's overlay on Files (forge_files.go).
+	hotkeyForgeFiles,
 }
 
 // forgeTabActions switch tabs and work from every tab, Sessions included.

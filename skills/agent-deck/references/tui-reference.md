@@ -300,7 +300,24 @@ at 100 columns, code blocks and tables unwrapped, cut with `›` and pannable.
 While the overlay is open the list keeps polling: when the list reports the
 item changed, the Conversation refetches without moving the scroll, and the
 footer says `N new comments` until you scroll to the end. Each tab keeps its
-own scroll. The Files tab arrives in a later slice.
+own scroll.
+
+The Files tab (`d` on a PR row, or `d` / `2` in the overlay) shows a file list
+(status `A` added, `M` modified, `D` deleted, `R` renamed, `C` copied; the dim
+directory and the file name; `+a −d`, or `bin`) beside one file's unified diff
+under a header (`+a −d`, `file i/N`). Added and removed lines get a green or
+red background tint with both line numbers in the gutter; there is no syntax
+colouring. Long lines are cut with `›` and pan with `h`/`l`, never wrapped.
+Generated files (`go.sum` and lockfiles, anything under `testdata/`, goldens
+and snapshots, `.pb.go`, `_gen.go`, minified `.min.js`/`.min.css`) and files
+with more than 400 changed lines start collapsed to one line with their size
+until `Enter` expands them; a binary file shows a note. A diff over 1,500
+changed lines or 50 files gets a `⚠ large PR` line on top. Under 90 columns
+the list hides, the header carries the position, and `f` opens the list full
+screen. The diff is one `gh api` request with the diff media type, made after
+the PR's detail gives its head commit; it is cached by head commit and never
+refetched for the same head (`r` refreshes the head, and a new head fetches
+the new diff while the old one stays on screen).
 
 | Overlay key | Action |
 |-----|--------|
@@ -312,6 +329,17 @@ own scroll. The Files tab arrives in a later slice.
 | `e` | Expand every minimized comment, or collapse them all (**rebindable**: `forge_expand`) |
 | `o` `y` `n` `a` `r` | As on the list, for the open item (`n` closes the overlay for the chooser or the dialog) |
 | `Esc` / `q` | Close the overlay; only quit (`Ctrl+C`) still reaches the global keys |
+
+| Files key | Action |
+|-----|--------|
+| `Tab` | Move the keys between the file list and the diff (90 columns and up) |
+| `j`/`k`, `↑`/`↓`, `Ctrl+D`/`Ctrl+U`, `Space`/`PgDn`, `PgUp`, `g`/`G`, mouse wheel | Scroll the diff; with the list focused (or full screen), move the file cursor |
+| `n` / `N` | Next / previous hunk, crossing into the next or previous file that shows hunks (so `S` starts a session here) |
+| `]` / `[` | Next / previous file |
+| `Enter` | Expand or collapse a collapsed file; on the focused list, back to the diff; on the full-screen list, show the picked file |
+| `h`/`l`, `←`/`→` | Pan long lines |
+| `f` | File list full screen (under 90 columns); `Esc` closes it |
+| `S` | Start a session on the PR, as `n` on the list |
 
 The right end of the Project line says how fresh the list is: `updated 2m ago`
 (`N open · 2m ago` once the count is known, or `100 of 342 · 2m ago` when
@@ -357,6 +385,7 @@ links worktree sessions to their PR.
 | `n` | Start a session on the selected Issue or PR: the chooser first when sessions are linked to it (`Enter` attaches, `n` starts a new one anyway, `Esc` cancels), then the new-session dialog, prefilled (see below) (Issues, PRs; **rebindable**: `forge_new`) |
 | `a` | Attach to the session linked to the selected Issue or PR; with several, a picker (`j`/`k` move, `Enter` attaches, `Esc` closes); with none, a message says so (Issues, PRs; **rebindable**: `forge_attach`) |
 | `Enter` | Open the selected row in the overlay; in the single column the first `Enter` opens its detail full screen and `Esc` returns to the list (Issues, PRs; **rebindable**: `forge_view`) |
+| `d` | Open the selected PR in the overlay on its Files tab (PRs; **rebindable**: `forge_files`) |
 | `j`/`k`, `↑`/`↓`, `Ctrl+U/D`, `PgUp`/`PgDn`, `Ctrl+B/F`, `Home`/`End` | Move in the tab's list (Issues, PRs) |
 
 `n` on an Issue or PR opens the new-session dialog prefilled: the tab's
