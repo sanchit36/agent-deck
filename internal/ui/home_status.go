@@ -881,6 +881,8 @@ func (h *Home) syncNotificationsBackground() {
 	if sessionToAcknowledgeID != "" {
 		currentSessionID = sessionToAcknowledgeID
 	}
+	// An Attention signal's mark lasts until the user looks at the session.
+	h.clearSignalMark(currentSessionID)
 
 	notifLog.Debug(
 		"sync_state",

@@ -21,6 +21,9 @@ const (
 	Detail Kind = "detail"
 	// Diff is a Pull Request's diff at one head commit.
 	Diff Kind = "diff"
+	// Signals is one host's Attention signal poll (Key.Repo names only
+	// the host). It refetches on the refresh interval, like a list.
+	Signals Kind = "signals"
 )
 
 // Key names one cached fetch (spec #18 §5): a list is Project + kind +
@@ -56,9 +59,9 @@ func normal(r github.Repo) github.Repo {
 }
 
 // polled reports whether the key refetches on the refresh interval: only
-// lists do. A detail refetches when a newer updatedAt is Seen for it, and a
-// diff never changes.
-func (k Key) polled() bool { return k.Kind == IssueList || k.Kind == PRList }
+// lists and the Attention signal poll do. A detail refetches when a newer
+// updatedAt is Seen for it, and a diff never changes.
+func (k Key) polled() bool { return k.Kind == IssueList || k.Kind == PRList || k.Kind == Signals }
 
 // Versioned is a cached value that knows its GitHub updatedAt, so Seen can
 // tell when it is out of date.

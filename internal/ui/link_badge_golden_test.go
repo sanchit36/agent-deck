@@ -99,15 +99,16 @@ func TestLinkBadgeEmbeddedCardGolden(t *testing.T) {
 
 // TestLinkBadgeRenderDoesNoIO: the badge is drawn from the stored link only.
 // Its helper may not reach gh, git, the filesystem or the state DB, and the
-// row renderer may only take it from that helper.
+// row renderer may only take it from that helper (through linkBadgeText,
+// which adds the Attention signal glyphs: see TestSignalBadgeRenderDoesNoIO).
 func TestLinkBadgeRenderDoesNoIO(t *testing.T) {
 	for _, file := range []string{"home.go", "embedded_sidebar.go"} {
 		src, err := os.ReadFile(file)
 		if err != nil {
 			t.Fatalf("read %s: %v", file, err)
 		}
-		if !strings.Contains(string(src), "sessionLinkBadgeText(inst)") {
-			t.Errorf("%s does not draw the link badge through sessionLinkBadgeText", file)
+		if !strings.Contains(string(src), "h.linkBadgeText(inst)") {
+			t.Errorf("%s does not draw the link badge through linkBadgeText", file)
 		}
 	}
 	src, err := os.ReadFile("link_badge.go")

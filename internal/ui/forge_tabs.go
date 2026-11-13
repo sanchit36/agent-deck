@@ -103,6 +103,10 @@ type forgeState struct {
 	now     func() time.Time
 	openURL func(string) error
 	copyURL func(string) error
+
+	// signals is the Attention signal poller and what it publishes
+	// (forge_signals.go).
+	signals signalsState
 }
 
 type forgeGroupResolvedMsg struct {
@@ -130,6 +134,7 @@ func (h *Home) reloadForgeFromConfig() {
 	cfg, _ := session.LoadUserConfig()
 	h.forge.interval = cfg.GitHubRefreshInterval()
 	h.setForgeEnabled(cfg.GitHubEnabled(), session.GetHotkeyOverrides())
+	h.syncSignalsPoller(cfg)
 }
 
 func (h *Home) setForgeEnabled(enabled bool, overrides map[string]string) {
@@ -581,10 +586,21 @@ func (h *Home) forgeStripSegments(width int) []forgeStripSeg {
 
 func (h *Home) forgeTabLabel(t leftTab, name string, withCount bool) string {
 	l := h.forge.lists[t]
-	if !withCount || !l.openKnown {
+	if !withCount {
 		return name
 	}
-	return fmt.Sprintf("%s %d", name, l.open)
+	label := name
+	if l.openKnown {
+		label = fmt.Sprintf("%s %d", name, l.open)
+	}
+	// The PRS chip carries the on-screen Project's share of the review
+	// requests (spec #18 §15).
+	if t == tabPRs {
+		if n := h.prsReviewShare(); n > 0 {
+			label += fmt.Sprintf(" ⇠%d", n)
+		}
+	}
+	return label
 }
 
 // renderForgeTitle is the left panel's title block with the gate on: the

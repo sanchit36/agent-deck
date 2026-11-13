@@ -382,6 +382,13 @@ type GitHubSettings struct {
 	// below 30 are raised to 30; 0 = manual refresh (r) only. Read through
 	// GitHubRefreshInterval.
 	RefreshInterval *int `toml:"refresh_interval,omitempty"`
+
+	// Signals runs the Attention signal poller while the TUI runs: live
+	// badges on sessions linked to an Issue or PR, the review request
+	// count, and notifications on a change. Default true (nil = true);
+	// false turns the poller off. It also needs enabled and a non-zero
+	// refresh_interval. Read through GitHubSignals.
+	Signals *bool `toml:"signals,omitempty"`
 }
 
 // Bounds of [github] refresh_interval.
@@ -406,6 +413,15 @@ func (c *UserConfig) GitHubRefreshInterval() time.Duration {
 		return 0
 	}
 	return max(time.Duration(secs)*time.Second, minGitHubRefreshInterval)
+}
+
+// GitHubSignals reports whether the Attention signal poller runs: the gate
+// is on, [github] signals is not false and refresh_interval is not 0.
+func (c *UserConfig) GitHubSignals() bool {
+	if !c.GitHubEnabled() || c.GitHubRefreshInterval() == 0 {
+		return false
+	}
+	return c.GitHub.Signals == nil || *c.GitHub.Signals
 }
 
 // BuildPromptTemplates merges [prompt_templates] over the built-ins and

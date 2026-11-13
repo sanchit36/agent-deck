@@ -59,6 +59,9 @@ type Notification struct {
 	Profile string
 	// ToStatus is the status just entered: waiting, error, or idle.
 	ToStatus string
+	// Detail, when set, is what happened in place of the status phrase:
+	// an Attention signal such as "PR#34 checks failing".
+	Detail string
 }
 
 // Title renders the notification title. Kept short: macOS truncates a banner
@@ -78,6 +81,8 @@ func (n Notification) Title() string {
 func (n Notification) Body() string {
 	var action string
 	switch strings.ToLower(strings.TrimSpace(n.ToStatus)) {
+	case "":
+		action = strings.TrimSpace(n.Detail)
 	case "waiting":
 		action = "needs input"
 	case "error":
