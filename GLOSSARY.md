@@ -38,6 +38,10 @@ _Avoid_: Merge strategy (git uses that for something else)
 A recorded tie between a session and an issue or pull request. A session has at most one linked issue and one linked pull request; an issue or pull request may be linked to many sessions.
 _Avoid_: Association, binding
 
+**Attention signal**:
+A live condition of a session's linked issue or pull request (failing checks, changes requested, approved, merged, closed), or a pending review request addressed to the user, shown without opening the issues or pull requests of a project. A signal lasts exactly as long as its condition holds; it is never marked as seen.
+_Avoid_: Alert, badge (a badge is how a signal is drawn)
+
 **Prompt Template**:
 A named text, chosen per kind of issue or pull request (bug, implementation, review feedback, ...), that is filled with that issue's or pull request's number and content to become the first message of a session launched from it. Agent Deck ships built-in templates; a user's template of the same name replaces the built-in one.
 _Avoid_: Preset, prompt preset
