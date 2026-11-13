@@ -986,7 +986,8 @@ replaces the built-in.
 - none: the kind's `default` (yours before the built-in, a Project default before a global one, then the first by name), otherwise the picker
 
 **Config-load warnings** (logged; the template still loads unless noted):
-a variable name not in the list above (left as written); a PR variable in an issue template
+a variable name not in the list above (left as written; `{Title}` or
+`{head_branch}` warn with the variable meant); a PR variable in an issue template
 (renders empty); a `repos` entry that is not `owner/name`; a `file` that cannot
 be read yet; two `default` templates of one kind for the same Project (the
 first by name wins); a bad `applies_to` or not exactly one of `text`/`file`

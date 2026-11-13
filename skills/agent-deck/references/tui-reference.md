@@ -405,8 +405,14 @@ session's, then `default_tool`, then `claude`) and the title `#123 <title>` /
 `PR#34 <title>`. An Issue's branch is `<branch_prefix><number>-<slug>` (the
 title lowercased, other characters turned into `-`, cut to 40 characters on a
 word boundary); an existing branch or worktree is reused and the field is
-editable. A PR gets a worktree detached at its base, then `gh pr checkout <n>`
-inside it; its branch field shows the PR's head branch and is read-only.
+editable. The main checkout is never reused: an Issue branch checked out
+there is refused with the reason (switch it, or untick Worktree). A PR gets a
+new worktree detached at its base (`origin/<base>`, else the local `<base>`;
+a base the repository does not have stops the launch: fetch it first), then
+`gh pr checkout <n>` inside it; its branch field shows the PR's head branch
+and is read-only. The dialog fills from the item's detail, or from its list
+row until that loads; a PR's detail is fetched for the launch and `Enter`
+waits for it (`waiting for the PR details…`).
 With Worktree unticked, `gh pr checkout` runs in the checkout itself, and only
 on a clean tree: otherwise the launch is refused with the reason.
 
@@ -414,7 +420,8 @@ The dialog's Template field holds the first message, from the
 `[prompt_templates]` that match the item (see the configuration reference).
 `←`/`→` on it cycle the label matches, the other templates, then `none` (no
 first message; the session is still linked); when several match or a
-template file is missing it opens with the list. Under it are the first lines
+template file is missing it opens with the list. A template file is read
+again at launch: one missing then stops the launch and opens the list. Under it are the first lines
 of the filled message and its size. `Ctrl+E` opens the message in `$VISUAL` /
 `$EDITOR` (`vi` by default); after an edit the field reads `<name> (edited)`,
 and changing the template asks first (press `←`/`→` again to discard the
@@ -422,8 +429,9 @@ edit). The body, and the comments and review threads a template uses, load
 in the background (`loading comments…`); `Enter` during that waits for them,
 and if they fail the dialog asks before launching with them empty. `Enter`
 launches: the worktree, the checkout and the start run in the background
-while the dialog waits. A failure there leaves no session and removes a
-worktree made for the launch; the error shows in the dialog, which stays
+while the dialog waits. A failure there leaves no session and removes the
+worktree and branch made for the launch (never ones that were already there);
+the error shows in the dialog, which stays
 open. Once the session runs it is linked to the Issue or PR; if only the
 first message fails, the session and link are kept and a warning says so.
 
