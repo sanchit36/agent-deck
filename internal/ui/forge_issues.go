@@ -41,6 +41,9 @@ type forgeRow struct {
 	url       string
 	number    int
 	updatedAt time.Time
+	// state is the state word the overlay's header shows (open, closed,
+	// draft, merged).
+	state string
 }
 
 // forgeMark is a coloured one-cell glyph and its dim label.
@@ -97,6 +100,7 @@ func forgeRows(v any, now time.Time) []forgeRow {
 				url:        is.URL,
 				number:     is.Number,
 				updatedAt:  is.UpdatedAt,
+				state:      issueStateWord(is.Closed),
 			})
 		}
 		return rows
@@ -212,9 +216,13 @@ func (h *Home) forgeVisibleRows() ([]forgeRow, freshness.Entry, bool) {
 	return forgeRows(e.Value, h.forgeNow()), e, true
 }
 
-// forgeSelectedRow is the row under the cursor of the list on screen.
+// forgeSelectedRow is the row under the cursor of the list on screen, or
+// the overlay's item while the overlay is open.
 func (h *Home) forgeSelectedRow() (forgeRow, bool) {
 	rows, _, ok := h.forgeVisibleRows()
+	if h.forge.overlay.visible {
+		return h.forgeOverlayRow(rows), true
+	}
 	if !ok || len(rows) == 0 {
 		return forgeRow{}, false
 	}

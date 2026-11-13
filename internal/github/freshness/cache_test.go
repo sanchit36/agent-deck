@@ -116,6 +116,25 @@ func TestCacheDetailAndDiff(t *testing.T) {
 		t.Fatal("the refetched detail is still due")
 	}
 
+	// The Conversation of #7 follows the same row updatedAt as its detail.
+	conv := ConversationKey(widgets, 7)
+	c.Begin(conv)
+	c.Done(conv, versioned{"conversation 7", t0.Add(time.Minute)}, nil, t0.Add(2*time.Second))
+	if c.Due(conv, t0.Add(24*time.Hour), time.Minute) {
+		t.Fatal("a Conversation is polled on the interval")
+	}
+	c.Seen(d, t0.Add(time.Minute))
+	if c.Due(conv, t0.Add(time.Hour), time.Minute) {
+		t.Fatal("the same updatedAt invalidated the Conversation")
+	}
+	c.Seen(d, t0.Add(2*time.Minute))
+	if !c.Due(conv, t0.Add(time.Hour), time.Minute) || !c.Due(d, t0.Add(time.Hour), time.Minute) {
+		t.Fatal("a newer row updatedAt did not invalidate both the detail and the Conversation")
+	}
+	if ConversationKey(github.Repo{Owner: "acme", Name: "widgets"}, 7) != conv {
+		t.Fatal("the default host is not spelled out in a Conversation key")
+	}
+
 	diff := DiffKey(widgets, 7, "abc123")
 	c.Begin(diff)
 	c.Done(diff, "diff text", nil, t0)

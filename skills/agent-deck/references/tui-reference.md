@@ -260,12 +260,44 @@ base branch (`into`), checks (`✗ 1 failed · 11 passed`), review, merge state
 (`⇢` clean, `≠` conflict, `↓` behind, `⊘` blocked), diff size
 (`+120 −30 · 7 files`) and linked sessions. The timeline lists the last
 comments, reviews, pushes, check results and state changes. The body and
-comments are not shown here. The detail is one GraphQL request: its cached
+comments are in the overlay (`Enter`). The detail is one GraphQL request: its cached
 copy shows at once, it is fetched fresh each time you open it (once the
 cursor rests on the row), and it refetches while on screen when the list
 reports the item changed. In the single column the list has the screen;
 `Enter` opens the selected row's detail full screen and `Esc` returns to the
 list.
+
+`Enter` on a row (in the single column, from the full-screen detail) opens the
+item full screen in an overlay: a header from the list row (state glyph,
+`#n`, title, state), a tab row (`Conversation`, plus `Files` for a PR), the
+tab's body and a footer with the position and the keys. It opens at once
+with a loading line and fetches the Conversation in one GraphQL request; the
+cached copy shows at once on a later open. The Conversation tab is the body
+(`No description provided.` when empty), then the comments and PR review
+summaries (verdict and body) oldest first, each under `author · age` with
+`[bot]` and `(edited)` marks and a dim rule between them. Up to 100 are
+shown, then `N more comments: open in browser`; inline review comments are
+only counted (`N inline review comments: open in browser`), and timeline
+events are not shown. A comment GitHub minimized is one line
+(`▸ author · age · hidden as spam`) until you expand it. Markdown is drawn
+by a light renderer: bold headings, kept bullets, styled `**bold**` and
+`` `code` ``, links as `text (url)`, images as `[image: alt]`, prose wrapped
+at 100 columns, code blocks and tables unwrapped, cut with `›` and pannable.
+While the overlay is open the list keeps polling: when the list reports the
+item changed, the Conversation refetches without moving the scroll, and the
+footer says `N new comments` until you scroll to the end. Each tab keeps its
+own scroll. The Files tab arrives in a later slice.
+
+| Overlay key | Action |
+|-----|--------|
+| `c` / `d`, `1` / `2` | Conversation / Files tab (Files: PRs only; **rebindable**: `forge_conversation`, `forge_files`) |
+| `j`/`k`, `↑`/`↓`, `Ctrl+D`/`Ctrl+U`, `Space`/`PgDn`, `PgUp`, mouse wheel | Scroll |
+| `g`/`G`, `Home`/`End` | Top / bottom |
+| `h`/`l`, `←`/`→` | Pan code blocks and tables |
+| `Enter` | Expand or collapse the minimized comment on screen |
+| `e` | Expand every minimized comment, or collapse them all (**rebindable**: `forge_expand`) |
+| `o` `y` `a` `r` | As on the list, for the open item |
+| `Esc` / `q` | Close the overlay; only quit (`Ctrl+C`) still reaches the global keys |
 
 The right end of the Project line says how fresh the list is: `updated 2m ago`
 (`N open · 2m ago` once the count is known, or `100 of 342 · 2m ago` when
@@ -287,7 +319,7 @@ retrying`, or `rate-limited until HH:MM` (polling stops until then).
 | `r` | Refresh: refetch the list and the open detail now, joining a fetch already running, and restart the poll timer; nothing while GitHub's rate limit lasts (Issues, PRs; **rebindable**: `forge_refresh`; `Ctrl+R` stays the global reload) |
 | `o` / `y` | Open the selected Issue or PR in the browser / copy its URL; on the SAML message, the authorize URL. Both run in the background, never blocking the TUI (Issues, PRs; **rebindable**: `forge_open`, `forge_copy`) |
 | `a` | Attach to the session linked to the selected Issue or PR; with several, a picker (`j`/`k` move, `Enter` attaches, `Esc` closes); with none, a message says so (Issues, PRs; **rebindable**: `forge_attach`) |
-| `Enter` / `Esc` | Single column only: open the selected row's detail full screen / return to the list (Issues, PRs; **rebindable**: `forge_view`) |
+| `Enter` | Open the selected row in the overlay; in the single column the first `Enter` opens its detail full screen and `Esc` returns to the list (Issues, PRs; **rebindable**: `forge_view`) |
 | `j`/`k`, `↑`/`↓`, `Ctrl+U/D`, `PgUp`/`PgDn`, `Ctrl+B/F`, `Home`/`End` | Move in the tab's list (Issues, PRs) |
 
 On the Issues and PRs tabs every other session key is ignored except these,
