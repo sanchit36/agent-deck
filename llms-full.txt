@@ -128,6 +128,45 @@ Waiting sessions appear right in your tmux status bar. Press `Ctrl+b 1-6` to jum
 
 By default the session that started waiting most recently is `[1]`. To order the bar by the session you used most recently instead, like Alt+Tab, set `sort = "last_accessed"` under `[notifications]` in `config.toml` (default: `"waiting"`). Only visits through the agent-deck TUI count: attaching from its session list and jumping with the bar's `Ctrl+b` number keys. Attaching with the `agent-deck` CLI or the web UI does not change the order. `minimal = true` ignores `sort`.
 
+A change on a GitHub PR linked to a session (checks failing, changes
+requested, approved, merged or closed) or a new review request for you marks
+that session on the bar with the signal's glyph, even when it is not waiting,
+until you attach to it or jump to it:
+
+```
+⚡ [1] ✗ fix login [2] api
+```
+
+`[github] signals = false` turns these marks off.
+
+### GitHub Issues and PRs
+
+The left panel has `SESSIONS │ ISSUES │ PRS` tabs for the GitHub repository of
+the selected group (GitHub and GitHub Enterprise). `[` / `]` cycle the tabs;
+`Alt+S` / `Alt+I` / `Alt+P` jump to one.
+
+- **Browse**: the 100 most recently updated open Issues or PRs, each PR with its check and review state; the right pane shows the selected item's detail.
+- **Read**: `Enter` opens an overlay with the body and comments and, for a PR, its diff (`d`; `s` side by side, `|` / `\` send it to your pager, such as `delta`).
+- **Filter**: `/` takes GitHub search syntax (`label:bug`, `review-requested:@me`, ...).
+- **Work on it**: `n` starts a session on the Issue or PR in a worktree, with a Prompt Template as its first message; `m` merges a PR through a dialog that never bypasses branch protection.
+- **Links**: a session started that way, a worktree session on a PR's head branch, or one linked with `agent-deck session link` shows `#12` / `PR#34` on its row, with the item's live state (`✗` checks failing, `±` changes requested, `✔` approved, `◆` merged).
+
+It reaches GitHub only through the `gh` CLI, so `gh` must be installed and
+logged in (`gh auth login`, `-h <host>` for GitHub Enterprise). The list on
+screen refetches every 60 s while the TUI is in the foreground
+(`[github] refresh_interval`). The default `is:open` list is read from the
+repository directly; any other filter goes through GitHub search, whose index
+can lag new changes by a few minutes.
+
+It is on by default. To turn it off (no tabs, no GitHub keys, no `gh` calls):
+
+```toml
+[github]
+enabled = false
+```
+
+See the [TUI Reference](skills/agent-deck/references/tui-reference.md#github-tabs) for every key and the [configuration reference](skills/agent-deck/references/config-reference.md#github-section) for the `[github]` options.
+
 ### Git Worktrees
 
 Multiple agents can work on the same repo without conflicts. Each worktree is an isolated working directory with its own branch.
@@ -513,6 +552,21 @@ agent-deck remove "Codex Review" && agent-deck remove "Gemini Arch"
 | `Ctrl+Q` | Detach (keep tmux running) |
 | `q` | Quit |
 
+### GitHub tabs
+On by default; needs `gh` logged in. `[github] enabled = false` turns it off.
+
+| Key | Action |
+|-----|--------|
+| `[` / `]` | Previous / next tab (Sessions, Issues, PRs) |
+| `Alt+S` / `Alt+I` / `Alt+P` | Sessions / Issues / PRs tab |
+| `Enter` | Open the selected Issue or PR in the overlay |
+| `d` | Open a PR on its Files tab (diff) |
+| `/` | Filter (GitHub search syntax) |
+| `n` | Start a session on the Issue or PR |
+| `m` | Merge the selected PR |
+| `o` / `y` | Open in browser / copy URL |
+| `r` | Refresh now |
+
 ## MCP Management
 
 **Default:** Do NOT attach MCPs unless user explicitly requests.
@@ -857,6 +911,15 @@ agent-deck session set-parent <session> <parent>
 agent-deck session unset-parent <session>
 ```
 
+### session link / unlink
+
+```bash
+agent-deck session link <session> issue|pr <number> [--repo [HOST/]OWNER/NAME] [--json] [-q]
+agent-deck session unlink <session> issue|pr [--json] [-q]
+```
+
+Links a session to a GitHub issue or pull request (at most one of each per session), shown as a `#12` / `PR#34` badge on its TUI row. Without `--repo` the repo comes from the session checkout's `origin` remote. `link` makes no `gh` call.
+
 ## MCP Commands
 
 ### mcp list
@@ -958,6 +1021,7 @@ All options for `$XDG_CONFIG_HOME/agent-deck/config.toml` (default `~/.config/ag
 - [[claude] Section](#claude-section)
 - [[logs] Section](#logs-section)
 - [[updates] Section](#updates-section)
+- [[github] Section](#github-section)
 - [[global_search] Section](#global_search-section)
 - [[mcp_pool] Section](#mcp_pool-section)
 - [[mcps.*] Section](#mcps-section)
@@ -1062,6 +1126,25 @@ notify_in_cli = true          # Show in CLI commands
 | `check_enabled` | bool | `true` | Enable startup update checks. |
 | `check_interval_hours` | int | `24` | Hours between checks. |
 | `notify_in_cli` | bool | `true` | Show updates in CLI (not just TUI). |
+
+## [github] Section
+
+The TUI's GitHub Issues and PRs tabs. On by default; it talks to GitHub only
+through the `gh` CLI, which must be logged in to the host.
+
+```toml
+[github]
+enabled = true            # false: no tabs, no GitHub keys, no poller, no gh calls
+refresh_interval = 60     # seconds; below 30 raised to 30; 0 = manual refresh (r) only
+signals = true            # live PR state on linked sessions, notification-bar marks
+issue_filter = "is:open"  # Issues tab's starting filter (GitHub search syntax)
+pr_filter = "is:open"     # PRs tab's starting filter
+diff_pager = ""           # Files tab pager; empty = delta, else $PAGER, else less -R
+```
+
+The default `is:open` list is read from the repository directly; any other
+filter goes through GitHub search, whose index can lag new changes by a few
+minutes. Full table: [config-reference.md](skills/agent-deck/references/config-reference.md#github-section).
 
 ## [global_search] Section
 

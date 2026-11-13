@@ -120,9 +120,9 @@ For remote group headers, `Enter`/`Tab` toggles collapse and `h`/Left collapses 
 
 Local parent rows with sub-sessions (for example a conductor and the sessions it spawned) carry a `▾N`/`▸N` child-fold badge after the row title. `Tab`/`l`/`→` toggles just that child list; `h`/`←` folds it shut, and on an already-folded parent continues to the window fold or the group collapse. Unfolding a parent also reopens its window rows, and a search jump or focus request to a hidden child unfolds its parent. Folded parents keep their own row, mirroring a collapsed group header, and the fold state persists per machine alongside the other view preferences.
 
-A session linked to a GitHub issue or pull request (behind `[github] enabled`) carries a static `#12` / `PR#34` badge after its worktree branch, both when it has both (`#12 PR#34`); the embedded sidebar card shows the same text on its metadata line. The badge is drawn from the stored link only, with no network or `git` call on the render path, and yields to the title in a narrow column: it keeps only `PR#34`, then drops. Links are made with `agent-deck session link` / `unlink`, or by the PRs tab's head-branch auto-detect (see GitHub tabs); there is no TUI key for them.
+A session linked to a GitHub issue or pull request carries a static `#12` / `PR#34` badge after its worktree branch, both when it has both (`#12 PR#34`); the embedded sidebar card shows the same text on its metadata line. The badge is drawn from the stored link only, with no network or `git` call on the render path, and yields to the title in a narrow column: it keeps only `PR#34`, then drops. Links are made with `agent-deck session link` / `unlink`, or by the PRs tab's head-branch auto-detect (see GitHub tabs); there is no TUI key for them.
 
-Attention signals (behind `[github] enabled`, off with `[github] signals = false`) add the linked item's live state after each label: for a PR `✗` checks failing, `±` changes requested or `✔` approved, `◆` merged, `✕` closed; for an Issue `✓` closed (`#12 ✓ PR#34 ✗±`). A badge shows while its condition holds; nothing is acknowledged or saved. A host `gh` is not logged in to shows `⚠` on its own badges only. In a narrow column the badge falls back to the PR with its glyphs, then to the bare label. The header shows `⇠ n reviews` for open PRs that request your review by name (team requests do not count), and the `PRS` chip shows the on-screen Project's share (`PRS 12 ⇠1`); no key jumps from them. The state comes from one batched `gh api graphql` request per host every `[github] refresh_interval` (one request covers every linked item on the host and the review search), made by a poller that runs while the TUI runs, attached or not; the session list only reads its last result.
+Attention signals (off with `[github] signals = false` or `[github] enabled = false`) add the linked item's live state after each label: for a PR `✗` checks failing, `±` changes requested or `✔` approved, `◆` merged, `✕` closed; for an Issue `✓` closed (`#12 ✓ PR#34 ✗±`). A badge shows while its condition holds; nothing is acknowledged or saved. A host `gh` is not logged in to shows `⚠` on its own badges only. In a narrow column the badge falls back to the PR with its glyphs, then to the bare label. The header shows `⇠ n reviews` for open PRs that request your review by name (team requests do not count), and the `PRS` chip shows the on-screen Project's share (`PRS 12 ⇠1`); no key jumps from them. The state comes from one batched `gh api graphql` request per host every `[github] refresh_interval` (one request covers every linked item on the host and the review search), made by a poller that runs while the TUI runs, attached or not; the session list only reads its last result.
 
 Only a change raises a notification, never the first load or a restart: checks going to failing, a review going to changes requested or to approved, the PR merged or closed (a closed Issue does not notify), and a new review request. Each one marks the linked session on the tmux notification bar with the signal's glyph before its title (`[1] ✗ fix login`), even when the session is not waiting, until you attach to it or jump to it from the bar; with `[notifications] desktop = true` it also raises a desktop notification naming the session and what changed.
 
@@ -212,9 +212,13 @@ Inside the search prompt, `/waiting`, `/running` and `/idle` filter by status.
 
 ### GitHub tabs
 
-(behind `[github] enabled`)
+The GitHub integration is on by default. It reaches GitHub only through the
+`gh` CLI, so it needs `gh` on `PATH` and logged in to the host (`gh auth
+login`, `-h <host>` for GitHub Enterprise). `[github] enabled = false` in
+`config.toml` turns it off: no tab strip, no forge keys, no signal poller and
+no `gh` calls (see the configuration reference).
 
-With the gate on, the left panel's title row is a tab strip,
+The left panel's title row is a tab strip,
 `SESSIONS │ ISSUES n │ PRS n` (`AGENTS` in the embedded layout, where the
 `FLAT`/`GROUPED` label moves to the right end of the row). The active tab is
 the inverted chip; the counts are the open Issues and PRs once a list has
@@ -284,7 +288,9 @@ head commit changes, and on `r`; it is never polled.
 `Enter` on a row (in the single column, from the full-screen detail) opens the
 item full screen in an overlay: a header from the list row (state glyph,
 `#n`, title, state), a tab row (`Conversation`, plus `Files` for a PR), the
-tab's body and a footer with the position and the keys. It opens at once
+tab's body and a footer with the position and the keys (when they do not
+fit, the keys every tab shares, `r`, `y`, `o` and `j`/`k`, are left out
+first; the help, `?` on the list, has them all). It opens at once
 with a loading line and fetches the Conversation in one GraphQL request; the
 cached copy shows at once on a later open. The Conversation tab is the body
 (`No description provided.` when empty), then the comments and PR review
