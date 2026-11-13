@@ -9,6 +9,7 @@ import (
 	"github.com/asheshgoplani/agent-deck/internal/github"
 	"github.com/asheshgoplani/agent-deck/internal/github/freshness"
 	"github.com/asheshgoplani/agent-deck/internal/github/githubtest"
+	"github.com/asheshgoplani/agent-deck/internal/gitstate"
 	tea "github.com/charmbracelet/bubbletea"
 	"github.com/charmbracelet/lipgloss"
 )
@@ -41,6 +42,8 @@ func forgeHome(t *testing.T, w, h int, embedded bool, fake *githubtest.Fake, loc
 	// real gh.
 	home.forge.client = github.NewClient(fake)
 	home.forge.fetchers = map[freshness.Kind]forgeFetchFunc{}
+	// The PR detail's local row never reads real git in UI tests.
+	home.forge.localRead = func(context.Context, gitstate.PRQuery) gitstate.PRLocal { return gitstate.PRLocal{} }
 	return home
 }
 
@@ -64,7 +67,7 @@ func runCmds(t *testing.T, h *Home, cmd tea.Cmd) *Home {
 		for _, c := range m {
 			h = runCmds(t, h, c)
 		}
-	case forgeGroupResolvedMsg, forgeParentResolvedMsg, forgeFetchedMsg, forgeURLDoneMsg, forgeAutoLinkedMsg, forgeDetailOpenMsg:
+	case forgeGroupResolvedMsg, forgeParentResolvedMsg, forgeFetchedMsg, forgeURLDoneMsg, forgeAutoLinkedMsg, forgeDetailOpenMsg, forgePRLocalReadMsg:
 		model, next := h.Update(m)
 		h = runCmds(t, model.(*Home), next)
 	}
