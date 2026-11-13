@@ -310,7 +310,7 @@ own scroll. The Files tab arrives in a later slice.
 | `h`/`l`, `←`/`→` | Pan code blocks and tables |
 | `Enter` | Expand or collapse the minimized comment on screen |
 | `e` | Expand every minimized comment, or collapse them all (**rebindable**: `forge_expand`) |
-| `o` `y` `n` `a` `r` | As on the list, for the open item (`n` closes the overlay for the chooser or the dialog) |
+| `o` `y` `n` `a` `m` `r` | As on the list, for the open item (`n` closes the overlay for the chooser or the dialog; `m` opens the merge dialog over the overlay, PRs only) |
 | `Esc` / `q` | Close the overlay; only quit (`Ctrl+C`) still reaches the global keys |
 
 The right end of the Project line says how fresh the list is: `updated 2m ago`
@@ -356,6 +356,7 @@ links worktree sessions to their PR.
 | `Esc` | Reset a filter other than the starting one; otherwise as on Sessions (Issues, PRs) |
 | `n` | Start a session on the selected Issue or PR: the chooser first when sessions are linked to it (`Enter` attaches, `n` starts a new one anyway, `Esc` cancels), then the new-session dialog, prefilled (see below) (Issues, PRs; **rebindable**: `forge_new`) |
 | `a` | Attach to the session linked to the selected Issue or PR; with several, a picker (`j`/`k` move, `Enter` attaches, `Esc` closes); with none, a message says so (Issues, PRs; **rebindable**: `forge_attach`) |
+| `m` | Merge the selected PR: reads it fresh, then opens the merge dialog (see below) (PRs; **rebindable**: `forge_merge`) |
 | `Enter` | Open the selected row in the overlay; in the single column the first `Enter` opens its detail full screen and `Esc` returns to the list (Issues, PRs; **rebindable**: `forge_view`) |
 | `j`/`k`, `↑`/`↓`, `Ctrl+U/D`, `PgUp`/`PgDn`, `Ctrl+B/F`, `Home`/`End` | Move in the tab's list (Issues, PRs) |
 
@@ -387,6 +388,50 @@ while the dialog waits. A failure there leaves no session and removes a
 worktree made for the launch; the error shows in the dialog, which stays
 open. Once the session runs it is linked to the Issue or PR; if only the
 first message fails, the session and link are kept and a warning says so.
+
+`m` on a PR (the list row, its detail or the overlay) reads the PR fresh from
+GitHub and opens the merge dialog: the title, `#n`, `base ← head` with the
+short head SHA, one line each for checks and review, the merge method (only
+the methods the repository allows, your GitHub default chosen; `←`/`→` cycle
+them, hidden when only one is allowed), the Delete branch toggle (`Space`;
+it starts at the repository's "automatically delete head branches" setting,
+deletes the remote branch only, and is hidden for a PR from a fork, whose
+branch gh does not delete) and GitHub's default commit title. A yellow `⚠`
+says when a local checkout of the PR has unpushed commits or uncommitted
+changes. `y` confirms, `r` reads the PR again, `Esc` / `q` cancel.
+
+What `y` does follows GitHub's merge state, and nothing ever bypasses a
+block (agent-deck never passes `--admin`):
+
+| State | Dialog |
+|-------|--------|
+| ready (`CLEAN`, `HAS_HOOKS`) | `y merge` |
+| some checks failing (`UNSTABLE`) | `y merge`, with a red warning |
+| draft | blocked: mark it ready on GitHub |
+| conflicts (`DIRTY`) | blocked: start a session (`n`) to resolve them |
+| behind the base branch | blocked: update the branch first |
+| blocked on checks or review only | `y enable auto-merge` (GitHub merges once they pass), when the repository allows auto-merge; otherwise blocked |
+| blocked by other branch protection | blocked |
+| auto-merge already on | `y disable auto-merge` |
+| base branch has a merge queue | `y add to merge queue` (the queue sets the method) |
+| GitHub still computing (`UNKNOWN`) | read again once, then blocked until `r` |
+| merged, closed, already queued | blocked |
+
+The merge is pinned to the head SHA the dialog shows (`gh pr merge
+--match-head-commit`). If the PR got new commits since, GitHub refuses it and
+the dialog stays open, reads the PR again and says `PR changed since you
+looked: review and confirm again`; only another `y` merges the new head. Any
+other refusal shows GitHub's reason in the dialog. While gh runs the dialog
+shows a spinner and takes no keys; gh gets up to 60 s (no cancel). A done
+merge closes the dialog with a toast (`Merged #34 (squash)`, `Auto-merge
+enabled for #34 (squash)`, ...) and refreshes the list at once.
+
+After a direct merge of a PR with linked sessions, a follow-up dialog lists
+them and offers **Keep all** (the default), **Stop all** or **Delete all**
+(`←`/`→` choose, `Enter` confirms, `Esc` keeps them). Delete removes each
+session as `d` does, worktree included; it first reads every worktree, and
+one with uncommitted changes (or that cannot be read) is kept and asked
+about separately: `y` deletes it too, `n` keeps it.
 
 On the Issues and PRs tabs every other session key is ignored except these,
 which work as on Sessions: quit (`q`, `Ctrl+C`), help (`?`), `Esc`, group
