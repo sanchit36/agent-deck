@@ -9,6 +9,7 @@ import (
 	"strings"
 	"testing"
 	"time"
+	"unicode/utf8"
 
 	tea "github.com/charmbracelet/bubbletea"
 
@@ -294,16 +295,33 @@ func TestForgeLaunchMissingTemplateFile(t *testing.T) {
 // TestForgeLaunchCommentsFailureAsks: when the comments do not load,
 // enter asks before launching with them empty.
 func TestForgeLaunchCommentsFailureAsks(t *testing.T) {
-	h, _ := launchHome(t, "", false, widgetsCheckout, githubtest.Network)
+	_, local := launchRepoCheckout(t)
+	h, fake := launchHome(t, "", false, local, githubtest.Network)
 	h = launchDrive(t, h, runeKey('n'))
 	starts := 0
 	h.forge.launcher = forgeLauncher{
 		start:   func(*session.Instance, string) error { starts++; return nil },
 		running: func(*session.Instance) bool { return true },
 	}
+	// Typing does not retry the failed fetch.
+	h = launchDrive(t, h, runeKey('x'))
+	h = launchDrive(t, h, tea.KeyMsg{Type: tea.KeyBackspace})
+	queries := 0
+	for _, c := range fake.Calls() {
+		if slices.Contains(c.Args, "query="+github.ItemTextQuery) {
+			queries++
+		}
+	}
+	if queries != 1 {
+		t.Fatalf("%d launch text queries, want 1 (no retry per key)", queries)
+	}
 	h = launchDrive(t, h, tea.KeyMsg{Type: tea.KeyCtrlS})
 	if starts != 0 || !h.newDialog.IsVisible() || !strings.Contains(stripAnsi(h.newDialog.View()), "launch with them empty") {
 		t.Fatalf("starts %d\n%s", starts, stripAnsi(h.newDialog.View()))
+	}
+	h = launchDrive(t, h, tea.KeyMsg{Type: tea.KeyCtrlS})
+	if starts != 1 || h.newDialog.IsVisible() {
+		t.Fatalf("the second enter did not launch: starts %d", starts)
 	}
 }
 
@@ -417,6 +435,28 @@ func findLaunched(t *testing.T, h *Home, kind session.LinkKind, n int) *session.
 	}
 	t.Fatalf("no session linked to %s %d", kind, n)
 	return nil
+}
+
+// TestForgeLaunchTitleAndTool: the title fits the dialog's name limit in
+// bytes and display width without cutting a rune; the tool falls back
+// from the group's to default_tool to claude.
+func TestForgeLaunchTitleAndTool(t *testing.T) {
+	for _, title := range []string{"short", strings.Repeat("word ", 20), strings.Repeat("日本語", 20), "tab\there\nnewline"} {
+		got := forgeLaunchTitle("#123", title)
+		if len(got) > MaxNameLength || !strings.HasPrefix(got, "#123 ") || strings.ContainsAny(got, "\t\n") || !utf8.ValidString(got) {
+			t.Fatalf("forgeLaunchTitle(%q) = %q (%d bytes)", title, got, len(got))
+		}
+	}
+	tools := []struct{ group, def, want string }{
+		{"codex", "gemini", "codex"},
+		{"", "gemini", "gemini"},
+		{"", " ", "claude"},
+	}
+	for _, tt := range tools {
+		if got := forgeLaunchTool(tt.group, tt.def); got != tt.want {
+			t.Fatalf("forgeLaunchTool(%q, %q) = %q, want %q", tt.group, tt.def, got, tt.want)
+		}
+	}
 }
 
 // TestForgeLaunchDialogGolden freezes the launch dialog for an Issue and a

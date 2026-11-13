@@ -110,9 +110,10 @@ func (f *forgeLaunchField) needs() (comments, review bool) {
 }
 
 // wantsFetch reports whether the selected template needs text not fetched
-// yet (the body always comes with the first fetch).
+// yet (the body always comes with the first fetch). A failed fetch is not
+// retried until the template changes.
 func (f *forgeLaunchField) wantsFetch() bool {
-	if f.fetching {
+	if f.fetching || f.fetchErr != nil {
 		return false
 	}
 	c, r := f.needs()
@@ -139,7 +140,7 @@ func (f *forgeLaunchField) cycle(dir int) {
 		return
 	}
 	f.edited, f.editedText, f.discardDir = false, "", 0
-	f.askEmpty = false
+	f.askEmpty, f.fetchErr = false, nil
 	f.selectAt(f.at + dir)
 }
 

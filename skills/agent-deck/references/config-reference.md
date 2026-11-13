@@ -1041,6 +1041,7 @@ fire on their Russian ЙЦУКЕН twin.
 | `forge_copy` | `y` | Issues, PRs | copy the selected row's URL (the SAML authorize URL while that message shows) |
 | `forge_attach` | `a` | Issues, PRs | attach to the session linked to the selected row (a picker when several are) |
 | `forge_view` | `enter` | Issues, PRs | single column: open the selected row's detail full screen (`esc` returns) |
+| `forge_new` | `n` | Issues, PRs | start a session on the selected row: the chooser first when sessions are linked to it, then the prefilled new-session dialog |
 
 ## [display] Section
 
