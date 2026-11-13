@@ -281,6 +281,16 @@ func (h *Home) forgeCountText() string {
 	return fmt.Sprintf("%d open", l.total)
 }
 
+// forgeRowsOffset is the first item drawn: the list's offset, moved just
+// enough to keep cursor among the page items in view.
+func forgeRowsOffset(cursor, offset, page int) int {
+	offset = min(offset, cursor)
+	if cursor >= offset+page {
+		offset = cursor - page + 1
+	}
+	return offset
+}
+
 // renderForgeRows draws the list on screen in width x height: two-line
 // rows and a blank, the selected one with the ▌ accent bar, the cursor
 // kept in view. Dimmed when the list is stale.
@@ -313,11 +323,7 @@ func (h *Home) renderForgeRows(width, height int) []string {
 	}
 	l := h.forge.lists[h.forge.tab]
 	cursor := max(0, min(l.cursor, len(rows)-1))
-	page := max(1, height/forgeRowHeight)
-	offset := min(l.offset, cursor)
-	if cursor >= offset+page {
-		offset = cursor - page + 1
-	}
+	offset := forgeRowsOffset(cursor, l.offset, max(1, height/forgeRowHeight))
 	text := lipgloss.NewStyle().Foreground(ColorText)
 	bold := lipgloss.NewStyle().Foreground(ColorText).Bold(true)
 	tag := lipgloss.NewStyle().Foreground(ColorPurple)

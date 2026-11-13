@@ -104,6 +104,8 @@ type forgeState struct {
 	// detailFull is true while the single column shows the full-screen
 	// detail (enter opens it, esc returns).
 	detailFull bool
+	// click is the last left click on a list item, for double-click.
+	click forgeClick
 	// detailDelay is the debounce before an open detail is fetched:
 	// forgeDetailDelay when zero, none when negative (tests).
 	detailDelay time.Duration
@@ -998,6 +1000,70 @@ func (h *Home) handleForgeMouseClick(x, y int) (bool, tea.Cmd) {
 	}
 	if y == listTop && x < lipgloss.Width(h.forgeProjectChip()) {
 		h.openForgePicker()
+		return true, nil
 	}
-	return true, nil
+	return true, h.forgeClickRow(y)
+}
+
+// forgeClick is a left click on a list item: when, on which tab and item.
+type forgeClick struct {
+	at     time.Time
+	tab    leftTab
+	number int
+}
+
+// forgeListItemAt maps screen row y to the index of the list item drawn
+// there (any of its three rows), or -1, and the offset of the item drawn
+// first. It mirrors renderForgeList.
+func (h *Home) forgeListItemAt(y int) (int, int) {
+	if h.forge.picker || h.forge.sessionPick != nil {
+		return -1, 0
+	}
+	width := h.forgeLeftPaneWidth()
+	if h.renderForgeListBody(width) != nil {
+		return -1, 0
+	}
+	header := 1
+	if h.forgeBarShowing(h.forge.tab) {
+		header += len(h.renderForgeBarNotes(width))
+	}
+	height := h.getVisibleHeight() - header
+	rel := y - h.getListContentStartY() - header
+	if rel < 0 || rel >= height {
+		return -1, 0
+	}
+	rows, _, ok := h.forgeVisibleRows()
+	if !ok || len(rows) == 0 {
+		return -1, 0
+	}
+	l := h.forge.lists[h.forge.tab]
+	cursor := max(0, min(l.cursor, len(rows)-1))
+	offset := forgeRowsOffset(cursor, l.offset, max(1, height/forgeRowHeight))
+	i := offset + rel/forgeRowHeight
+	if i >= len(rows) {
+		return -1, 0
+	}
+	return i, offset
+}
+
+// forgeClickRow selects the list item at screen row y; a second click on
+// it within doubleClickThreshold opens it, as enter does (spec #18 §4).
+func (h *Home) forgeClickRow(y int) tea.Cmd {
+	i, offset := h.forgeListItemAt(y)
+	if i < 0 {
+		return nil
+	}
+	rows, _, _ := h.forgeVisibleRows()
+	// The clicked item stays where it was drawn.
+	l := &h.forge.lists[h.forge.tab]
+	l.cursor, l.offset = i, offset
+	now := h.forgeNow()
+	c := forgeClick{at: now, tab: h.forge.tab, number: rows[i].number}
+	last := h.forge.click
+	if last.tab == c.tab && last.number == c.number && !last.at.IsZero() && now.Sub(last.at) < doubleClickThreshold {
+		h.forge.click = forgeClick{}
+		return h.forgeOpenItem()
+	}
+	h.forge.click = c
+	return h.syncForgeDetail()
 }

@@ -5351,6 +5351,13 @@ func newGlobalSearchInstance(result *GlobalSearchResult, group string) *session.
 
 // handleMouse handles mouse events (click to select, double-click to activate)
 func (h *Home) handleMouse(msg tea.MouseMsg) (tea.Model, tea.Cmd) {
+	// The forge overlay takes clicks on its tab row; it is drawn under the
+	// panels and pagers the wheel routing above also checks first.
+	if h.forgeOverlayVisible() && msg.Button == tea.MouseButtonLeft && msg.Action == tea.MouseActionPress &&
+		!h.settingsPanel.IsVisible() && !h.helpOverlay.IsVisible() && !h.scrollbackPager.IsVisible() && !h.contextPager.IsVisible() {
+		h.handleForgeOverlayClick(msg.X, msg.Y)
+		return h, nil
+	}
 	if h.hasModalVisible() {
 		// A modal opening mid-drag shouldn't leave the divider stuck grabbed.
 		// Treat it as a release so the dragged-to ratio is preserved.
