@@ -24,7 +24,8 @@ const (
 	// (ctrl+r stays the global reload).
 	hotkeyForgeRefresh = "forge_refresh"
 	// hotkeyForgeOpen opens the shown URL in the browser and hotkeyForgeCopy
-	// copies it: for now the SAML authorize URL of the failure message.
+	// copies it: the selected row's URL, or the SAML authorize URL of the
+	// failure message.
 	hotkeyForgeOpen = "forge_open"
 	hotkeyForgeCopy = "forge_copy"
 )

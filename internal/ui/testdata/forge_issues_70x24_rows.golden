@@ -1,0 +1,24 @@
+ ●●○ Agent Deck [_test]  no sessions                         v1.16.10 
+  All    ● 0   ◐ 0   ○ 0   !@#& filter • 0 all • % open • …           
+ SESSIONS │ ISSUES 1075 │ PRS                                         
+──────────────────────────────────────────────────────────────────────
+me/widgets ▾  is:open                             6 of 1075 · just now
+▌ ○ gh run view --job --log-failed fails on required shared-workflow …
+▌   #14822 · henrymodisett · 15m  bug, priority-3, gh-run             
+                                                                      
+  ○ gh auth saves plain text token, even though I have keyring        
+──────────────────────────────────────────────────────────────────────
+PREVIEW                                                               
+──────────────────────────────────────────────────────────────────────
+fix login  ■ stopped                                                  
+📁 /src/widgets                                                       
+⏱ unknown                                                             
+ claude   widgets                                                     
+───────────────────────────── Claude ─────────────────────────────    
+Status:  ○ Not connected                                              
+Model:   tool default                                                 
+                                                                      
+───────────────────────── Process Exited ─────────────────────────    
+                                                                      
+──────────────────────────────────────────────────────────────────────
+[/] tabs  o open  y copy url  r refresh  p project  S settings  ? help

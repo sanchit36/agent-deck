@@ -7,6 +7,7 @@ import (
 	"testing"
 
 	"github.com/asheshgoplani/agent-deck/internal/github"
+	"github.com/asheshgoplani/agent-deck/internal/github/freshness"
 	"github.com/asheshgoplani/agent-deck/internal/github/githubtest"
 	tea "github.com/charmbracelet/bubbletea"
 	"github.com/charmbracelet/lipgloss"
@@ -36,6 +37,10 @@ func forgeHome(t *testing.T, w, h int, embedded bool, fake *githubtest.Fake, loc
 		fake = githubtest.NewFake()
 	}
 	home.forge.resolver = github.NewResolver(github.NewClient(fake), forgeLocal(local))
+	// Lists are fetched only by tests that ask for it, and never by the
+	// real gh.
+	home.forge.client = github.NewClient(fake)
+	home.forge.fetchers = map[freshness.Kind]forgeFetchFunc{}
 	return home
 }
 

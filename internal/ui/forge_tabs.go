@@ -46,6 +46,8 @@ type forgeList struct {
 	// false until a list has loaded.
 	open      int
 	openKnown bool
+	// key is the cache key of the list counted (see syncForgeLists).
+	key freshness.Key
 }
 
 // forgeGroupView is what a group's forge tabs show: its resolved Projects,
@@ -288,7 +290,7 @@ func (h *Home) moveForgeCursor(mv forgeMove) {
 		l.cursor, l.offset = 0, 0
 		return
 	}
-	page := max(1, h.forgeListRows())
+	page := h.forgeListPage()
 	switch mv {
 	case moveDown:
 		l.cursor++
@@ -316,9 +318,9 @@ func (h *Home) moveForgeCursor(mv forgeMove) {
 	}
 }
 
-// forgeListRows is how many list rows fit under the Project line.
-func (h *Home) forgeListRows() int {
-	return max(1, h.getVisibleHeight()-1)
+// forgeListPage is how many list items fit under the Project line.
+func (h *Home) forgeListPage() int {
+	return max(1, (h.getVisibleHeight()-1)/forgeRowHeight)
 }
 
 // forgeTarget is the group the session cursor is in and what resolving it
@@ -643,8 +645,10 @@ func (h *Home) renderForgeList(width, height int) string {
 	lines := []string{h.renderForgeProjectLine(width)}
 	if h.forge.picker {
 		lines = append(lines, h.renderForgePicker(width)...)
+	} else if body := h.renderForgeListBody(width); body != nil {
+		lines = append(lines, body...)
 	} else {
-		lines = append(lines, h.renderForgeListBody(width)...)
+		lines = append(lines, h.renderForgeRows(width, height-1)...)
 	}
 	if len(lines) > height {
 		lines = lines[:max(0, height)]
@@ -697,8 +701,14 @@ func (h *Home) renderForgeProjectLine(width int) string {
 	}
 	line := left
 	if right != "" {
-		if gap := width - lipgloss.Width(left) - lipgloss.Width(right); gap >= 2 {
+		rw := lipgloss.Width(right)
+		if gap := width - lipgloss.Width(left) - rw; gap >= 2 {
 			line = left + strings.Repeat(" ", gap) + right
+		} else if keep := width - rw - 2; keep > lipgloss.Width(h.forgeProjectChip()) {
+			// The count and freshness stay whole while only the filter
+			// chip gives way; the Project chip is never cut for them.
+			left = truncateDisplay(left, keep, "…")
+			line = left + strings.Repeat(" ", width-lipgloss.Width(left)-rw) + right
 		} else {
 			line = left + "  " + right
 		}
@@ -745,6 +755,10 @@ func (h *Home) renderForgeHelpBar() string {
 		add("esc", "close")
 	} else {
 		add(joinHotkeyLabels(h.forgeKey(hotkeyForgePrevTab), h.forgeKey(hotkeyForgeNextTab)), "tabs")
+		if _, ok := h.forgeSelectedRow(); ok {
+			add(h.forgeKey(hotkeyForgeOpen), "open")
+			add(h.forgeKey(hotkeyForgeCopy), "copy url")
+		}
 		add(h.forgeKey(hotkeyForgeRefresh), "refresh")
 		add(h.forgeKey(hotkeyForgeProject), "project")
 		add(h.forgeKey(hotkeyForgeParent), "parent")
@@ -789,6 +803,8 @@ func (h *Home) forgeHelpRows() [][2]string {
 		{h.forgeKey(hotkeyForgeProject), "Choose the Project"},
 		{h.forgeKey(hotkeyForgeParent), "Project / Parent Repository"},
 		{h.forgeKey(hotkeyForgeRefresh), "Refresh the list"},
+		{h.forgeKey(hotkeyForgeOpen), "Open in the browser"},
+		{h.forgeKey(hotkeyForgeCopy), "Copy the URL"},
 		{"j/k ↑↓", "Move in the list"},
 		{"", ""},
 		{h.actionKey(hotkeyHelp), "This help"},
