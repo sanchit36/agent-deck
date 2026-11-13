@@ -1,10 +1,12 @@
 package feedback
 
 import (
+	"context"
 	"os/exec"
 	"runtime"
 
 	"github.com/asheshgoplani/agent-deck/internal/clipboard"
+	"github.com/asheshgoplani/agent-deck/internal/ghexec"
 	"github.com/asheshgoplani/agent-deck/internal/platform"
 )
 
@@ -27,7 +29,7 @@ const DiscussionURL = "https://github.com/asheshgoplani/agent-deck/discussions"
 // All four function fields are injectable for testing.
 type Sender struct {
 	// GhCmd runs the gh CLI with the given arguments.
-	// Real implementation: exec.Command("gh", args...).CombinedOutput().
+	// Real implementation: ghexec.Command (gh env, gh timeout), CombinedOutput.
 	GhCmd func(args ...string) error
 
 	// BrowserCmd opens the given URL in the default browser.
@@ -48,7 +50,9 @@ type Sender struct {
 func NewSender() *Sender {
 	return &Sender{
 		GhCmd: func(args ...string) error {
-			_, err := exec.Command("gh", args...).CombinedOutput()
+			cmd, cancel := ghexec.Command(context.Background(), 0, args...)
+			defer cancel()
+			_, err := cmd.CombinedOutput()
 			return err
 		},
 		BrowserCmd: func(url string) error {

@@ -21,6 +21,7 @@ import (
 	"time"
 
 	"github.com/asheshgoplani/agent-deck/internal/agentpaths"
+	"github.com/asheshgoplani/agent-deck/internal/ghexec"
 	"github.com/asheshgoplani/agent-deck/internal/optiming"
 )
 
@@ -259,7 +260,9 @@ func resolveGitHubToken() string {
 	if _, err := exec.LookPath("gh"); err != nil {
 		return ""
 	}
-	out, err := exec.Command("gh", "auth", "token", "--hostname", "github.com").Output()
+	cmd, cancel := ghexec.Command(context.Background(), 0, "auth", "token", "--hostname", "github.com")
+	defer cancel()
+	out, err := cmd.Output()
 	if err != nil {
 		return ""
 	}
