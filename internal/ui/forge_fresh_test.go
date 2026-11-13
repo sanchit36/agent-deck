@@ -2,6 +2,7 @@ package ui
 
 import (
 	"context"
+	"errors"
 	"slices"
 	"strings"
 	"testing"
@@ -604,5 +605,25 @@ func TestForgeStopJoinsFetches(t *testing.T) {
 	_ = collect(cmd)
 	if calls != 1 {
 		t.Fatalf("%d fetches, want 1", calls)
+	}
+}
+
+// TestForgeStaleLine: the detail pane and the overlay footer say
+// "⚠ stale: <reason>" with one ⚠, the reason being the list's own reason
+// line without its ⚠.
+func TestForgeStaleLine(t *testing.T) {
+	k := freshness.DetailKey(github.Repo{Owner: "me", Name: "widgets"}, 7)
+	cases := []struct {
+		err  error
+		want string
+	}{
+		{&github.Error{Class: github.ClassNetwork}, "⚠ stale: offline · retrying"},
+		{errors.New("boom"), "⚠ stale: boom"},
+		{&github.Error{Class: github.ClassGhMissing}, "⚠ stale: gh is not installed"},
+	}
+	for _, tc := range cases {
+		if got := forgeStaleLine(tc.err, k, freshT0); got != tc.want {
+			t.Errorf("forgeStaleLine(%v) = %q, want %q", tc.err, got, tc.want)
+		}
 	}
 }

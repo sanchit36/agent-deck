@@ -426,6 +426,13 @@ func (h *Home) renderForgeStaleNote(width int) []string {
 	return []string{style.Render(truncateDisplay(f.lines[0], max(1, width), "…"))}
 }
 
+// forgeStaleLine is the one-line note over stale data in the detail pane
+// and the overlay footer: "⚠ stale: <reason>", the reason being the first
+// line forgeFailureFor gives, without its own ⚠.
+func forgeStaleLine(err error, k freshness.Key, now time.Time) string {
+	return "⚠ stale: " + strings.TrimPrefix(forgeFailureFor(err, k, now).lines[0], "⚠ ")
+}
+
 // forgeListFailure is forgeFailureFor for err, the failure of the list on
 // screen (key k). esc resets to the starting filter, so when GitHub rejects
 // that very filter (from [github] issue_filter or pr_filter) the hint

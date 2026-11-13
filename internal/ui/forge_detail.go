@@ -387,7 +387,7 @@ func (h *Home) renderForgeDetail(width, height int) string {
 		add(keyStyle.Render(fmt.Sprintf("%-*s", forgeKeyWidth, kv.key)) + v)
 	}
 	if stale {
-		add(lipgloss.NewStyle().Foreground(ColorYellow).Render("⚠ stale: " + forgeFailureFor(e.Err, k, now).lines[0]))
+		add(lipgloss.NewStyle().Foreground(ColorYellow).Render(forgeStaleLine(e.Err, k, now)))
 	}
 	if len(timeline) > 0 {
 		lines = append(lines, "")

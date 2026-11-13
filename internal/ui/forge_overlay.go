@@ -780,7 +780,7 @@ func (h *Home) forgeOverlayStatus(total, offset, body int) string {
 			case e.Fetching && (e.HasData() || h.forge.overlay.files.sha != ""):
 				parts = append(parts, lipgloss.NewStyle().Foreground(ColorCyan).Render(forgeSpinnerFrames[h.animationFrame%len(forgeSpinnerFrames)]))
 			case e.Stale() || (e.Err != nil && h.forge.overlay.tab == forgeOverlayFiles && h.forge.overlay.files.sha != ""):
-				parts = append(parts, lipgloss.NewStyle().Foreground(ColorYellow).Render("⚠ stale: "+forgeFailureFor(e.Err, k, h.forgeNow()).lines[0]))
+				parts = append(parts, lipgloss.NewStyle().Foreground(ColorYellow).Render(forgeStaleLine(e.Err, k, h.forgeNow())))
 			}
 		}
 	}
