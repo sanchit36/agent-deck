@@ -39,6 +39,8 @@ const (
 	// hotkeyForgeNew starts a session on the selected row, through the
 	// chooser when sessions are linked to it.
 	hotkeyForgeNew = "forge_new"
+	// hotkeyForgeMerge opens the merge dialog of the selected PR.
+	hotkeyForgeMerge = "forge_merge"
 )
 
 // forgeHotkeyActionOrder is every forge action; later slices append theirs.
@@ -57,6 +59,7 @@ var forgeHotkeyActionOrder = []string{
 	hotkeyForgeAttach,
 	hotkeyForgeView,
 	hotkeyForgeNew,
+	hotkeyForgeMerge,
 	// d opens a PR row's overlay on Files (forge_files.go).
 	hotkeyForgeFiles,
 }
@@ -85,6 +88,7 @@ var defaultForgeHotkeyBindings = map[string]string{
 	hotkeyForgeAttach:      "a",
 	hotkeyForgeView:        "enter",
 	hotkeyForgeNew:         "n",
+	hotkeyForgeMerge:       "m",
 	// The overlay's own key space (forge_overlay.go).
 	hotkeyForgeConversation: "c",
 	hotkeyForgeFiles:        "d",

@@ -1047,6 +1047,7 @@ fire on their Russian ЙЦУКЕН twin.
 | `forge_attach` | `a` | Issues, PRs | attach to the session linked to the selected row (a picker when several are) |
 | `forge_view` | `enter` | Issues, PRs | open the selected row in the overlay (single column: the first press opens its detail full screen, `esc` returns) |
 | `forge_new` | `n` | Issues, PRs, overlay | start a session on the selected row: the chooser first when sessions are linked to it, then the prefilled new-session dialog (on the Files tab `n` moves by hunk and `S` starts the session) |
+| `forge_merge` | `m` | PRs, overlay | merge the selected PR through the merge dialog (never bypasses branch protection) |
 | `forge_conversation` | `c` | overlay | Conversation tab |
 | `forge_files` | `d` | PRs, overlay | open the selected PR on its Files tab; in the overlay, the Files tab (PRs) |
 | `forge_expand` | `e` | overlay | expand every minimized comment, or collapse them all |

@@ -148,6 +148,16 @@ type forgeState struct {
 
 	// overlay is the full-screen Issue/PR overlay (forge_overlay.go).
 	overlay forgeOverlay
+
+	// Merge flow (forge_merge.go): the merge dialog and the
+	// linked-sessions follow-up. mergeRetry is the wait before the one
+	// UNKNOWN refetch (forgeMergeRetryDelay when zero, none when
+	// negative: tests); mergeAct stops or deletes a session (nil: as their
+	// own keys do; injectable for tests).
+	merge      forgeMergeDialog
+	follow     forgeMergeFollow
+	mergeRetry time.Duration
+	mergeAct   func(inst *session.Instance, del bool) tea.Cmd
 }
 
 type forgeGroupResolvedMsg struct {
@@ -191,6 +201,7 @@ func (h *Home) setForgeEnabled(enabled bool, overrides map[string]string) {
 		h.forge.sessionPick = nil
 		h.forge.detailFull = false
 		h.closeForgeOverlay()
+		h.closeForgeMerge()
 	}
 	h.syncForgeHelp()
 }
@@ -276,6 +287,8 @@ func (h *Home) handleForgeKey(msg tea.KeyMsg, raw, key string) (bool, tea.Model,
 		return true, h, h.forgeAttach()
 	case hotkeyForgeNew:
 		return true, h, h.forgeNew()
+	case hotkeyForgeMerge:
+		return true, h, h.openForgeMerge()
 	case hotkeyForgeView:
 		return true, h, h.forgeOpenItem()
 	case hotkeyForgeFiles:
@@ -906,6 +919,9 @@ func (h *Home) renderForgeHelpBar() string {
 			if insts, _, _ := h.forgeSelectedSessions(); len(insts) > 0 {
 				add(h.forgeKey(hotkeyForgeAttach), "attach")
 			}
+			if h.forge.tab == tabPRs {
+				add(h.forgeKey(hotkeyForgeMerge), "merge")
+			}
 			add(h.forgeKey(hotkeyForgeOpen), "open")
 			add(h.forgeKey(hotkeyForgeCopy), "copy url")
 		}
@@ -947,8 +963,9 @@ var forgeHintPriority = map[string]int{
 	"tabs":        5,
 	"open":        6,
 	"copy url":    7,
-	"project":     8,
-	"parent":      9,
+	"merge":       8,
+	"project":     9,
+	"parent":      10,
 	"files":       5,
 }
 
@@ -1026,6 +1043,7 @@ func (h *Home) forgeHelpRows() [][2]string {
 		{"Esc", "Reset the filter"},
 		{h.forgeKey(hotkeyForgeNew), "Start a session on the row (chooser if linked)"},
 		{h.forgeKey(hotkeyForgeAttach), "Attach to the linked session"},
+		{h.forgeKey(hotkeyForgeMerge), "Merge the PR"},
 		{h.forgeKey(hotkeyForgeView), "Open the item (single column: detail first)"},
 		{"j/k ↑↓", "Move in the list"},
 		{joinHotkeyLabels(h.forgeKey(hotkeyForgeConversation), h.forgeKey(hotkeyForgeFiles)), "Open item: Conversation / Files"},

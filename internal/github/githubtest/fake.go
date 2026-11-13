@@ -138,6 +138,38 @@ const (
 	// body, no comments and one COMMENTED review by a bot with four
 	// inline comments.
 	PRRowConversation = "pr-row-conversation"
+	// MergeInfoBlockedReview is the merge dialog's query
+	// (github.MergeInfoQuery) for cli/cli PR #15048 (the first PRList
+	// row), recorded with gh 2.103: open, checks passing, review required,
+	// BLOCKED; every merge method allowed, auto-merge allowed, branches
+	// deleted on merge, viewer default MERGE.
+	MergeInfoBlockedReview = "merge-info-blocked-review"
+	// MergeInfoDraft is the same query for cli/cli PR #14927 (the PRDetail
+	// item), recorded with gh 2.103: a draft, one failing check, BLOCKED.
+	MergeInfoDraft = "merge-info-draft"
+	// MergeInfoClosedFork is the same query for cli/cli PR #15046,
+	// recorded with gh 2.103: closed, from a fork (compiler-segfault/cli).
+	MergeInfoClosedFork = "merge-info-closed-fork"
+	// MergeInfoClean is MergeInfoBlockedReview hand-edited to be ready to
+	// merge: approved, CLEAN, merge commits not allowed, viewer default
+	// SQUASH, branches not deleted on merge.
+	MergeInfoClean = "merge-info-clean"
+	// MergeInfoMoved is MergeInfoClean after a push: the head SHA is
+	// 0a1b2c3d…. Hand-edited.
+	MergeInfoMoved = "merge-info-moved"
+	// MergeHeadMoved is `gh pr merge --match-head-commit` after the head
+	// moved: GitHub refuses the merge. Hand-written (a real merge cannot
+	// be recorded) from GitHub's mergePullRequest error for a stale
+	// expectedHeadOid.
+	MergeHeadMoved = "merge-head-moved"
+	// MergeNotMergeable is `gh pr merge` refusing a PR that branch
+	// protection blocks, with gh's hints (the last one suggests --admin).
+	// Hand-written from gh 2.103's messages.
+	MergeNotMergeable = "merge-not-mergeable"
+	// MergeMethodNotAllowed is `gh pr merge --merge` on a repository that
+	// does not allow merge commits. Hand-written from GitHub's
+	// mergePullRequest error.
+	MergeMethodNotAllowed = "merge-method-not-allowed"
 	// PRDiff is the diff of cli/cli PR #14927 (the PRList and PRDetail
 	// item) at its head d43c4e3a (github.PRDiffArgs), recorded with gh
 	// 2.103: 21 files (+4835 −1), 15 of them new, a txtar under testdata/

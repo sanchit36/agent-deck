@@ -628,6 +628,9 @@ func (h *Home) renderFrame() string {
 	if h.contextPager.IsVisible() {
 		return h.contextPager.View()
 	}
+	if h.forgeMergeVisible() {
+		return h.renderForgeMerge()
+	}
 	if h.forgeOverlayVisible() {
 		return h.renderForgeOverlay()
 	}
