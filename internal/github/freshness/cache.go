@@ -245,8 +245,12 @@ func (c *Cache) RateLimited(host string, now time.Time) (time.Time, bool) {
 
 // transient reports whether err may clear without the user doing anything.
 // A failure that is not a classified gh error (a reply that did not parse,
-// say) is retried with backoff too.
+// say) is retried with backoff too. Issues turned off for a repository is
+// a settled state, not a failure: only the user's refresh asks again.
 func transient(err error) bool {
+	if errors.Is(err, github.ErrIssuesDisabled) {
+		return false
+	}
 	var ge *github.Error
 	if errors.As(err, &ge) {
 		return ge.Transient()

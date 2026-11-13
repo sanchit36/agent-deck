@@ -209,6 +209,24 @@ func TestCacheNoAutomaticRetry(t *testing.T) {
 	}
 }
 
+// TestCacheIssuesDisabledSettles: a repository with Issues turned off is a
+// settled empty state, not a failure to retry: no backoff refetches, only
+// the user's refresh (r).
+func TestCacheIssuesDisabledSettles(t *testing.T) {
+	c := New()
+	k := ListKey(widgets, IssueList, "is:open")
+	c.Begin(k)
+	c.Done(k, nil, fmt.Errorf("listing issues: %w", github.ErrIssuesDisabled), t0)
+	for _, after := range []time.Duration{time.Minute, 10 * time.Minute, 24 * time.Hour} {
+		if c.Due(k, t0.Add(after), time.Minute) {
+			t.Fatalf("Issues-disabled list refetched automatically after %v", after)
+		}
+	}
+	if !c.Begin(k) {
+		t.Fatal("a manual refresh could not start")
+	}
+}
+
 // TestCacheRateLimitStopsHost: a rate limit with a known reset stops every
 // key on that host until the reset; other hosts keep polling.
 func TestCacheRateLimitStopsHost(t *testing.T) {
