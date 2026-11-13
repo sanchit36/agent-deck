@@ -1,0 +1,2 @@
+GraphQL: Resource protected by organization SAML enforcement. You must grant your Personal Access token access to this organization. (repository)
+Authorize in your web browser:  https://github.com/orgs/acme/sso?authorization_request=A1B2C3
