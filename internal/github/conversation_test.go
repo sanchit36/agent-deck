@@ -136,7 +136,9 @@ func TestConversationMarksBots(t *testing.T) {
 }
 
 // TestConversationCounts: the inline review comment count leaves out the
-// viewer's PENDING (draft) review.
+// viewer's PENDING (draft) review, and "N more" counts only comments and
+// reviews that would render: unfetched empty COMMENTED reviews hold only
+// inline comments and are never shown.
 func TestConversationCounts(t *testing.T) {
 	const pr = `{"data":{"repository":{"issueOrPullRequest":{"__typename":"PullRequest","number":7,` +
 		`"updatedAt":"2026-01-02T00:00:00Z","createdAt":"2026-01-01T00:00:00Z","body":"b","author":{"__typename":"User","login":"a"},` +
@@ -162,6 +164,19 @@ func TestConversationCounts(t *testing.T) {
 			verdicts:   1,
 			wantShown:  1,
 			wantInline: 3,
+		},
+		{
+			name:         "unfetched empty COMMENTED reviews are not more comments",
+			comments:     3,
+			commentNodes: []string{comment, comment},
+			reviews:      5,
+			reviewN:      []string{review("APPROVED", "", 0), review("COMMENTED", "", 1)},
+			verdicts:     2,
+			wantShown:    3,
+			// One unfetched comment and one unfetched verdict; the other two
+			// unfetched reviews are COMMENTED.
+			wantMore:   2,
+			wantInline: 1,
 		},
 		{
 			name:       "every review fetched",
