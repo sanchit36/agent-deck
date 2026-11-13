@@ -3,9 +3,10 @@ package session
 import (
 	"encoding/json"
 	"fmt"
-	"net/url"
 	"strconv"
 	"strings"
+
+	"github.com/asheshgoplani/agent-deck/internal/github"
 )
 
 // A Link ties a session to a GitHub Issue or Pull Request (GLOSSARY.md,
@@ -36,7 +37,6 @@ type Link struct {
 const (
 	toolDataIssueLinkKey = "issue_link"
 	toolDataPRLinkKey    = "pr_link"
-	defaultLinkHost      = "github.com"
 )
 
 // Repo is the link's repo as HOST/OWNER/NAME, the form gh's -R takes.
@@ -65,39 +65,30 @@ func ParseLinkKind(s string) (LinkKind, error) {
 }
 
 // ParseLinkRepo reads a repo as OWNER/NAME (host github.com), HOST/OWNER/NAME,
-// or a git remote URL (https://, ssh://, git@host:owner/name). The returned
-// Link has no number. Hosts are lowercased; owner and name keep their case.
+// or a git remote URL (https://, ssh://, [user@]host:owner/name). Every form
+// goes through github.ParseRemoteURL, so a link names the same repo the
+// forge tabs resolve (ssh.github.com and www.github.com are github.com; a
+// local path or file URL is no repo). The returned Link has no number. Hosts
+// are lowercased; owner and name keep their case.
 func ParseLinkRepo(s string) (Link, error) {
 	raw := strings.TrimSpace(s)
-	path := raw
-	host := ""
-	switch {
-	case strings.Contains(raw, "://"):
-		u, err := url.Parse(raw)
-		if err != nil {
-			return Link{}, fmt.Errorf("parsing repo url %q: %w", raw, err)
+	remote := raw
+	if !strings.Contains(raw, ":") {
+		// [HOST/]OWNER/NAME, the form gh's -R takes.
+		parts := strings.Split(strings.Trim(raw, "/"), "/")
+		switch {
+		case strings.HasPrefix(raw, "/") || strings.ContainsAny(raw, "?#@ \t") || len(parts) < 2 || len(parts) > 3:
+			return Link{}, fmt.Errorf("invalid repo %q: want OWNER/NAME or HOST/OWNER/NAME", s)
+		case len(parts) == 2:
+			parts = append([]string{github.DefaultHost}, parts...)
 		}
-		host, path = u.Hostname(), u.Path
-	case strings.Contains(raw, "@") && strings.Contains(raw, ":"):
-		// scp-like git@host:owner/name
-		at := strings.Index(raw, "@")
-		colon := strings.Index(raw[at:], ":") + at
-		host, path = raw[at+1:colon], raw[colon+1:]
-	case strings.HasPrefix(raw, "/"):
-		return Link{}, fmt.Errorf("invalid repo %q: want OWNER/NAME or HOST/OWNER/NAME", s)
+		remote = "https://" + strings.Join(parts, "/")
 	}
-	path = strings.TrimSuffix(strings.Trim(path, "/"), ".git")
-	parts := strings.Split(path, "/")
-	if host == "" && len(parts) == 3 {
-		host, parts = parts[0], parts[1:]
+	_, repo := github.ParseRemoteURL(remote)
+	if repo.Host == "" || repo.Owner == "" || repo.Name == "" {
+		return Link{}, fmt.Errorf("invalid repo %q: want OWNER/NAME, HOST/OWNER/NAME or a GitHub remote URL", s)
 	}
-	if len(parts) != 2 || parts[0] == "" || parts[1] == "" {
-		return Link{}, fmt.Errorf("invalid repo %q: want OWNER/NAME or HOST/OWNER/NAME", s)
-	}
-	if host == "" {
-		host = defaultLinkHost
-	}
-	return Link{Host: strings.ToLower(host), Owner: parts[0], Name: parts[1]}, nil
+	return Link{Host: repo.Host, Owner: repo.Owner, Name: repo.Name}, nil
 }
 
 // LinkOf returns the session's link of kind, nil when there is none.

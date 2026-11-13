@@ -58,7 +58,7 @@ $ agent-deck session link golden-sess-1 issue 5
 exit 1
 --- stdout
 --- stderr
-Error: finding the repo of session 'claude idle' (pass --repo): listing git remotes in /repo/app: exit status 128
+Error: finding the repo of session 'claude idle' (pass --repo): reading the git repository of /repo/app: not a git repository
 
 $ agent-deck session link no-such-session issue 5 --repo acme/app
 exit 2
@@ -83,7 +83,7 @@ Options:
   -quiet
     	Minimal output
   -repo string
-    	Repo as OWNER/NAME or HOST/OWNER/NAME (default: the session checkout's origin remote)
+    	Repo as OWNER/NAME or HOST/OWNER/NAME (default: the session checkout's origin, else its first GitHub remote by name)
 
 $ agent-deck session unlink golden-sess-1 pr --json
 exit 0

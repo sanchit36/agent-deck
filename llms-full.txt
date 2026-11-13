@@ -918,7 +918,7 @@ agent-deck session link <session> issue|pr <number> [--repo [HOST/]OWNER/NAME] [
 agent-deck session unlink <session> issue|pr [--json] [-q]
 ```
 
-Links a session to a GitHub issue or pull request (at most one of each per session), shown as a `#12` / `PR#34` badge on its TUI row. Without `--repo` the repo comes from the session checkout's `origin` remote. `link` makes no `gh` call.
+Links a session to a GitHub issue or pull request (at most one of each per session), shown as a `#12` / `PR#34` badge on its TUI row. Without `--repo` the repo comes from the session checkout's `origin` remote (with no `origin`, the first GitHub remote by name; never `upstream`). `link` makes no `gh` call.
 
 ## MCP Commands
 

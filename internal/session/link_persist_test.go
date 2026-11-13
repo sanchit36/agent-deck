@@ -144,6 +144,16 @@ func TestParseLinkRepo(t *testing.T) {
 		{in: "a/b/c/d", wantErr: true},
 		{in: "acme/", wantErr: true},
 		{in: "/tmp/local/path", wantErr: true},
+		// Same semantics as github.ParseRemoteURL (spec §2).
+		{in: "git@ssh.github.com:acme/app.git", want: Link{Host: "github.com", Owner: "acme", Name: "app"}},
+		{in: "ssh://git@ssh.github.com:443/acme/app.git", want: Link{Host: "github.com", Owner: "acme", Name: "app"}},
+		{in: "https://www.github.com/acme/app", want: Link{Host: "github.com", Owner: "acme", Name: "app"}},
+		{in: "www.github.com/acme/app", want: Link{Host: "github.com", Owner: "acme", Name: "app"}},
+		{in: "github.com:acme/app.git", want: Link{Host: "github.com", Owner: "acme", Name: "app"}},
+		{in: "GHE.Corp.Example:team/svc", want: Link{Host: "ghe.corp.example", Owner: "team", Name: "svc"}},
+		{in: "file:///tmp/acme/app", wantErr: true},
+		{in: "https://github.com/acme/app/pulls", wantErr: true},
+		{in: "git@github.com:acme/.git", wantErr: true},
 	}
 	for _, tc := range tests {
 		t.Run(tc.in, func(t *testing.T) {
