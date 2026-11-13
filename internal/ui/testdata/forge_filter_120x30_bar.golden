@@ -5,26 +5,26 @@
 / is:open gh▏                      6 match │ ○ gh run view --job --log-failed fails on required shared-workflow metadata
 showing matches in the latest 6 · enter to │   404                                                                      
 search all                                 │                                                                            
-▌ ○ gh run view --job --log-failed fails … │ ⚠ gh failed: githubtest: no fixture for gh api --hostname github.com       
-▌   #14822 · henrymodisett · 15m  bug, pr… │ graphql -f                                                                 
-                                           │ query=query($owner:String!,$name:String!,$number:Int!){repository(owner:$ow
-  ○ gh auth saves plain text token, even … │ ner,name:$name){issueOrPullRequest(number:$number){__typename ...on        
-    #8954 · 3f6a · 48m  bug, needs-triage… │ Issue{number title url issueState:state createdAt updatedAt author{login}  
-                                           │ labels(first:20){nodes{name}} assignees(first:10){nodes{login}}            
-  ○ `gh pr create` reports a generic perm… │ comments{totalCount}                                                       
-    #14874 · will-lynas · 2h  blocked, en… │ timelineItems(last:10,itemTypes:[ISSUE_COMMENT,CLOSED_EVENT,REOPENED_EVENT,
-                                           │ CROSS_REFERENCED_EVENT]){nodes{__typename ...on IssueComment{createdAt     
-  ○ Support generating `.gitignore` files… │ author{login}} ...on ClosedEvent{createdAt actor{login}} ...on             
-    #15047 · antarupdey81 · 3h  needs-tri… │ ReopenedEvent{createdAt actor{login}} ...on CrossReferencedEvent{createdAt 
-                                           │ actor{login}}}}} ...on PullRequest{number title url prState:state isDraft  
-  ○ `gh run view --log` silently drops th… │ createdAt updatedAt author{login} labels(first:20){nodes{name}}            
-    #15019 · jeffwall-curlewlabs · 6h  ne… │ assignees(first:10){nodes{login}} comments{totalCount} headRefName         
-                                           │ baseRefName headRefOid headRepository{name owner{login}} reviewDecision    
-  ○ `gh cs create` doesn't offer location… │ mergeStateStatus additions deletions changedFiles                          
-    #14558 · ghost · 10h  enhancement, gh… │ commits(last:1){nodes{commit{statusCheckRollup{state                       
-                                           │ contexts(first:100){nodes{__typename ...on CheckRun{conclusion status      
-                                           │ completedAt} ...on StatusContext{state createdAt}}}}}}}                    
-                                           │ timelineItems(last:10,itemTypes:[ISSUE_COMMENT,PULL_REQUEST_REVIEW,PULL_REQ
-                                           │ UEST_COMMIT,HEAD_REF_FORCE_PUSHED_EVENT,CLOSED_EVENT,REOPENED_EVENT,MERGED_
+▌ ○ gh run view --job --log-failed fails … │ state     ○ open                                                           
+▌   #14822 · henrymodisett · 15m  bug, pr… │ author    henrymodisett                                                    
+                                           │ age       2w                                                               
+  ○ gh auth saves plain text token, even … │ labels    bug, priority-3, gh-run                                          
+    #8954 · 3f6a · 48m  bug, needs-triage… │ assignee  none                                                             
+                                           │ comments  5                                                                
+  ○ `gh pr create` reports a generic perm… │ sessions  none                                                             
+    #14874 · will-lynas · 2h  blocked, en… │                                                                            
+                                           │ TIMELINE                                                                   
+  ○ Support generating `.gitignore` files… │ 15m  henrymodisett commented                                               
+    #15047 · antarupdey81 · 3h  needs-tri… │ 2w   henrymodisett commented                                               
+                                           │ 2w   henrymodisett commented                                               
+  ○ `gh run view --log` silently drops th… │ 2w   duongynhi000005-oss commented                                         
+    #15019 · jeffwall-curlewlabs · 6h  ne… │ 2w   cli-triage commented                                                  
+                                           │                                                                            
+  ○ `gh cs create` doesn't offer location… │                                                                            
+    #14558 · ghost · 10h  enhancement, gh… │                                                                            
+                                           │                                                                            
+                                           │                                                                            
+                                           │                                                                            
+                                           │                                                                            
 ────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────
 enter apply  ↑↓ presets  esc cancel  S settings  ? help                                                                 

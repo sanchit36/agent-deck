@@ -5,26 +5,26 @@
 me/widgets ▾  is:cl…  4 of 2002 · just now │ ✓ `gh auth status` reports rate limit / network failures as "token is      
 ▌ ✓ `gh auth status` reports rate limit /… │   invalid" with misleading re-auth advice                                  
 ▌   #14053 · MumuTW · 2d  bug, priority-3… │                                                                            
-                                           │ ⚠ gh failed: githubtest: no fixture for gh api --hostname github.com       
-  ✓ Expiring token auto-refresh can break… │ graphql -f                                                                 
-    #14844 · babakks · 2d  bug, priority-… │ query=query($owner:String!,$name:String!,$number:Int!){repository(owner:$ow
-                                           │ ner,name:$name){issueOrPullRequest(number:$number){__typename ...on        
-  ✓ `gh attestation verify` fails with cr… │ Issue{number title url issueState:state createdAt updatedAt author{login}  
-    #9101 · capri-xiyue · 1w  bug, needs-… │ labels(first:20){nodes{name}} assignees(first:10){nodes{login}}            
-                                           │ comments{totalCount}                                                       
-  ✓ `gh auth login` freezes after selecti… │ timelineItems(last:10,itemTypes:[ISSUE_COMMENT,CLOSED_EVENT,REOPENED_EVENT,
-    #7359 · xandmore · 1w  bug, more-info… │ CROSS_REFERENCED_EVENT]){nodes{__typename ...on IssueComment{createdAt     
-                                           │ author{login}} ...on ClosedEvent{createdAt actor{login}} ...on             
-                                           │ ReopenedEvent{createdAt actor{login}} ...on CrossReferencedEvent{createdAt 
-                                           │ actor{login}}}}} ...on PullRequest{number title url prState:state isDraft  
-                                           │ createdAt updatedAt author{login} labels(first:20){nodes{name}}            
-                                           │ assignees(first:10){nodes{login}} comments{totalCount} headRefName         
-                                           │ baseRefName headRefOid headRepository{name owner{login}} reviewDecision    
-                                           │ mergeStateStatus additions deletions changedFiles                          
-                                           │ commits(last:1){nodes{commit{statusCheckRollup{state                       
-                                           │ contexts(first:100){nodes{__typename ...on CheckRun{conclusion status      
-                                           │ completedAt} ...on StatusContext{state createdAt}}}}}}}                    
-                                           │ timelineItems(last:10,itemTypes:[ISSUE_COMMENT,PULL_REQUEST_REVIEW,PULL_REQ
-                                           │ UEST_COMMIT,HEAD_REF_FORCE_PUSHED_EVENT,CLOSED_EVENT,REOPENED_EVENT,MERGED_
+                                           │ loading…                                                                   
+  ✓ Expiring token auto-refresh can break… │                                                                            
+    #14844 · babakks · 2d  bug, priority-… │                                                                            
+                                           │                                                                            
+  ✓ `gh attestation verify` fails with cr… │                                                                            
+    #9101 · capri-xiyue · 1w  bug, needs-… │                                                                            
+                                           │                                                                            
+  ✓ `gh auth login` freezes after selecti… │                                                                            
+    #7359 · xandmore · 1w  bug, more-info… │                                                                            
+                                           │                                                                            
+                                           │                                                                            
+                                           │                                                                            
+                                           │                                                                            
+                                           │                                                                            
+                                           │                                                                            
+                                           │                                                                            
+                                           │                                                                            
+                                           │                                                                            
+                                           │                                                                            
+                                           │                                                                            
+                                           │                                                                            
 ────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────
 [/] tabs  o open  y copy url  / filter  esc reset  r refresh  p project  P parent  S settings  ? help                   
