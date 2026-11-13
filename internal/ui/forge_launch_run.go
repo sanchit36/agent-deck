@@ -42,7 +42,7 @@ type forgeLaunchPlan struct {
 	// message is the first message; "" sends none.
 	message string
 	// newInstance builds the session, with the dialog's options, in path.
-	newInstance func(path string) *session.Instance
+	newInstance func(path string) (*session.Instance, error)
 }
 
 // forgeLaunchResult is a launch's outcome: err when nothing was left
@@ -57,7 +57,8 @@ type forgeLaunchResult struct {
 // forgeLauncher runs launches. Every field is injectable for tests; nil
 // means the real thing.
 type forgeLauncher struct {
-	runner github.Runner
+	// client runs gh pr checkout; nil runs the real gh.
+	client *github.Client
 	// start starts inst and sends message: inst.StartWithMessage.
 	start func(inst *session.Instance, message string) error
 	// running reports whether inst's session exists after a failed start
@@ -160,7 +161,10 @@ func (l forgeLauncher) launch(ctx context.Context, p forgeLaunchPlan) forgeLaunc
 		}
 	}
 
-	inst := p.newInstance(dir)
+	inst, err := p.newInstance(dir)
+	if err != nil {
+		return fail(err)
+	}
 	if p.worktree {
 		inst.WorktreePath = dir
 		inst.WorktreeRepoRoot = p.repoRoot
@@ -186,7 +190,10 @@ func (l forgeLauncher) launch(ctx context.Context, p forgeLaunchPlan) forgeLaunc
 
 // prCheckout runs gh pr checkout in dir.
 func (l forgeLauncher) prCheckout(ctx context.Context, p forgeLaunchPlan, dir string) error {
-	c := github.NewClient(l.runner)
+	c := l.client
+	if c == nil {
+		c = github.NewClient(nil)
+	}
 	if _, err := c.Repo(ctx, p.repo, github.Call{Args: []string{"pr", "checkout", strconv.Itoa(p.number)}, Dir: dir}); err != nil {
 		return fmt.Errorf("gh pr checkout %d: %w", p.number, err)
 	}

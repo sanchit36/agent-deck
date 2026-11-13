@@ -77,7 +77,7 @@ type startRecorder struct {
 
 func (s *startRecorder) launcher(runner github.Runner) forgeLauncher {
 	return forgeLauncher{
-		runner: runner,
+		client: github.NewClient(runner),
 		start: func(inst *session.Instance, msg string) error {
 			s.calls = append(s.calls, msg)
 			s.started = inst
@@ -91,8 +91,8 @@ func issuePlan(repo string) forgeLaunchPlan {
 	return forgeLaunchPlan{
 		kind: session.LinkIssue, repo: launchRepo, number: 12, repoRoot: repo,
 		worktree: true, branch: "feature/12-fix-crash", message: "work on #12",
-		newInstance: func(path string) *session.Instance {
-			return session.NewInstanceWithGroupAndTool("#12 Fix crash", path, "widgets", "claude")
+		newInstance: func(path string) (*session.Instance, error) {
+			return session.NewInstanceWithGroupAndTool("#12 Fix crash", path, "widgets", "claude"), nil
 		},
 	}
 }
@@ -101,8 +101,8 @@ func prPlan(repo string) forgeLaunchPlan {
 	return forgeLaunchPlan{
 		kind: session.LinkPR, repo: launchRepo, number: 34, repoRoot: repo,
 		worktree: true, branch: "widget-sizes", baseBranch: "main", message: "review PR#34",
-		newInstance: func(path string) *session.Instance {
-			return session.NewInstanceWithGroupAndTool("PR#34 Widget sizes", path, "widgets", "claude")
+		newInstance: func(path string) (*session.Instance, error) {
+			return session.NewInstanceWithGroupAndTool("PR#34 Widget sizes", path, "widgets", "claude"), nil
 		},
 	}
 }

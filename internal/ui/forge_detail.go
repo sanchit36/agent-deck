@@ -48,6 +48,9 @@ type forgeSessionPick struct {
 	titles []string
 	at     int
 	number int
+	// launch makes it n's chooser: enter attaches, n starts a new session
+	// anyway.
+	launch bool
 }
 
 // forgeDetailFull reports whether the single column shows the full-screen
@@ -248,6 +251,10 @@ func (h *Home) handleForgeSessionPickKey(msg tea.KeyMsg, key string) (bool, tea.
 	case "esc":
 		h.forge.sessionPick = nil
 	default:
+		if p.launch && h.forge.lookup[msg.String()] == hotkeyForgeNew {
+			h.forge.sessionPick = nil
+			return true, h, h.forgeOpenLaunch()
+		}
 		if key == defaultHotkeyBindings[hotkeyQuit] || key == "ctrl+c" {
 			h.forge.sessionPick = nil
 			return h.forgeFallThrough(msg, key)
@@ -261,6 +268,9 @@ func (h *Home) renderForgeSessionPick(width int) []string {
 	sel := lipgloss.NewStyle().Foreground(ColorAccent).Bold(true)
 	plain := lipgloss.NewStyle().Foreground(ColorText)
 	head := fmt.Sprintf("Attach to a session of #%d (enter attach, esc close)", p.number)
+	if p.launch {
+		head = fmt.Sprintf("#%d · enter attach · %s new · esc", p.number, h.forgeKey(hotkeyForgeNew))
+	}
 	out := []string{lipgloss.NewStyle().Foreground(ColorTextDim).Render(truncateDisplay(head, width, "…"))}
 	for i, title := range p.titles {
 		text, style := "  "+forgeOneLine(title), plain

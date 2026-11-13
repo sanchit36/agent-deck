@@ -1,0 +1,30 @@
+                 ╭────────────────────────────────────────────────────────────────────────────────────╮                 
+                 │                                                                                    │                 
+                 │                                                                                    │                 
+                 │    New Session                                                                     │                 
+                 │                                                                                    │                 
+                 │      in group: widgets                                                             │                 
+                 │                                                                                    │                 
+                 │    ▶ Name:  > #14822 gh run view --job --log-failed fails on …                     │                 
+                 │                                                                                    │                 
+                 │      Agent:   shell     claude     gemini     opencode     opencode2               │                 
+                 │               codex     pi     copilot     crush     muse     cursor agent         │                 
+                 │               hermes     deepseek     omp                                          │                 
+                 │                                                                                    │                 
+                 │      Path:  > /src/widgets                                                         │                 
+                 │                                                                                    │                 
+                 │      Template: issue                                                               │                 
+                 │      │ Work on GitHub issue #14822 in me/widgets: gh run view --job --log-fail…    │                 
+                 │      │ https://github.com/cli/cli/issues/14822                                     │                 
+                 │      │ Labels: bug, priority-3, gh-run                                             │                 
+                 │      │ Opened by: henrymodisett                                                    │                 
+                 │      17 lines, 485 B · ctrl+e edit                                                 │                 
+                 │                                                                                    │                 
+                 │      Model ID:                                                                     │                 
+                 │      > tool default (↓ to browse)                                                  │                 
+                 │      Examples: claude-opus-5-5, claude-sonnet-5, claude-haiku-4-5                  │                 
+                 │      ↓ more fields                                                                 │                 
+                 │    Tab next │ ↑↓ navigate │ Enter create │ Esc cancel                              │                 
+                 │                                                                                    │                 
+                 │                                                                                    │                 
+                 ╰────────────────────────────────────────────────────────────────────────────────────╯                 

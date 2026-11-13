@@ -1,0 +1,24 @@
+    ╭────────────────────────────────────────────────────────────╮    
+    │                                                            │    
+    │                                                            │    
+    │    New Session                                             │    
+    │                                                            │    
+    │      in group: widgets                                     │    
+    │                                                            │    
+    │    ▶ Name:  > #14822 gh run view --job --log-failed fai    │    
+    │                                                            │    
+    │      Agent:   shell     claude     gemini                  │    
+    │               opencode     opencode2     codex     pi      │    
+    │               copilot     crush     muse                   │    
+    │               cursor agent     hermes     deepseek         │    
+    │               omp                                          │    
+    │                                                            │    
+    │      Path:  > /src/widgets                                 │    
+    │                                                            │    
+    │      Template: issue                                       │    
+    │      │ Work on GitHub issue #14822 in me/widgets: gh r…    │    
+    │      ↓ more fields                                         │    
+    │    Tab next │ ↑↓ navigate │ Enter create │ Esc cancel      │    
+    │                                                            │    
+    │                                                            │    
+    ╰────────────────────────────────────────────────────────────╯    

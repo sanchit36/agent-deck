@@ -4072,8 +4072,16 @@ func (h *Home) updateInner(msg tea.Msg) (tea.Model, tea.Cmd) {
 			h.setError(fmt.Errorf("edit message: %w", msg.err))
 		} else if h.promptInputDialog.IsVisible() {
 			h.promptInputDialog.input.SetValue(msg.text)
+		} else if h.newDialog.IsVisible() && h.newDialog.forge != nil {
+			h.newDialog.forge.setEdited(msg.text)
 		}
 		return h, nil
+
+	case forgeLaunchTextMsg:
+		return h, h.applyForgeLaunchText(msg)
+
+	case forgeLaunchedMsg:
+		return h, h.applyForgeLaunched(msg)
 
 	case promptDeliveryMsg:
 		if msg.err != nil {

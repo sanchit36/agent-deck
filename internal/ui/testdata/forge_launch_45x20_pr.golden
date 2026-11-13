@@ -1,0 +1,20 @@
+╭────────────────────────────────────────────╮
+│                                            │
+│                                            │
+│    New Session                             │
+│                                            │
+│      in group: widgets                     │
+│                                            │
+│    ▶ Name:  > PR#14927 Add guided multi    │
+│                                            │
+│      Agent:   shell     claude             │
+│               gemini     opencode          │
+│               opencode2     codex          │
+│               pi     copilot               │
+│               crush     muse               │
+│      ↓ more fields                         │
+│    Tab next │ ↑↓ navigate │ Enter          │
+│    create │ Esc cancel                     │
+│                                            │
+│                                            │
+╰────────────────────────────────────────────╯
