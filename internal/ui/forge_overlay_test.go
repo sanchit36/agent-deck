@@ -285,6 +285,27 @@ func TestForgeOverlayTabs(t *testing.T) {
 	}
 }
 
+// TestForgeOverlayTabKeysRebind: 1 and 2 are the [hotkeys] actions
+// forge_conversation_alt and forge_files_alt: a rebound key switches the
+// tab, the old one stops and "" unbinds.
+func TestForgeOverlayTabKeysRebind(t *testing.T) {
+	h, _ := overlayPRHome(t, 120, 30)
+	h.setForgeEnabled(true, map[string]string{"forge_files_alt": "3", "forge_conversation_alt": ""})
+	h = openOverlay(t, h)
+	h = drive(t, h, runeKey('2'))
+	if h.forge.overlay.tab != forgeOverlayConversation {
+		t.Fatal("2 still opens Files after forge_files_alt = 3")
+	}
+	h = drive(t, h, runeKey('3'))
+	if h.forge.overlay.tab != forgeOverlayFiles {
+		t.Fatal("3 (forge_files_alt) did not open Files")
+	}
+	h = drive(t, h, runeKey('1'))
+	if h.forge.overlay.tab != forgeOverlayFiles || !h.forgeOverlayVisible() {
+		t.Fatal("1 still switches tabs after forge_conversation_alt = \"\"")
+	}
+}
+
 // TestForgeOverlayClose: esc and q close the overlay back to the list;
 // other overview keys are swallowed while it is open.
 func TestForgeOverlayClose(t *testing.T) {

@@ -252,7 +252,8 @@ sessions are linked), on both tabs. When the PRs list arrives, a session in a
 git worktree whose branch is a PR's head branch, in the repository the
 session's Project resolves to, is linked to that PR, the most recently updated
 one if several match. A session that already has a PR link keeps it; SSH
-sessions are never linked this way. This runs in the background, never while
+sessions are never linked this way, and neither is a session whose PR link
+you removed with `session unlink <id> pr` (until you link a PR to it again). This runs in the background, never while
 the list is drawn.
 
 On the Issues and PRs tabs the right pane (the lower one in the stacked
@@ -266,8 +267,8 @@ base branch (`into`), checks (`✗ 1 failed · 11 passed`), review, merge state
 comments, reviews, pushes, check results and state changes. The body and
 comments are in the overlay (`Enter`). The detail is one GraphQL request: its cached
 copy shows at once, it is fetched fresh each time you open it (once the
-cursor rests on the row), and it refetches while on screen when the list
-reports the item changed. In the single column the list has the screen;
+cursor rests on the row), and it refetches while on screen every
+`[github] refresh_interval` and when the list reports the item changed. In the single column the list has the screen;
 `Enter` opens the selected row's detail full screen and `Esc` returns to the
 list.
 
@@ -327,7 +328,7 @@ the new diff while the old one stays on screen).
 
 | Overlay key | Action |
 |-----|--------|
-| `c` / `d`, `1` / `2` | Conversation / Files tab (Files: PRs only; **rebindable**: `forge_conversation`, `forge_files`) |
+| `c` / `d`, `1` / `2` | Conversation / Files tab (Files: PRs only; **rebindable**: `forge_conversation`, `forge_files`, `forge_conversation_alt`, `forge_files_alt`) |
 | `j`/`k`, `↑`/`↓`, `Ctrl+D`/`Ctrl+U`, `Space`/`PgDn`, `PgUp`, mouse wheel | Scroll |
 | `g`/`G`, `Home`/`End` | Top / bottom |
 | `h`/`l`, `←`/`→` | Pan code blocks and tables |
@@ -338,23 +339,25 @@ the new diff while the old one stays on screen).
 
 | Files key | Action |
 |-----|--------|
-| `Tab` | Move the keys between the file list and the diff (90 columns and up) |
+| `Tab` | Move the keys between the file list and the diff (90 columns and up; **rebindable**: `forge_focus`) |
 | `j`/`k`, `↑`/`↓`, `Ctrl+D`/`Ctrl+U`, `Space`/`PgDn`, `PgUp`, `g`/`G`, mouse wheel | Scroll the diff; with the list focused (or full screen), move the file cursor |
-| `n` / `N` | Next / previous hunk, crossing into the next or previous file that shows hunks (so `S` starts a session here) |
-| `]` / `[` | Next / previous file |
+| `n` / `N` | Next / previous hunk, crossing into the next or previous file that shows hunks (so `S` starts a session here; **rebindable**: `forge_next_hunk`, `forge_prev_hunk`) |
+| `]` / `[` | Next / previous file (**rebindable**: `forge_next_file`, `forge_prev_file`) |
 | `Enter` | Expand or collapse a collapsed file; on the focused list, back to the diff; on the full-screen list, show the picked file |
 | `h`/`l`, `←`/`→` | Pan long lines |
-| `f` | File list full screen (under 90 columns); `Esc` closes it |
-| `s` | Split view: old \| new side by side, each removed line beside the added line it pairs with inside a change block, blank cells where one side has fewer lines; `s` again goes back to unified. It needs 120 columns: narrower, the diff stays unified and a line says why |
-| `\|` / `\` | Send the selected file's diff (`\|`) or the whole PR's (`\`) on stdin to `[github] diff_pager` (empty: `delta` when it is on `PATH`, else `$PAGER`, else `less -R`); the terminal is the pager's until you quit it, then the overlay is back as it was |
-| `S` | Start a session on the PR, as `n` on the list |
+| `f` | File list full screen (under 90 columns); `Esc` closes it (**rebindable**: `forge_file_list`) |
+| `s` | Split view: old \| new side by side, each removed line beside the added line it pairs with inside a change block, blank cells where one side has fewer lines; `s` again goes back to unified. It needs 120 columns: narrower, the diff stays unified and a line says why (**rebindable**: `forge_split`) |
+| `\|` / `\` | Send the selected file's diff (`\|`) or the whole PR's (`\`) on stdin to `[github] diff_pager` (empty: `delta` when it is on `PATH`, else `$PAGER`, else `less -R`); the terminal is the pager's until you quit it, then the overlay is back as it was (**rebindable**: `forge_pager_file`, `forge_pager_pr`) |
+| `S` | Start a session on the PR, as `n` on the list (**rebindable**: `forge_files_new`; it follows `forge_new`: rebind `forge_new` to a key no Files action uses and that key starts the session here instead of `S`) |
 
 The right end of the Project line says how fresh the list is: `updated 2m ago`
 (`N open · 2m ago` once the count is known, or `100 of 342 · 2m ago` when
 GitHub has more open items than the list fetched), a spinner while it loads, or
-`⚠ stale` when the last refetch failed and the previous list is still shown.
-The visible list refetches every `[github] refresh_interval` (default 60 s)
-while the TUI is in the foreground and no session is attached. With nothing
+`⚠ stale` when the last refetch failed and the previous list is still shown,
+with one line over the rows saying why (`⚠ offline · retrying`, a login
+hint, ...); a stale detail or overlay says `⚠ stale: <reason>`. The visible
+list and the open detail refetch every `[github] refresh_interval` (default
+60 s) while the TUI is in the foreground and no session is attached. With nothing
 cached yet, a failure fills the pane with what to do: an install hint when
 `gh` is missing, `gh auth login -h <host>` for a missing login or bad token,
 the authorize URL for SAML SSO, `gh has no login for <host>`, `offline ·
@@ -386,7 +389,7 @@ links worktree sessions to their PR.
 | `Alt+S` / `Alt+I` / `Alt+P` | Sessions / Issues / PRs tab; from every tab (**rebindable**: `forge_tab_sessions`, `forge_tab_issues`, `forge_tab_prs`) |
 | `p` | Project selector: `j`/`k` move, `Enter` selects, `Esc` closes (Issues, PRs; **rebindable**: `forge_project`) |
 | `P` | Toggle between the Project and its Parent Repository (from GitHub's fork metadata; a Project that is not a fork says so) (Issues, PRs; **rebindable**: `forge_parent`) |
-| `r` | Refresh: refetch the list and the open detail now (and re-read a PR's `local` row), joining a fetch already running, and restart the poll timer; nothing while GitHub's rate limit lasts (Issues, PRs; **rebindable**: `forge_refresh`; `Ctrl+R` stays the global reload) |
+| `r` | Refresh: refetch the list and the open detail now (and re-read a PR's `local` row; under a filter, also the tab chip's unfiltered total), resolve the group's Projects again, re-poll the Attention signals of every host, join a fetch already running, and restart the poll timer; nothing while GitHub's rate limit lasts (Issues, PRs; **rebindable**: `forge_refresh`; `Ctrl+R` stays the global reload) |
 | `o` / `y` | Open the selected Issue or PR in the browser / copy its URL; on the SAML message, the authorize URL. Both run in the background, never blocking the TUI (Issues, PRs; **rebindable**: `forge_open`, `forge_copy`) |
 | `/` | Filter: open the query bar on the current filter; `Enter` applies, `↑`/`↓` presets and recent queries, `Esc` cancels, `Ctrl+U` clears, `Ctrl+W` deletes a word (Issues, PRs; **rebindable**: `forge_filter`) |
 | `Esc` | Reset a filter other than the starting one; otherwise as on Sessions (Issues, PRs) |
@@ -404,8 +407,14 @@ session's, then `default_tool`, then `claude`) and the title `#123 <title>` /
 `PR#34 <title>`. An Issue's branch is `<branch_prefix><number>-<slug>` (the
 title lowercased, other characters turned into `-`, cut to 40 characters on a
 word boundary); an existing branch or worktree is reused and the field is
-editable. A PR gets a worktree detached at its base, then `gh pr checkout <n>`
-inside it; its branch field shows the PR's head branch and is read-only.
+editable. The main checkout is never reused: an Issue branch checked out
+there is refused with the reason (switch it, or untick Worktree). A PR gets a
+new worktree detached at its base (`origin/<base>`, else the local `<base>`;
+a base the repository does not have stops the launch: fetch it first), then
+`gh pr checkout <n>` inside it; its branch field shows the PR's head branch
+and is read-only. The dialog fills from the item's detail, or from its list
+row until that loads; a PR's detail is fetched for the launch and `Enter`
+waits for it (`waiting for the PR details…`).
 With Worktree unticked, `gh pr checkout` runs in the checkout itself, and only
 on a clean tree: otherwise the launch is refused with the reason.
 
@@ -413,7 +422,8 @@ The dialog's Template field holds the first message, from the
 `[prompt_templates]` that match the item (see the configuration reference).
 `←`/`→` on it cycle the label matches, the other templates, then `none` (no
 first message; the session is still linked); when several match or a
-template file is missing it opens with the list. Under it are the first lines
+template file is missing it opens with the list. A template file is read
+again at launch: one missing then stops the launch and opens the list. Under it are the first lines
 of the filled message and its size. `Ctrl+E` opens the message in `$VISUAL` /
 `$EDITOR` (`vi` by default); after an edit the field reads `<name> (edited)`,
 and changing the template asks first (press `←`/`→` again to discard the
@@ -421,8 +431,9 @@ edit). The body, and the comments and review threads a template uses, load
 in the background (`loading comments…`); `Enter` during that waits for them,
 and if they fail the dialog asks before launching with them empty. `Enter`
 launches: the worktree, the checkout and the start run in the background
-while the dialog waits. A failure there leaves no session and removes a
-worktree made for the launch; the error shows in the dialog, which stays
+while the dialog waits. A failure there leaves no session and removes the
+worktree and branch made for the launch (never ones that were already there);
+the error shows in the dialog, which stays
 open. Once the session runs it is linked to the Issue or PR; if only the
 first message fails, the session and link are kept and a warning says so.
 
@@ -475,8 +486,9 @@ which work as on Sessions: quit (`q`, `Ctrl+C`), help (`?`), `Esc`, group
 navigation (`Alt+J`/`Alt+K`, `1`-`9`; the tab follows the selected group),
 layout (`<` `>` `O`), settings (`S`), report a problem (`Z`), what's new
 (`Alt+N`), show me around (`Alt+W`) and reload (`Ctrl+R`). There, `?` opens a
-GitHub help section with the forge keys and these global keys, and the bottom
-bar shows the forge keys.
+GitHub help section with the forge keys and these global keys (on a terminal
+too short for it, `j`/`k`, `PgUp`/`PgDn` and `g`/`G` scroll it; any other key
+closes it), and the bottom bar shows the forge keys.
 
 ### Worktree Shortcuts
 
@@ -655,7 +667,8 @@ Finish:  W merge + cleanup
 - **Status**: `clean`, `dirty (uncommitted changes)` (untracked files count as dirty), `checking...` before the first read, `unavailable` when git failed or took longer than 5 s.
 - **Upstream**: the tracked branch with commits ahead (`↑`) and behind (`↓`) as of the last `git fetch` (agent-deck never fetches), the bare branch name when the remote branch is gone, or `no upstream`.
 - **Setup** / **Finish** hints show for worktree sessions only.
-- A Jujutsu workspace shows `jj workspace: not shown in v1`.
+- In a short preview (under 30 rows, e.g. an 80x24 terminal) the section is one row, `Git:     feature/x · clean · origin/feature/x · ↑2 ↓1`, plus one row of Setup/Finish keys for a worktree session, so the session's output still fits.
+- A Jujutsu workspace keeps its Branch, Repo and Path rows and shows `jj workspace: not shown in v1` in place of Status and Upstream.
 - The state comes from one `git status --porcelain=v2 --branch` per checkout, run in the background when the selection settles and cached for 10 s per path. Rendering never runs git. Opening the Finish dialog (`W`) always reads it fresh.
 
 ## Updates

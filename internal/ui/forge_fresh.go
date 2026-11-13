@@ -241,14 +241,20 @@ func (h *Home) forgeChipTotalKey() (freshness.Key, bool) {
 	return forgeDefaultKeyFor(k), true
 }
 
-// forgeOnTick is the main tick's poll. It also hands the Attention signal
-// poller the current links.
+// forgeOnTick is the main tick's poll: unless paused, it also resolves the
+// shown group again when its session paths changed. It hands the
+// Attention signal poller the current links.
 func (h *Home) forgeOnTick() tea.Cmd {
 	h.signalsOnTick()
-	return h.forgeRefreshDue()
+	var resolve tea.Cmd
+	if !h.forgePaused() {
+		resolve, _ = h.forgeResolveProject(false)
+	}
+	return tea.Batch(resolve, h.forgeRefreshDue())
 }
 
-// forgeManualRefresh is r: fetch the visible keys (and the tab chip's
+// forgeManualRefresh is r: resolve the shown group's Projects again (paths
+// and host logins asked afresh), fetch the visible keys (and the tab chip's
 // total under a filter) now, joining a fetch already in flight; nothing
 // while the host is rate-limited. The poll timer restarts when the fetch
 // lands. The Attention signal poller polls every host again too, so a
@@ -259,7 +265,7 @@ func (h *Home) forgeManualRefresh() tea.Cmd {
 		p.Refresh()
 	}
 	now := h.forgeNow()
-	var cmds []tea.Cmd
+	cmds := []tea.Cmd{h.forgeReResolve()}
 	keys := h.forgeVisibleKeys()
 	if dk, ok := h.forgeChipTotalKey(); ok {
 		keys = append(keys, dk)
@@ -306,7 +312,7 @@ func (h *Home) applyForgeFetched(msg forgeFetchedMsg) tea.Cmd {
 	}
 	h.applyForgeFilterFetched(msg)
 	h.syncForgeLists()
-	open := tea.Batch(h.syncForgeDetail(), h.forgeFilesFetch())
+	open := tea.Batch(h.syncForgeDetail(), h.forgeFilesFetch(), h.forgeLaunchDetailFetched(msg))
 	if _, ok := msg.value.(github.PRDetail); ok && msg.err == nil && msg.key == h.forge.detail {
 		open = tea.Batch(open, h.forgePRLocalDue(true))
 	}
@@ -418,6 +424,13 @@ func (h *Home) renderForgeStaleNote(width int) []string {
 		style = lipgloss.NewStyle().Foreground(ColorTextDim)
 	}
 	return []string{style.Render(truncateDisplay(f.lines[0], max(1, width), "…"))}
+}
+
+// forgeStaleLine is the one-line note over stale data in the detail pane
+// and the overlay footer: "⚠ stale: <reason>", the reason being the first
+// line forgeFailureFor gives, without its own ⚠.
+func forgeStaleLine(err error, k freshness.Key, now time.Time) string {
+	return "⚠ stale: " + strings.TrimPrefix(forgeFailureFor(err, k, now).lines[0], "⚠ ")
 }
 
 // forgeListFailure is forgeFailureFor for err, the failure of the list on

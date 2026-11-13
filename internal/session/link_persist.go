@@ -3,9 +3,10 @@ package session
 import (
 	"encoding/json"
 	"fmt"
-	"net/url"
 	"strconv"
 	"strings"
+
+	"github.com/asheshgoplani/agent-deck/internal/github"
 )
 
 // A Link ties a session to a GitHub Issue or Pull Request (GLOSSARY.md,
@@ -36,7 +37,8 @@ type Link struct {
 const (
 	toolDataIssueLinkKey = "issue_link"
 	toolDataPRLinkKey    = "pr_link"
-	defaultLinkHost      = "github.com"
+	// toolDataPRAutoLinkOffKey holds Instance.PRAutoLinkOff.
+	toolDataPRAutoLinkOffKey = "pr_autolink_off"
 )
 
 // Repo is the link's repo as HOST/OWNER/NAME, the form gh's -R takes.
@@ -65,39 +67,30 @@ func ParseLinkKind(s string) (LinkKind, error) {
 }
 
 // ParseLinkRepo reads a repo as OWNER/NAME (host github.com), HOST/OWNER/NAME,
-// or a git remote URL (https://, ssh://, git@host:owner/name). The returned
-// Link has no number. Hosts are lowercased; owner and name keep their case.
+// or a git remote URL (https://, ssh://, [user@]host:owner/name). Every form
+// goes through github.ParseRemoteURL, so a link names the same repo the
+// forge tabs resolve (ssh.github.com and www.github.com are github.com; a
+// local path or file URL is no repo). The returned Link has no number. Hosts
+// are lowercased; owner and name keep their case.
 func ParseLinkRepo(s string) (Link, error) {
 	raw := strings.TrimSpace(s)
-	path := raw
-	host := ""
-	switch {
-	case strings.Contains(raw, "://"):
-		u, err := url.Parse(raw)
-		if err != nil {
-			return Link{}, fmt.Errorf("parsing repo url %q: %w", raw, err)
+	remote := raw
+	if !strings.Contains(raw, ":") {
+		// [HOST/]OWNER/NAME, the form gh's -R takes.
+		parts := strings.Split(strings.Trim(raw, "/"), "/")
+		switch {
+		case strings.HasPrefix(raw, "/") || strings.ContainsAny(raw, "?#@ \t") || len(parts) < 2 || len(parts) > 3:
+			return Link{}, fmt.Errorf("invalid repo %q: want OWNER/NAME or HOST/OWNER/NAME", s)
+		case len(parts) == 2:
+			parts = append([]string{github.DefaultHost}, parts...)
 		}
-		host, path = u.Hostname(), u.Path
-	case strings.Contains(raw, "@") && strings.Contains(raw, ":"):
-		// scp-like git@host:owner/name
-		at := strings.Index(raw, "@")
-		colon := strings.Index(raw[at:], ":") + at
-		host, path = raw[at+1:colon], raw[colon+1:]
-	case strings.HasPrefix(raw, "/"):
-		return Link{}, fmt.Errorf("invalid repo %q: want OWNER/NAME or HOST/OWNER/NAME", s)
+		remote = "https://" + strings.Join(parts, "/")
 	}
-	path = strings.TrimSuffix(strings.Trim(path, "/"), ".git")
-	parts := strings.Split(path, "/")
-	if host == "" && len(parts) == 3 {
-		host, parts = parts[0], parts[1:]
+	_, repo := github.ParseRemoteURL(remote)
+	if repo.Host == "" || repo.Owner == "" || repo.Name == "" {
+		return Link{}, fmt.Errorf("invalid repo %q: want OWNER/NAME, HOST/OWNER/NAME or a GitHub remote URL", s)
 	}
-	if len(parts) != 2 || parts[0] == "" || parts[1] == "" {
-		return Link{}, fmt.Errorf("invalid repo %q: want OWNER/NAME or HOST/OWNER/NAME", s)
-	}
-	if host == "" {
-		host = defaultLinkHost
-	}
-	return Link{Host: strings.ToLower(host), Owner: parts[0], Name: parts[1]}, nil
+	return Link{Host: repo.Host, Owner: repo.Owner, Name: repo.Name}, nil
 }
 
 // LinkOf returns the session's link of kind, nil when there is none.
@@ -109,9 +102,12 @@ func (i *Instance) LinkOf(kind LinkKind) *Link {
 }
 
 // SetLink records l as the session's link of kind, replacing any earlier one.
+// Linking a PR clears the PR auto-detect opt-out a PR unlink set.
 func (i *Instance) SetLink(kind LinkKind, l Link) {
 	if kind == LinkPR {
 		i.PRLink, i.prLinkCleared = &l, false
+		i.prAutoLinkOffCleared = i.prAutoLinkOffCleared || i.PRAutoLinkOff
+		i.PRAutoLinkOff = false
 		return
 	}
 	i.IssueLink, i.issueLinkCleared = &l, false
@@ -119,11 +115,15 @@ func (i *Instance) SetLink(kind LinkKind, l Link) {
 
 // ClearLink removes the session's link of kind and reports whether there was
 // one. The next save writes an explicit null so the extras merge cannot carry
-// the stored link forward.
+// the stored link forward. Removing a PR link also opts the session out of
+// PR auto-detect (PRAutoLinkOff), so the PRs tab never re-adds it.
 func (i *Instance) ClearLink(kind LinkKind) bool {
 	if kind == LinkPR {
 		had := i.PRLink != nil
 		i.PRLink, i.prLinkCleared = nil, i.prLinkCleared || had
+		if had {
+			i.PRAutoLinkOff, i.prAutoLinkOffCleared = true, false
+		}
 		return had
 	}
 	had := i.IssueLink != nil
@@ -159,6 +159,36 @@ func putLink(m map[string]json.RawMessage, key string, l *Link, cleared bool) {
 	default:
 		delete(m, key)
 	}
+}
+
+// WritePRAutoLinkOffToToolData records the PR auto-detect opt-out. A plain
+// false leaves the blob alone (rows never opted out keep their bytes); cleared
+// writes an explicit false so the extras merge cannot carry a stored opt-out
+// forward (same protocol as WriteFavoriteToToolData).
+func WritePRAutoLinkOffToToolData(td json.RawMessage, off, cleared bool) json.RawMessage {
+	if !off && !cleared {
+		return td // fast path: most rows were never opted out
+	}
+	m := map[string]json.RawMessage{}
+	if len(td) > 0 {
+		_ = json.Unmarshal(td, &m)
+	}
+	m[toolDataPRAutoLinkOffKey] = json.RawMessage(strconv.FormatBool(off))
+	out, _ := json.Marshal(m)
+	return out
+}
+
+// ReadPRAutoLinkOffFromToolData reports the PR auto-detect opt-out; false
+// for legacy rows.
+func ReadPRAutoLinkOffFromToolData(td json.RawMessage) bool {
+	if len(td) == 0 {
+		return false
+	}
+	var blob struct {
+		Off bool `json:"pr_autolink_off"`
+	}
+	_ = json.Unmarshal(td, &blob)
+	return blob.Off
 }
 
 // ReadLinksFromToolData returns the stored Issue and PR links; nil for a

@@ -7,9 +7,10 @@
 //   - fenced code dim, never wrapped, cut with › and pannable
 //   - **bold** (and __bold__) and `code` styled
 //   - links as "text (url)", images as "[image: alt]"
-//   - HTML comments stripped, other HTML tags reduced to their text
+//   - HTML comments stripped (outside code), other HTML tags reduced to their text
 //     (<img> becomes "[image: alt]")
-//   - tables left as raw text, cut and panned like code
+//   - tables (with or without leading pipes) left as raw text, cut and
+//     panned like code
 //   - prose wrapped at min(width, 100) columns; a newline in the source is a
 //     line break, as GitHub renders comments
 //
@@ -104,13 +105,17 @@ type renderer struct {
 
 	fence     string // open fence marker ("```", "~~~~", ...); empty outside code
 	inComment bool   // inside an HTML comment that spans lines
+	inTable   bool   // inside a table: lines holding a pipe are its rows
 }
 
 func (r *renderer) run(src string) {
 	src = strings.ReplaceAll(src, "\r\n", "\n")
 	src = strings.ReplaceAll(src, "\r", "\n")
-	for _, raw := range strings.Split(src, "\n") {
-		line := termtext.Clean(expandTabs(raw))
+	lines := strings.Split(src, "\n")
+	for i := range lines {
+		lines[i] = termtext.Clean(expandTabs(lines[i]))
+	}
+	for i, line := range lines {
 		if r.fence != "" {
 			if isFenceClose(line, r.fence) {
 				r.fence = ""
@@ -122,11 +127,16 @@ func (r *renderer) run(src string) {
 		if !r.inComment {
 			if m := fenceRe.FindStringSubmatch(line); m != nil && (m[1][0] != '`' || !strings.Contains(m[2], "`")) {
 				r.fence = m[1]
+				r.inTable = false
 				continue
 			}
 		}
 		hadText := strings.TrimSpace(line) != ""
 		line = r.stripComments(line)
+		// A table's header row is known only by the delimiter row under it.
+		if !r.inTable && !r.inComment && i+1 < len(lines) && isTableHeader(line, lines[i+1]) {
+			r.inTable = true
+		}
 		r.block(line, hadText)
 	}
 }
@@ -136,11 +146,17 @@ func (r *renderer) run(src string) {
 // comment or only tags disappears instead of leaving a blank.
 func (r *renderer) block(line string, hadText bool) {
 	if strings.TrimSpace(line) == "" {
+		r.inTable = false
 		if !hadText {
 			r.blank()
 		}
 		return
 	}
+	if r.inTable && strings.Contains(line, "|") {
+		r.emitCut(line, false)
+		return
+	}
+	r.inTable = false
 	if strings.HasPrefix(strings.TrimLeft(line, " "), "|") {
 		r.emitCut(line, false)
 		return
@@ -235,7 +251,9 @@ func (r *renderer) styled(f func(string) string, s string) string {
 	return f(s)
 }
 
-// stripComments removes HTML comments, which may span lines.
+// stripComments removes HTML comments, which may span lines. A comment
+// opener inside a code span is code, not a comment, so code spans (and
+// escaped backticks, which open none) are copied as they are.
 func (r *renderer) stripComments(line string) string {
 	var b strings.Builder
 	for line != "" {
@@ -248,16 +266,83 @@ func (r *renderer) stripComments(line string) string {
 			r.inComment = false
 			continue
 		}
-		start := strings.Index(line, "<!--")
-		if start < 0 {
+		i := commentStart(line)
+		if i < 0 {
 			b.WriteString(line)
 			break
 		}
-		b.WriteString(line[:start])
-		line = line[start+len("<!--"):]
+		b.WriteString(line[:i])
+		line = line[i+len("<!--"):]
 		r.inComment = true
 	}
 	return b.String()
+}
+
+// commentStart is the index of the first HTML comment opener in line
+// outside a code span, or -1. An escaped backtick opens no code span.
+func commentStart(line string) int {
+	for i := 0; i < len(line); {
+		switch {
+		case line[i] == '\\' && i+1 < len(line) && strings.IndexByte(escapable, line[i+1]) >= 0:
+			i += 2
+		case line[i] == '`':
+			if _, n, ok := codeSpan(line[i:]); ok {
+				i += n
+			} else {
+				i += len(line[i:]) - len(strings.TrimLeft(line[i:], "`"))
+			}
+		case strings.HasPrefix(line[i:], "<!--"):
+			return i
+		default:
+			i++
+		}
+	}
+	return -1
+}
+
+// tableDelimiterCell is one cell of a table's delimiter row: ---, :--, --:
+// or :-:.
+var tableDelimiterCell = regexp.MustCompile(`^[ \t]*:?-+:?[ \t]*$`)
+
+// isTableHeader reports whether header and the delimiter row under it open
+// a GFM table, with or without leading pipes: both hold a pipe, every
+// delimiter cell is dashes with optional colons, and the cell counts match.
+func isTableHeader(header, delimiter string) bool {
+	if !strings.Contains(header, "|") || !strings.Contains(delimiter, "|") {
+		return false
+	}
+	if len(header)-len(strings.TrimLeft(header, " ")) > 3 || len(delimiter)-len(strings.TrimLeft(delimiter, " ")) > 3 {
+		return false
+	}
+	cells := tableCells(delimiter)
+	for _, c := range cells {
+		if !tableDelimiterCell.MatchString(c) {
+			return false
+		}
+	}
+	return len(cells) == len(tableCells(header))
+}
+
+// tableCells splits a table row at its unescaped pipes, dropping one
+// leading and one trailing pipe.
+func tableCells(row string) []string {
+	row = strings.TrimSpace(row)
+	row = strings.TrimPrefix(row, "|")
+	if strings.HasSuffix(row, "|") && !strings.HasSuffix(row, "\\|") {
+		row = row[:len(row)-1]
+	}
+	var cells []string
+	start := 0
+	for i := 0; i < len(row); i++ {
+		switch row[i] {
+		case '\\':
+			i++
+		case '|':
+			cells = append(cells, row[start:i])
+			start = i + 1
+		}
+	}
+	return append(cells, row[start:])
 }
 
 func isFenceClose(line, fence string) bool {

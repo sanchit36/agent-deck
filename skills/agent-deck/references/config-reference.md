@@ -986,7 +986,8 @@ replaces the built-in.
 - none: the kind's `default` (yours before the built-in, a Project default before a global one, then the first by name), otherwise the picker
 
 **Config-load warnings** (logged; the template still loads unless noted):
-a variable name not in the list above (left as written); a PR variable in an issue template
+a variable name not in the list above (left as written; `{Title}` or
+`{head_branch}` warn with the variable meant); a PR variable in an issue template
 (renders empty); a `repos` entry that is not `owner/name`; a `file` that cannot
 be read yet; two `default` templates of one kind for the same Project (the
 first by name wins); a bad `applies_to` or not exactly one of `text`/`file`
@@ -1024,7 +1025,7 @@ diff_pager = ""
 | Key | Type | Default | Description |
 |-----|------|---------|-------------|
 | `enabled` | bool | `true` | The GitHub integration. `false` turns it off: no tab strip, no forge keys, no signal poller and no `gh` calls; the TUI is exactly as without it. |
-| `refresh_interval` | int (seconds) | `60` | How often the list on screen refetches. Values below `30` are raised to `30`; `0` means manual refresh (`r`) only. Only the visible tab of the visible Project polls, and only while the TUI is in the foreground with no session attached. |
+| `refresh_interval` | int (seconds) | `60` | How often the list and the open detail on screen refetch. Values below `30` are raised to `30`; `0` means manual refresh (`r`) only. Only the visible tab of the visible Project polls, and only while the TUI is in the foreground with no session attached. |
 | `signals` | bool | `true` | Attention signals: live badges on sessions linked to an Issue or PR, the `⇠ n reviews` header count, and a notification-bar mark (plus a desktop notification with `[notifications] desktop = true`) when a linked PR's checks start failing, its review changes, it is merged or closed, or a review is requested from you. A poller of its own makes one `gh api graphql` request per host every `refresh_interval`, while the TUI runs, attached or not; `0` there stops it too. `false` turns it off completely. |
 | `issue_filter` | string | `"is:open"` | The Issues tab's starting filter, in GitHub search syntax (for example `"is:open assignee:@me"`). Empty means the default. `is:open` is the default list: the 100 most recently updated open Issues, fetched from the repository without search. Any other filter runs as a GitHub search scoped to the Project, which can lag new changes by a few minutes. `Esc` on the tab comes back to this filter. |
 | `pr_filter` | string | `"is:open"` | The PRs tab's starting filter, as `issue_filter` (for example `"is:open review-requested:@me"`). |
@@ -1032,7 +1033,8 @@ diff_pager = ""
 
 Lists are cached in memory per Project, kind and filter. Going back to a tab
 shows its cached list at once and refetches it if it is older than the
-interval. A failed refetch keeps the last list on screen, marked `⚠ stale`;
+interval. A failed refetch keeps the last list on screen, marked `⚠ stale`
+with one line saying why;
 network, rate-limit and server failures retry with backoff from the interval
 up to 5 minutes, and a rate limit stops polling until it resets. Login, token,
 SAML and missing-`gh` failures wait for `r`.
@@ -1052,17 +1054,33 @@ fire on their Russian ЙЦУКЕН twin.
 | `forge_tab_prs` | `alt+p` | every tab | PRs tab |
 | `forge_project` | `p` | Issues, PRs | Project selector of the group |
 | `forge_parent` | `P` | Issues, PRs | toggle the Project and its Parent Repository |
-| `forge_refresh` | `r` | Issues, PRs | refetch the list (and the open detail) now |
+| `forge_refresh` | `r` | Issues, PRs | refetch the list (and the open detail, and the chip total under a filter) now, resolve the Projects again and re-poll the Attention signals |
 | `forge_open` | `o` | Issues, PRs | open the selected row in the browser (the SAML authorize URL while that message shows) |
 | `forge_copy` | `y` | Issues, PRs | copy the selected row's URL (the SAML authorize URL while that message shows) |
 | `forge_filter` | `/` | Issues, PRs | open the query bar (GitHub search syntax) |
 | `forge_attach` | `a` | Issues, PRs | attach to the session linked to the selected row (a picker when several are) |
 | `forge_view` | `enter` | Issues, PRs | open the selected row in the overlay (single column: the first press opens its detail full screen, `esc` returns) |
-| `forge_new` | `n` | Issues, PRs, overlay | start a session on the selected row: the chooser first when sessions are linked to it, then the prefilled new-session dialog (on the Files tab `n` moves by hunk and `S` starts the session) |
+| `forge_new` | `n` | Issues, PRs, overlay | start a session on the selected row: the chooser first when sessions are linked to it, then the prefilled new-session dialog (on the Files tab too, unless a Files key has its key: then `forge_files_new` does it) |
 | `forge_merge` | `m` | PRs, overlay | merge the selected PR through the merge dialog (never bypasses branch protection) |
 | `forge_conversation` | `c` | overlay | Conversation tab |
 | `forge_files` | `d` | PRs, overlay | open the selected PR on its Files tab; in the overlay, the Files tab (PRs) |
+| `forge_conversation_alt` | `1` | overlay | Conversation tab (a second key) |
+| `forge_files_alt` | `2` | overlay | Files tab (a second key; PRs) |
 | `forge_expand` | `e` | overlay | expand every minimized comment, or collapse them all |
+| `forge_next_hunk` | `n` | Files | next hunk, crossing into the next file that shows hunks |
+| `forge_prev_hunk` | `N` | Files | previous hunk |
+| `forge_next_file` | `]` | Files | next file |
+| `forge_prev_file` | `[` | Files | previous file |
+| `forge_file_list` | `f` | Files | file list full screen (under 90 columns) |
+| `forge_focus` | `tab` | Files | move the keys between the file list and the diff (90 columns and up) |
+| `forge_split` | `s` | Files | toggle the split (old \| new) view |
+| `forge_pager_file` | `\|` | Files | the selected file's diff in the pager |
+| `forge_pager_pr` | `\` | Files | the whole PR's diff in the pager |
+| `forge_files_new` | `S` | Files | start a session on the PR while a Files key has `forge_new`'s key (by default `n` is `forge_next_hunk`); when `forge_new` is bound to a key no Files action uses, that key starts the session on Files and this one does nothing |
+
+The Files keys are seen before the overlay's while the Files tab shows, so
+they may reuse an overlay or list key (`]`/`[` are also `forge_next_tab` /
+`forge_prev_tab` on the lists); in TOML write `\` as `"\\"`.
 
 ## [display] Section
 

@@ -87,15 +87,33 @@ func TestSessionLinkRepoFromOrigin(t *testing.T) {
 		t.Fatal("repo with no remotes resolved")
 	}
 	git("remote", "add", "upstream", "https://github.com/acme/app.git")
-	git("remote", "add", "fork", "git@github.com:me/app.git")
 	if _, err := linkRepoFromCheckout(dir); err == nil {
-		t.Fatal("two remotes and no origin resolved")
+		t.Fatal("upstream alone resolved (spec §2: upstream never becomes the Project)")
 	}
+	// No origin: the only GitHub remote (spec §2), skipping other forges
+	// and upstream, with the shared parser's host folding.
+	git("remote", "add", "a-gitlab", "git@gitlab.com:me/app.git")
+	git("remote", "add", "fork", "git@ssh.github.com:me/app.git")
+	got, err := linkRepoFromCheckout(dir)
+	if want := (session.Link{Host: "github.com", Owner: "me", Name: "app"}); err != nil || got != want {
+		t.Fatalf("no origin: linkRepoFromCheckout = %+v, %v; want %+v", got, err, want)
+	}
+	// Several GitHub remotes and no origin: the first alphabetically.
+	git("remote", "add", "b-mirror", "https://github.com/mirror/app.git")
+	got, err = linkRepoFromCheckout(dir)
+	if want := (session.Link{Host: "github.com", Owner: "mirror", Name: "app"}); err != nil || got != want {
+		t.Fatalf("two GitHub remotes: linkRepoFromCheckout = %+v, %v; want %+v", got, err, want)
+	}
+	// origin wins, even on a GHE host gh was never asked about.
 	git("remote", "add", "origin", "git@ghe.corp.example:team/svc.git")
-	got, err := linkRepoFromCheckout(filepath.Join(dir, "."))
-	want := session.Link{Host: "ghe.corp.example", Owner: "team", Name: "svc"}
-	if err != nil || got != want {
+	got, err = linkRepoFromCheckout(filepath.Join(dir, "."))
+	if want := (session.Link{Host: "ghe.corp.example", Owner: "team", Name: "svc"}); err != nil || got != want {
 		t.Fatalf("linkRepoFromCheckout = %+v, %v; want %+v", got, err, want)
+	}
+	// An origin on another forge is not a GitHub repo.
+	git("remote", "set-url", "origin", "https://gitlab.com/team/svc.git")
+	if got, err := linkRepoFromCheckout(dir); err == nil {
+		t.Fatalf("gitlab origin resolved to %+v", got)
 	}
 	if _, err := linkRepoFromCheckout(filepath.Join(os.TempDir(), "agent-deck-no-such-dir")); err == nil {
 		t.Fatal("missing checkout resolved")

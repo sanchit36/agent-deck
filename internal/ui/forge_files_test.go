@@ -2,6 +2,7 @@ package ui
 
 import (
 	"slices"
+	"strconv"
 	"strings"
 	"testing"
 
@@ -173,5 +174,89 @@ func TestForgeFilesHintFooterFits(t *testing.T) {
 	lines = frameLines(wide.View())
 	if footer := lines[len(lines)-1]; !strings.Contains(footer, "o open · y copy url · r refresh · esc close") {
 		t.Fatalf("wide footer left hints out: %q", footer)
+	}
+}
+
+// TestForgeFilesDropsSupersededDiff: after a push, the old head's diff
+// stays on screen while the new head's loads, then is dropped from the
+// cache once the new head's diff is cached.
+func TestForgeFilesDropsSupersededDiff(t *testing.T) {
+	h, fake := filesPRHome(t, 120, 30)
+	h = openFiles(t, h)
+	oldKey := freshness.DiffKey(widgetsRepo, 14927, "d43c4e3ad3c34332c803a568f85f116e3ee58f19")
+	if e, ok := h.forge.fresh.Get(oldKey); !ok || !e.HasData() {
+		t.Fatal("the first head's diff is not cached")
+	}
+
+	dk := freshness.DetailKey(widgetsRepo, 14927)
+	e, _ := h.forge.fresh.Get(dk)
+	d := e.Value.(github.PRDetail)
+	d.HeadSHA = "0000000000000000000000000000000000000001"
+	model, cmd := h.Update(forgeFetchedMsg{key: dk, value: d})
+	h = model.(*Home)
+	if e, ok := h.forge.fresh.Get(oldKey); !ok || !e.HasData() {
+		t.Fatal("the old head's diff was dropped while the new head's loads")
+	}
+	h = runCmds(t, h, cmd)
+	if n := diffCalls(fake, 14927); n != 2 {
+		t.Fatalf("%d diff requests, want 2", n)
+	}
+	newKey := freshness.DiffKey(widgetsRepo, 14927, d.HeadSHA)
+	if e, ok := h.forge.fresh.Get(newKey); !ok || !e.HasData() || h.forge.overlay.files.sha != d.HeadSHA {
+		t.Fatal("the new head's diff is not cached and on screen")
+	}
+	if _, ok := h.forge.fresh.Get(oldKey); ok {
+		t.Fatal("the superseded head's diff is still cached")
+	}
+	// The fake's detail still reports the first head, so r would move the
+	// head back; ticks and reopening keep the new head.
+	h = drive(t, h, runeKey('c'))
+	h = drive(t, h, runeKey('d'))
+	for i := 0; i < 3; i++ {
+		h = runCmds(t, h, h.forgeOnTick())
+	}
+	if n := diffCalls(fake, 14927); n != 2 {
+		t.Fatalf("%d diff requests, want 2: the new head's diff was refetched", n)
+	}
+}
+
+// TestForgeFilesCapsCachedDiffs: diffs of many PRs viewed in turn are
+// bounded: the least recently viewed are dropped, the recent ones and the
+// one on screen stay.
+func TestForgeFilesCapsCachedDiffs(t *testing.T) {
+	h, _ := filesPRHome(t, 120, 30)
+	h = openFiles(t, h)
+	first := freshness.DiffKey(widgetsRepo, 14927, "d43c4e3ad3c34332c803a568f85f116e3ee58f19")
+	const prs = 30
+	keys := make([]freshness.Key, 0, prs)
+	now := h.forgeNow()
+	for i := 1; i <= prs; i++ {
+		n, sha := 3000+i, strconv.Itoa(i)
+		h.forge.fresh.Done(freshness.DetailKey(widgetsRepo, n), github.PRDetail{HeadSHA: sha}, nil, now)
+		k := freshness.DiffKey(widgetsRepo, n, sha)
+		h.forge.fresh.Done(k, github.Diff{}, nil, now)
+		keys = append(keys, k)
+		h.forge.overlay.row.number = n
+		_ = h.forgeFilesFetch()
+		if h.forge.overlay.files.sha != sha {
+			t.Fatalf("PR %d's diff not on screen", n)
+		}
+	}
+	cached := 0
+	for _, k := range append([]freshness.Key{first}, keys...) {
+		if _, ok := h.forge.fresh.Get(k); ok {
+			cached++
+		}
+	}
+	if cached < 8 || cached > 16 {
+		t.Fatalf("%d diffs cached after viewing %d PRs, want 8 to 16", cached, prs+1)
+	}
+	if _, ok := h.forge.fresh.Get(first); ok {
+		t.Fatal("the least recently viewed diff is still cached")
+	}
+	for _, k := range keys[prs-8:] {
+		if _, ok := h.forge.fresh.Get(k); !ok {
+			t.Fatalf("recently viewed diff of #%d was dropped", k.Number)
+		}
 	}
 }

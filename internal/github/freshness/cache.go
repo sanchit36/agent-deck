@@ -215,6 +215,13 @@ func (c *Cache) Done(k Key, value any, err error, now time.Time) {
 	delete(c.limited, k.Repo.Host)
 }
 
+// Delete drops k's entry, as if k was never fetched.
+func (c *Cache) Delete(k Key) {
+	c.mu.Lock()
+	defer c.mu.Unlock()
+	delete(c.entries, k)
+}
+
 // Seen tells the cache GitHub reported updatedAt for k's item (from a list
 // row). k is a DetailKey; the item's detail and Conversation cached at an
 // older version become due.

@@ -2,9 +2,6 @@ package github_test
 
 import (
 	"context"
-	"fmt"
-	"os"
-	"path/filepath"
 	"slices"
 	"strconv"
 	"strings"
@@ -13,7 +10,6 @@ import (
 	"github.com/asheshgoplani/agent-deck/internal/ghexec"
 	"github.com/asheshgoplani/agent-deck/internal/github"
 	"github.com/asheshgoplani/agent-deck/internal/github/githubtest"
-	"github.com/asheshgoplani/agent-deck/internal/testutil"
 )
 
 // mergeInfoArgs is the one gh call a merge dialog's refetch makes.
@@ -284,21 +280,27 @@ func TestMergeFailures(t *testing.T) {
 	}
 }
 
-// TestMergeSmokeFakeGh: the merge runs the gh on PATH (a fake gh script)
-// with the gh child env and the exact merge arguments.
+// TestMergeSmokeFakeGh: the merge runs the gh on PATH (a fake gh script
+// serving the recorded fixtures) with the gh child env and the exact merge
+// arguments, and a head that moved comes back as that error.
 func TestMergeSmokeFakeGh(t *testing.T) {
-	out := filepath.Join(t.TempDir(), "args")
-	testutil.InstallFakeGh(t, fmt.Sprintf(`printf '%%s\n' "$GH_PROMPT_DISABLED$NO_COLOR$GH_NO_UPDATE_NOTIFIER" "$@" > %q`, out))
+	want := []string{"pr", "merge", "15048", "--squash", "--match-head-commit", shownSHA, "--delete-branch", "-R", "github.com/cli/cli"}
 	req := github.MergeRequest{Number: 15048, HeadSHA: shownSHA, Action: github.ActionMerge, Method: github.MethodSquash, DeleteBranch: true}
-	if err := github.NewClient(nil).Merge(context.Background(), cliRepo, req); err != nil {
-		t.Fatal(err)
-	}
-	b, err := os.ReadFile(out)
-	if err != nil {
-		t.Fatal(err)
-	}
-	want := []string{"111", "pr", "merge", "15048", "--squash", "--match-head-commit", shownSHA, "--delete-branch", "-R", "github.com/cli/cli"}
-	if got := strings.Fields(string(b)); !slices.Equal(got, want) {
-		t.Fatalf("gh saw %q, want %q", got, want)
-	}
+	t.Run("merged", func(t *testing.T) {
+		gh := githubtest.InstallFakeGhScript(t, githubtest.ScriptRoute{Fixture: githubtest.OK, Args: []string{"merge", "15048"}})
+		if err := github.NewClient(nil).Merge(context.Background(), cliRepo, req); err != nil {
+			t.Fatal(err)
+		}
+		calls := gh.Calls()
+		if len(calls) != 1 || calls[0].Env != "111" || !slices.Equal(calls[0].Args, want) {
+			t.Fatalf("gh saw %+v, want env 111 and %q", calls, want)
+		}
+	})
+	t.Run("head moved", func(t *testing.T) {
+		githubtest.InstallFakeGhScript(t, githubtest.ScriptRoute{Fixture: githubtest.MergeHeadMoved, Args: []string{"merge", "15048"}})
+		err := github.NewClient(nil).Merge(context.Background(), cliRepo, req)
+		if !github.MergeHeadMoved(err) {
+			t.Fatalf("err %v, want the head-moved error", err)
+		}
+	})
 }

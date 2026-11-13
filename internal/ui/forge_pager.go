@@ -7,7 +7,6 @@ import (
 	"strings"
 
 	"github.com/asheshgoplani/agent-deck/internal/childenv"
-	"github.com/asheshgoplani/agent-deck/internal/session"
 	tea "github.com/charmbracelet/bubbletea"
 )
 
@@ -67,7 +66,7 @@ func (h *Home) forgeOpenPager(whole bool) tea.Cmd {
 	if text == "" {
 		return nil
 	}
-	cfg, _ := session.LoadUserConfig()
+	cfg := loadForgeConfig()
 	pager := forgeDiffPager(cfg.GitHubDiffPager(), exec.LookPath, os.Getenv)
 	cmd := forgeDiffPagerCommand(pager, text)
 	if h.forge.runPager != nil {

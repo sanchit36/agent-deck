@@ -2,7 +2,9 @@ package github_test
 
 import (
 	"context"
+	"fmt"
 	"strconv"
+	"strings"
 	"testing"
 
 	"github.com/asheshgoplani/agent-deck/internal/github"
@@ -130,5 +132,75 @@ func TestConversationMarksBots(t *testing.T) {
 	}
 	if len(pr.Comments) != 1 || !pr.Comments[0].Bot || pr.Comments[0].Review != "COMMENTED" || pr.InlineComments != 4 || !pr.Edited {
 		t.Fatalf("pr conversation = %+v", pr)
+	}
+}
+
+// TestConversationCounts: the inline review comment count leaves out the
+// viewer's PENDING (draft) review, and "N more" counts only comments and
+// reviews that would render: unfetched empty COMMENTED reviews hold only
+// inline comments and are never shown.
+func TestConversationCounts(t *testing.T) {
+	const pr = `{"data":{"repository":{"issueOrPullRequest":{"__typename":"PullRequest","number":7,` +
+		`"updatedAt":"2026-01-02T00:00:00Z","createdAt":"2026-01-01T00:00:00Z","body":"b","author":{"__typename":"User","login":"a"},` +
+		`"comments":{"totalCount":%d,"nodes":[%s]},` +
+		`"reviews":{"totalCount":%d,"nodes":[%s]},"verdicts":{"totalCount":%d}}}}}`
+	const comment = `{"author":{"__typename":"User","login":"c"},"createdAt":"2026-01-01T01:00:00Z","body":"hi"}`
+	review := func(state, body string, inline int) string {
+		return fmt.Sprintf(`{"author":{"__typename":"User","login":"r"},"state":%q,"submittedAt":"2026-01-01T02:00:00Z","body":%q,"comments":{"totalCount":%d}}`,
+			state, body, inline)
+	}
+	tests := []struct {
+		name                  string
+		comments, reviews     int
+		commentNodes, reviewN []string
+		verdicts              int
+		wantShown, wantMore   int
+		wantInline            int
+	}{
+		{
+			name:       "pending review's inline comments are not counted",
+			reviews:    3,
+			reviewN:    []string{review("PENDING", "", 3), review("COMMENTED", "", 2), review("APPROVED", "ok", 1)},
+			verdicts:   1,
+			wantShown:  1,
+			wantInline: 3,
+		},
+		{
+			name:         "unfetched empty COMMENTED reviews are not more comments",
+			comments:     3,
+			commentNodes: []string{comment, comment},
+			reviews:      5,
+			reviewN:      []string{review("APPROVED", "", 0), review("COMMENTED", "", 1)},
+			verdicts:     2,
+			wantShown:    3,
+			// One unfetched comment and one unfetched verdict; the other two
+			// unfetched reviews are COMMENTED.
+			wantMore:   2,
+			wantInline: 1,
+		},
+		{
+			name:       "every review fetched",
+			reviews:    2,
+			reviewN:    []string{review("CHANGES_REQUESTED", "fix", 2), review("COMMENTED", "note", 1)},
+			verdicts:   1,
+			wantShown:  2,
+			wantInline: 3,
+		},
+	}
+	for i, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			n := 100 + i
+			body := fmt.Sprintf(pr, tt.comments, strings.Join(tt.commentNodes, ","), tt.reviews, strings.Join(tt.reviewN, ","), tt.verdicts)
+			f := githubtest.Fixture{Name: "counts", Result: github.Result{Stdout: []byte(body)}}
+			fake := githubtest.NewFake().Serve(f, conversationArgs(cliRepo, n)...)
+			c, err := github.NewClient(fake).Conversation(context.Background(), cliRepo, n)
+			if err != nil {
+				t.Fatal(err)
+			}
+			if len(c.Comments) != tt.wantShown || c.More != tt.wantMore || c.InlineComments != tt.wantInline {
+				t.Fatalf("%d shown, %d more, %d inline; want %d, %d, %d",
+					len(c.Comments), c.More, c.InlineComments, tt.wantShown, tt.wantMore, tt.wantInline)
+			}
+		})
 	}
 }

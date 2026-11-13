@@ -5,6 +5,7 @@ import (
 	"errors"
 	"fmt"
 	"os/exec"
+	"slices"
 	"sort"
 	"strings"
 	"time"
@@ -59,13 +60,26 @@ type forgeList struct {
 // forgeGroupView is what a group's forge tabs show: its resolved Projects,
 // the selected one, and the Parent Repository toggle. In memory only.
 type forgeGroupView struct {
+	// resolving is true while the group's first resolution (or a retry
+	// after one that found no Project) runs: there is nothing to show yet.
 	resolving bool
-	group     github.Group
-	err       error
+	// inflight is true while any resolution of the group runs; sig is the
+	// paths it (or the last one) resolved, so a changed session path set
+	// resolves the group again; forget makes the next resolution forget
+	// the resolver's cached answers first (r).
+	inflight bool
+	sig      string
+	forget   bool
+	group    github.Group
+	err      error
 	// unsupported replaces resolution for groups the forge never resolves
 	// (SSH remote groups).
 	unsupported string
-	selected    int
+	// selected follows the cursor session's Project (else the first)
+	// until the user picks one with the selector; picked keeps that pick
+	// while it is still one of the group's Projects.
+	selected int
+	picked   bool
 
 	parent          bool
 	parentResolving bool
@@ -96,6 +110,10 @@ type forgeState struct {
 	// fetch each kind; jobs runs and joins the gh work.
 	fresh    *freshness.Cache
 	interval time.Duration
+	// diffs are the diff keys the Files tab has shown or asked for, least
+	// recently used first, so their cache stays bounded
+	// (forge_files_cache.go).
+	diffs    []freshness.Key
 	fetchers map[freshness.Kind]forgeFetchFunc
 	client   *github.Client
 	jobs     *forgeJobs
@@ -166,7 +184,6 @@ type forgeState struct {
 type forgeGroupResolvedMsg struct {
 	groupPath string
 	group     github.Group
-	selected  int
 	err       error
 }
 
@@ -185,7 +202,7 @@ const forgeResolveTimeout = 30 * time.Second
 // reloadForgeFromConfig reads the gate, the refresh interval and the
 // forge_* hotkeys. Turning the gate off returns to the Sessions tab.
 func (h *Home) reloadForgeFromConfig() {
-	cfg, _ := session.LoadUserConfig()
+	cfg := loadForgeConfig()
 	h.forge.interval = cfg.GitHubRefreshInterval()
 	h.forge.issueFilter, h.forge.prFilter = cfg.GitHubIssueFilter(), cfg.GitHubPRFilter()
 	h.setForgeEnabled(cfg.GitHubEnabled(), session.GetHotkeyOverrides())
@@ -225,6 +242,18 @@ func (h *Home) forgeKey(action string) string {
 	return strings.TrimSpace(h.forge.bindings[action])
 }
 
+// forgeKeyPair is the bound keys of two actions as a help row shows them,
+// "a / b", leaving out an unbound one.
+func (h *Home) forgeKeyPair(a, b string) string {
+	var keys []string
+	for _, action := range []string{a, b} {
+		if k := h.forgeKey(action); k != "" {
+			keys = append(keys, k)
+		}
+	}
+	return strings.Join(keys, " / ")
+}
+
 // switchForgeTab shows tab t and, for a forge tab, starts resolving the
 // cursor group's Project if it has not been.
 func (h *Home) switchForgeTab(t leftTab) tea.Cmd {
@@ -234,7 +263,7 @@ func (h *Home) switchForgeTab(t leftTab) tea.Cmd {
 	h.forge.sessionPick = nil
 	h.forge.detailFull = false
 	h.syncForgeHelp()
-	return h.forgeEnsureProject()
+	return h.forgeEnsureProject(true)
 }
 
 // handleForgeKey routes a key while the gate is on. Tab keys work from
@@ -334,7 +363,7 @@ func (h *Home) forgeFallThrough(msg tea.KeyMsg, key string) (bool, tea.Model, te
 	model, cmd := h.handleMainKey(msg)
 	h.forge.bypass = false
 	if hm, ok := model.(*Home); ok {
-		return true, hm, tea.Batch(cmd, hm.forgeEnsureProject())
+		return true, hm, tea.Batch(cmd, hm.forgeEnsureProject(false))
 	}
 	return true, model, cmd
 }
@@ -356,11 +385,8 @@ func (h *Home) handleForgePickerKey(msg tea.KeyMsg, key string) (bool, tea.Model
 		}
 	case "enter":
 		if v != nil && h.forge.pickerAt < n {
-			if v.selected != h.forge.pickerAt {
-				v.selected = h.forge.pickerAt
-				v.parent = false
-				v.note = ""
-			}
+			v.picked = true
+			v.selectProject(h.forge.pickerAt)
 		}
 		h.forge.picker = false
 		return true, h, h.forgeRefreshDue()
@@ -442,13 +468,13 @@ func (h *Home) forgeTarget() (groupPath, defaultPath string, sessionPaths []stri
 		groupPath = item.Path
 	case session.ItemTypeSession:
 		if item.Session != nil {
-			groupPath, cursorPath = item.Session.GroupPath, item.Session.ProjectPath
+			groupPath, cursorPath = item.Session.GroupPath, session.ProjectResolvePath(item.Session)
 		} else {
 			groupPath = item.Path
 		}
 	case session.ItemTypeWindow:
 		if inst := h.getInstanceByID(item.WindowSessionID); inst != nil {
-			groupPath, cursorPath = inst.GroupPath, inst.ProjectPath
+			groupPath, cursorPath = inst.GroupPath, session.ProjectResolvePath(inst)
 		}
 	default:
 		groupPath = item.Path
@@ -456,11 +482,7 @@ func (h *Home) forgeTarget() (groupPath, defaultPath string, sessionPaths []stri
 	if h.groupTree != nil {
 		if g := h.groupTree.Groups[groupPath]; g != nil {
 			defaultPath = g.DefaultPath
-			for _, inst := range g.Sessions {
-				if inst != nil && inst.ProjectPath != "" {
-					sessionPaths = append(sessionPaths, inst.ProjectPath)
-				}
-			}
+			sessionPaths = session.GroupProjectPaths(groupPath, g.Sessions)
 		}
 	}
 	return groupPath, defaultPath, sessionPaths, cursorPath, false
@@ -471,21 +493,31 @@ func (h *Home) forgeView() *forgeGroupView {
 	return h.forge.views[h.forge.groupPath]
 }
 
-// forgeEnsureProject points the forge tabs at the cursor's group and, the
-// first time a forge tab shows that group, resolves its Projects in a
-// tea.Cmd (spec #18 §2: lazily, on opening a forge tab, never on render).
-// A group already resolved fetches whatever its visible view is due for.
-func (h *Home) forgeEnsureProject() tea.Cmd {
-	cmd, resolving := h.forgeResolveProject()
+// forgeEnsureProject points the forge tabs at the cursor's group and
+// resolves its Projects in a tea.Cmd when they need it (spec #18 §2:
+// lazily, on opening a forge tab, never on render); retry is true on
+// opening a tab, which also retries a resolution that could not finish.
+// A group with something to show fetches whatever its visible view is due
+// for.
+func (h *Home) forgeEnsureProject(retry bool) tea.Cmd {
+	cmd, resolving := h.forgeResolveProject(retry)
 	if resolving {
 		return cmd
 	}
-	return h.forgeRefreshDue()
+	return tea.Batch(cmd, h.forgeRefreshDue())
 }
 
-// forgeResolveProject starts resolving the cursor group's Projects the
-// first time a forge tab shows it; false when it needs no resolving.
-func (h *Home) forgeResolveProject() (tea.Cmd, bool) {
+// forgePathsSig identifies the paths a group resolves from.
+func forgePathsSig(defaultPath string, sessionPaths []string) string {
+	return defaultPath + "\x00" + strings.Join(sessionPaths, "\x00")
+}
+
+// forgeResolveProject starts resolving the cursor group's Projects when a
+// forge tab shows it and it was never resolved, its session paths changed,
+// r asked for it, or (retry) its last resolution failed. One resolution
+// per group runs at a time; one asked for meanwhile starts when it lands.
+// resolving is true when the group has nothing to show until it lands.
+func (h *Home) forgeResolveProject(retry bool) (cmd tea.Cmd, resolving bool) {
 	if !h.forgeTabActive() {
 		return nil, false
 	}
@@ -497,36 +529,89 @@ func (h *Home) forgeResolveProject() (tea.Cmd, bool) {
 	if h.forge.views == nil {
 		h.forge.views = map[string]*forgeGroupView{}
 	}
-	if _, ok := h.forge.views[groupPath]; ok {
-		return nil, false
-	}
-	if remote {
+	v := h.forge.views[groupPath]
+	if v == nil && remote {
 		h.forge.views[groupPath] = &forgeGroupView{unsupported: "remote groups have no GitHub tabs"}
 		return nil, false
 	}
-	h.forge.views[groupPath] = &forgeGroupView{resolving: true}
 	r := h.forgeResolver()
+	sig := forgePathsSig(defaultPath, sessionPaths)
+	if v == nil {
+		v = &forgeGroupView{}
+		h.forge.views[groupPath] = v
+	} else {
+		v.followCursor(r, cursorPath)
+		if v.unsupported != "" || v.inflight || (!v.forget && sig == v.sig && (!retry || v.err == nil)) {
+			return nil, v.resolving
+		}
+	}
+	if v.forget {
+		v.forget = false
+		r.InvalidateHosts()
+		r.Invalidate(defaultPath)
+		for _, p := range sessionPaths {
+			r.Invalidate(p)
+		}
+	}
+	v.inflight, v.sig = true, sig
+	// A group with Projects keeps showing them while it resolves again.
+	v.resolving = len(v.group.Projects) == 0
 	return h.forgeJobs().run(func(jobCtx context.Context) tea.Msg {
 		ctx, cancel := context.WithTimeout(jobCtx, forgeResolveTimeout)
 		defer cancel()
 		g, err := r.ResolveGroup(ctx, defaultPath, sessionPaths)
-		msg := forgeGroupResolvedMsg{groupPath: groupPath, group: g, err: err}
-		if err == nil && cursorPath != "" {
-			if res, ok := r.Cached(cursorPath); ok && res.Found() {
-				for i, p := range g.Projects {
-					if p.Repo == res.Repo {
-						msg.selected = i
-						break
-					}
+		return forgeGroupResolvedMsg{groupPath: groupPath, group: g, err: err}
+	}), v.resolving
+}
+
+// followCursor selects the cursor session's Project (cursorPath is the
+// path it resolves from), else the first, unless the user picked one. It
+// reads the resolver's cache only: no git, no gh.
+func (v *forgeGroupView) followCursor(r *github.Resolver, cursorPath string) {
+	if v.picked || len(v.group.Projects) == 0 {
+		return
+	}
+	want := 0
+	if cursorPath != "" {
+		if res, ok := r.Cached(cursorPath); ok && res.Found() {
+			for i, p := range v.group.Projects {
+				if p.Repo == res.Repo {
+					want = i
+					break
 				}
 			}
 		}
-		return msg
-	}), true
+	}
+	v.selectProject(want)
 }
 
-// applyForgeGroupResolved installs a group's Projects and fetches what the
-// visible view is due for.
+// selectProject shows Project i; a different Project starts on itself, not
+// its Parent Repository.
+func (v *forgeGroupView) selectProject(i int) {
+	if i == v.selected {
+		return
+	}
+	v.selected, v.parent, v.note = i, false, ""
+}
+
+// forgeReResolve is r's part in resolution: the shown group resolves again
+// from scratch (paths and host logins asked afresh), now or once the
+// resolution in flight lands.
+func (h *Home) forgeReResolve() tea.Cmd {
+	v := h.forgeView()
+	if v == nil || v.unsupported != "" {
+		return nil
+	}
+	v.forget = true
+	cmd, _ := h.forgeResolveProject(false)
+	return cmd
+}
+
+// applyForgeGroupResolved installs a group's Projects, keeping the selected
+// Project while it is still one of them (an explicit pick that is gone
+// gives way to the cursor's), then, for the shown group, follows the
+// cursor and starts a resolution asked for while this one ran, and fetches
+// what the visible view is due for.
 func (h *Home) applyForgeGroupResolved(msg forgeGroupResolvedMsg) tea.Cmd {
 	if h.forge.views == nil {
 		h.forge.views = map[string]*forgeGroupView{}
@@ -536,12 +621,32 @@ func (h *Home) applyForgeGroupResolved(msg forgeGroupResolvedMsg) tea.Cmd {
 		v = &forgeGroupView{}
 		h.forge.views[msg.groupPath] = v
 	}
-	v.resolving = false
-	v.group, v.err, v.selected = msg.group, msg.err, msg.selected
-	if v.selected >= len(v.group.Projects) {
-		v.selected = 0
+	prev, hadPrev := v.project()
+	v.resolving, v.inflight = false, false
+	if msg.err != nil && hadPrev {
+		// A resolution that could not finish leaves the Projects on
+		// screen; the next tab open (or r) tries again.
+		v.err = msg.err
+	} else {
+		v.group, v.err = msg.group, msg.err
+		i := -1
+		if hadPrev {
+			i = slices.IndexFunc(v.group.Projects, func(p github.Project) bool { return p.Repo == prev })
+		}
+		if i < 0 {
+			v.picked = false
+			i = 0
+		}
+		v.selectProject(i)
 	}
-	return h.forgeRefreshDue()
+	if h.forge.pickerAt >= len(v.group.Projects) {
+		h.forge.pickerAt = v.selected
+	}
+	var again tea.Cmd
+	if msg.groupPath == h.forge.groupPath {
+		again, _ = h.forgeResolveProject(false)
+	}
+	return tea.Batch(again, h.forgeRefreshDue())
 }
 
 // forgeProject is the selected Project of the shown group.
@@ -660,6 +765,11 @@ func (h *Home) forgeStripSegments(width int) []forgeStripSeg {
 	if h.embeddedLayout {
 		first, short = "AGENTS", "AGT"
 	}
+	// While < / > resize the panes, the first chip flashes the sessions
+	// share, as the gate-off title does (issue #1092).
+	if pct, ok := h.splitFlashPct(); ok {
+		first = fmt.Sprintf("%s %d%%", first, 100-pct)
+	}
 	tiers := [][leftTabCount]string{
 		{first, h.forgeTabLabel(tabIssues, "ISSUES", true), h.forgeTabLabel(tabPRs, "PRS", true)},
 		{first, "ISSUES", "PRS"},
@@ -683,6 +793,15 @@ func (h *Home) forgeStripSegments(width int) []forgeStripSeg {
 		}
 	}
 	return segs
+}
+
+// splitFlashPct is the preview share while the split-ratio flash is on
+// screen; renderDualColumnLayout shows it only in the dual layout.
+func (h *Home) splitFlashPct() (int, bool) {
+	if h.getLayoutMode() != LayoutModeDual || h.previewPctOverlayAt.IsZero() || !time.Now().Before(h.previewPctOverlayAt) {
+		return 0, false
+	}
+	return h.getPreviewPct(), true
 }
 
 func (h *Home) forgeTabLabel(t leftTab, name string, withCount bool) string {
@@ -741,7 +860,8 @@ func (h *Home) renderForgeTitle(width int) string {
 }
 
 // leftPanelTitle is the left panel's title block: the tab strip with the
-// gate on, today's title with it off.
+// gate on (its first chip carries the split-ratio flash, splitFlashPct),
+// today's title with it off.
 func (h *Home) leftPanelTitle(title string, width int) string {
 	if h.forge.enabled {
 		return h.renderForgeTitle(width)
@@ -805,7 +925,7 @@ func (h *Home) renderForgeProjectLine(width int) string {
 		left = dim.Render("resolving project…")
 	case v.unsupported != "":
 		left = dim.Render(v.unsupported)
-	case v.err != nil:
+	case v.err != nil && len(v.group.Projects) == 0:
 		left = warn.Render("⚠ " + forgeErrorText(v.err))
 	case len(v.group.Projects) == 0:
 		left = dim.Render("No GitHub project: " + v.group.Empty.Message())
@@ -1053,15 +1173,15 @@ func (h *Home) forgeHelpRows() [][2]string {
 		{joinHotkeyLabels(h.forgeKey(hotkeyForgeConversation), h.forgeKey(hotkeyForgeFiles)), "Open item: Conversation / Files"},
 		{h.forgeKey(hotkeyForgeExpand), "Open item: expand hidden comments"},
 		{"Esc / q", "Open item: close"},
-		{"Tab", "Files: focus the file list / the diff"},
-		{"n / N", "Files: next / previous hunk"},
-		{"] / [", "Files: next / previous file"},
+		{h.forgeKey(hotkeyForgeFocus), "Files: focus the file list / the diff"},
+		{h.forgeKeyPair(hotkeyForgeNextHunk, hotkeyForgePrevHunk), "Files: next / previous hunk"},
+		{h.forgeKeyPair(hotkeyForgeNextFile, hotkeyForgePrevFile), "Files: next / previous file"},
 		{"Enter", "Files: expand a collapsed file"},
 		{"h / l", "Files: pan long lines"},
-		{"f", "Files: file list (under 90 columns)"},
-		{"s", "Files: split view, old | new (120+ columns)"},
-		{"| / \\", "Files: the file's / the PR's diff in the pager"},
-		{"S", "Files: start a session on the PR"},
+		{h.forgeKey(hotkeyForgeFileList), "Files: file list (under 90 columns)"},
+		{h.forgeKey(hotkeyForgeSplit), "Files: split view, old | new (120+ columns)"},
+		{h.forgeKeyPair(hotkeyForgePagerFile, hotkeyForgePagerPR), "Files: the file's / the PR's diff in the pager"},
+		{h.forgeFilesNewKey(), "Files: start a session on the PR"},
 		{"", ""},
 		{h.actionKey(hotkeyHelp), "This help"},
 		{h.actionKey(hotkeyQuit), "Quit"},
@@ -1102,6 +1222,11 @@ func (h *Home) forgeLeftPaneWidth() int {
 func (h *Home) handleForgeMouseClick(x, y int) (bool, tea.Cmd) {
 	if h.welcomeActive() {
 		return false, nil
+	}
+	// The single column's full-screen detail covers the strip and the list:
+	// a click there must not reach the rows or chips drawn under it.
+	if h.forgeDetailFull() {
+		return true, nil
 	}
 	width := h.forgeLeftPaneWidth()
 	if x >= width {

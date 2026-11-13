@@ -117,10 +117,12 @@ func prRows(l github.PRList, now time.Time) []forgeRow {
 				{glyph: checkGlyph(p.Checks), color: checkGlyphColor(p.Checks), label: "ci"},
 				{glyph: reviewGlyph(p.Review), color: reviewGlyphColor(p.Review), label: "review"},
 			},
-			url:       p.URL,
-			number:    p.Number,
-			updatedAt: p.UpdatedAt,
-			state:     prStateWord(p),
+			url:        p.URL,
+			number:     p.Number,
+			updatedAt:  p.UpdatedAt,
+			state:      prStateWord(p),
+			headBranch: p.HeadBranch,
+			baseBranch: p.BaseBranch,
 		})
 	}
 	return rows
@@ -189,16 +191,17 @@ type forgeAutoLink struct {
 }
 
 // forgeAutoLinks matches a PRs list of listRepo against candidate
-// sessions (spec §5, §11): a session is linked to an open PR whose head
-// branch is the session's worktree branch in the repository the session's
-// Project resolves to (the Project itself, or the fork a PR into the
-// Parent Repository comes from). Each session gets at most one Link: the
-// most recently updated PR, the list's first. Pure; table-tested.
+// sessions (spec §5, §11): a session whose Project is listRepo is linked
+// to an open PR whose head branch is the session's worktree branch in that
+// same Project. The Parent Repository's list (P) links nobody: its PRs
+// come from other repositories than the sessions' Projects. Each session
+// gets at most one Link: the most recently updated PR, the list's first.
+// Pure; table-tested.
 func forgeAutoLinks(listRepo github.Repo, prs []github.PullRequest, cands []forgeLinkCandidate) []forgeAutoLink {
 	var out []forgeAutoLink
 	done := map[string]bool{}
 	for _, c := range cands {
-		if c.branch == "" || done[c.id] {
+		if c.branch == "" || done[c.id] || !sameRepo(c.repo, listRepo) {
 			continue
 		}
 		for _, p := range prs {
@@ -216,7 +219,8 @@ func forgeAutoLinks(listRepo github.Repo, prs []github.PullRequest, cands []forg
 }
 
 // forgeLinkSession is a session auto-detect may link, before its Project
-// is resolved: one in a local git worktree with a branch and no PR link.
+// is resolved: one in a local git worktree with a branch, no PR link, and
+// no PR unlink by the user (PRAutoLinkOff).
 type forgeLinkSession struct {
 	id, branch, path string
 }
@@ -227,7 +231,7 @@ func (h *Home) forgeLinkSessions() []forgeLinkSession {
 	defer h.instancesMu.RUnlock()
 	var out []forgeLinkSession
 	for _, inst := range h.instances {
-		if inst == nil || inst.PRLink != nil || inst.IsSSH() || !inst.IsWorktree() || inst.WorktreeBranch == "" {
+		if inst == nil || inst.PRLink != nil || inst.PRAutoLinkOff || inst.IsSSH() || !inst.IsWorktree() || inst.WorktreeBranch == "" {
 			continue
 		}
 		p := inst.WorktreeRepoRoot
@@ -272,13 +276,14 @@ func (h *Home) forgeAutoLinkCmd(repo github.Repo, l github.PRList) tea.Cmd {
 }
 
 // applyForgeAutoLinked stores the Links auto-detect found, skipping any
-// session that gained a PR link meanwhile, and saves.
+// session that gained a PR link or was opted out by an unlink meanwhile,
+// and saves.
 func (h *Home) applyForgeAutoLinked(msg forgeAutoLinkedMsg) {
 	changed := false
 	h.instancesMu.Lock()
 	for _, al := range msg.links {
 		inst := h.instanceByID[al.id]
-		if inst == nil || inst.PRLink != nil {
+		if inst == nil || inst.PRLink != nil || inst.PRAutoLinkOff {
 			continue
 		}
 		inst.SetLink(session.LinkPR, al.link)

@@ -15,16 +15,19 @@ const ConversationLimit = 100
 
 // ConversationQuery is the GraphQL query of an Issue's or Pull Request's
 // Conversation (spec §9): the body, the first 100 issue-style comments and,
-// for a PR, the first 100 reviews with their verdict, body and inline
-// comment count. No timeline events.
+// for a PR, the first 100 published reviews with their verdict, body and
+// inline comment count, plus how many reviews carry a verdict (approved,
+// changes requested, dismissed: those always render, so the unfetched ones
+// are counted exactly). No timeline events.
 const ConversationQuery = `query($owner:String!,$name:String!,$number:Int!){repository(owner:$owner,name:$name){` +
 	`issueOrPullRequest(number:$number){__typename ` +
 	`...on Issue{number updatedAt createdAt lastEditedAt body author{__typename login} ` +
 	`comments(first:100){totalCount nodes{author{__typename login} createdAt lastEditedAt body isMinimized minimizedReason}}} ` +
 	`...on PullRequest{number updatedAt createdAt lastEditedAt body author{__typename login} ` +
 	`comments(first:100){totalCount nodes{author{__typename login} createdAt lastEditedAt body isMinimized minimizedReason}} ` +
-	`reviews(first:100){totalCount nodes{author{__typename login} state submittedAt lastEditedAt body isMinimized minimizedReason ` +
-	`comments{totalCount}}}}}}}`
+	`reviews(first:100,states:[APPROVED,CHANGES_REQUESTED,COMMENTED,DISMISSED]){totalCount nodes{author{__typename login} state submittedAt lastEditedAt body isMinimized minimizedReason ` +
+	`comments{totalCount}}} ` +
+	`verdicts:reviews(states:[APPROVED,CHANGES_REQUESTED,DISMISSED]){totalCount}}}}}`
 
 // Comment is one entry of a Conversation: an issue-style comment, or a PR
 // review summary (Review set).
@@ -59,7 +62,9 @@ type Conversation struct {
 	// Comments are the issue-style comments and review summaries, oldest
 	// first, at most ConversationLimit of them.
 	Comments []Comment
-	// More counts the comments and review summaries not fetched.
+	// More counts the comments and review summaries not fetched that would
+	// render: unfetched COMMENTED reviews are left out, since one with no
+	// body is never shown and the body is not fetched.
 	More int
 	// InlineComments counts the inline review comments of the fetched
 	// reviews; they are shown only as a count.
@@ -123,6 +128,9 @@ func (c *Client) Conversation(ctx context.Context, repo Repo, number int) (Conve
 				Author       *gqlAuthor     `json:"author"`
 				Comments     gqlCommentConn `json:"comments"`
 				Reviews      gqlCommentConn `json:"reviews"`
+				Verdicts     struct {
+					TotalCount int `json:"totalCount"`
+				} `json:"verdicts"`
 			} `json:"issueOrPullRequest"`
 		} `json:"repository"`
 	}
@@ -138,16 +146,32 @@ func (c *Client) Conversation(ctx context.Context, repo Repo, number int) (Conve
 	conv := Conversation{
 		Number: n.Number, UpdatedAt: n.UpdatedAt, Author: who, Bot: bot, CreatedAt: n.CreatedAt,
 		Edited: n.LastEditedAt != nil, Body: n.Body,
-		More: max(0, n.Comments.TotalCount-len(n.Comments.Nodes)) + max(0, n.Reviews.TotalCount-len(n.Reviews.Nodes)),
+		More: max(0, n.Comments.TotalCount-len(n.Comments.Nodes)),
 	}
 	for _, x := range n.Comments.Nodes {
 		conv.Comments = append(conv.Comments, x.comment(x.CreatedAt))
 	}
+	// Of the reviews not fetched, only those with a verdict are sure to
+	// render: an unfetched COMMENTED review may hold only inline comments
+	// and is not counted.
+	fetchedVerdicts := 0
 	for _, r := range n.Reviews.Nodes {
+		switch r.State {
+		case "APPROVED", "CHANGES_REQUESTED", "DISMISSED":
+			fetchedVerdicts++
+		}
+	}
+	conv.More += max(0, n.Verdicts.TotalCount-fetchedVerdicts)
+	for _, r := range n.Reviews.Nodes {
+		// A pending review is the viewer's draft: neither it nor its inline
+		// comments are published.
+		if r.State == "PENDING" {
+			continue
+		}
 		conv.InlineComments += r.Comments.TotalCount
-		// A pending review is the viewer's draft; a COMMENTED review with
-		// no body only holds inline comments, which are counted above.
-		if r.State == "PENDING" || (r.State == "COMMENTED" && strings.TrimSpace(r.Body) == "") {
+		// A COMMENTED review with no body only holds inline comments, which
+		// are counted above.
+		if r.State == "COMMENTED" && strings.TrimSpace(r.Body) == "" {
 			continue
 		}
 		cm := r.comment(r.SubmittedAt)

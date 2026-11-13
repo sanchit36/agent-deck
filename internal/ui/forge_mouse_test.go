@@ -141,3 +141,30 @@ func TestForgeOverlayTabClick(t *testing.T) {
 		t.Fatal("an Issue's overlay switched to Files")
 	}
 }
+
+// TestForgeDetailFullIgnoresClicks: the single column's full-screen detail
+// covers the list and the tab strip, so a click there never selects the
+// off-screen row under it, a double-click never opens the overlay and a
+// click on the title row never switches tabs.
+func TestForgeDetailFullIgnoresClicks(t *testing.T) {
+	h, _ := issuesHome(t, 45, 20, githubtest.IssueList)
+	h = drive(t, h, tea.KeyMsg{Type: tea.KeyEnter})
+	if !h.forgeDetailFull() {
+		t.Fatal("enter did not open the full-screen detail")
+	}
+	before := h.forge.lists[tabIssues].cursor
+	y := forgeRowY(h, 1)
+	h = drive(t, h, leftClick(3, y))
+	h = drive(t, h, leftClick(3, y))
+	if got := h.forge.lists[tabIssues].cursor; got != before {
+		t.Fatalf("a click on the detail moved the cursor to %d, want %d", got, before)
+	}
+	if h.forgeOverlayVisible() {
+		t.Fatal("a double-click on the detail opened the overlay")
+	}
+	segs := h.forgeStripSegments(h.width)
+	h = drive(t, h, leftClick(segs[tabPRs].x0, h.getListContentStartY()-2))
+	if h.forge.tab != tabIssues || !h.forgeDetailFull() {
+		t.Fatalf("a click on the detail's title row switched to %v", h.forge.tab)
+	}
+}

@@ -91,6 +91,15 @@ func (r *Resolver) Invalidate(path string) {
 	delete(r.paths, cleanPath(path))
 }
 
+// InvalidateHosts forgets which hosts gh has a login for, so the next
+// Resolve of an uncached path asks `gh auth status` again (after a `gh auth
+// login`). Path resolutions stay cached; Invalidate them to redo them.
+func (r *Resolver) InvalidateHosts() {
+	r.mu.Lock()
+	defer r.mu.Unlock()
+	clear(r.hosts)
+}
+
 // Reset forgets everything: paths, host logins and parent repositories.
 func (r *Resolver) Reset() {
 	r.mu.Lock()

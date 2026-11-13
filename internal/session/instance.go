@@ -584,6 +584,13 @@ type Instance struct {
 	// after an unlink (link_persist.go).
 	issueLinkCleared bool
 	prLinkCleared    bool
+	// PRAutoLinkOff is set when the user unlinks the session's PR: the PRs
+	// tab's auto-detect never links the session again, until an explicit
+	// link of a PR clears it. Persisted next to the links (link_persist.go).
+	PRAutoLinkOff bool `json:"pr_autolink_off,omitempty"`
+	// prAutoLinkOffCleared makes the save write an explicit false after an
+	// explicit link, so the extras merge cannot carry the opt-out forward.
+	prAutoLinkOffCleared bool
 
 	// IsForkAwaitingStart signals that this instance was produced by a
 	// fork builder and must run a pre-built fork command verbatim on the

@@ -123,7 +123,7 @@ func TestForgeFilesKeepsFileOnNewHead(t *testing.T) {
 		return nil, errors.New("offline")
 	}
 	h = drive(t, h, forgeFetchedMsg{key: dk, value: d})
-	if frame := filesFrame(h); o.files.sha != old || !strings.Contains(frame, "file 3/6") || !strings.Contains(frame, "⚠ stale: ⚠ offline") {
+	if frame := filesFrame(h); o.files.sha != old || !strings.Contains(frame, "file 3/6") || !strings.Contains(frame, "⚠ stale: offline") || strings.Contains(frame, "⚠ stale: ⚠") {
 		t.Fatalf("the old diff left the screen before the new one arrived (sha %q):\n%s", o.files.sha, filesFrame(h))
 	}
 	// It arrives without go.sum: logo.png is still selected.

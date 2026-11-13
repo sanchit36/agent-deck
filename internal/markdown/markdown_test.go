@@ -54,6 +54,19 @@ func TestRender(t *testing.T) {
 			want: []string{"x", "y"},
 		},
 		{
+			name: "html comment opener inside a code span does not hide later text",
+			src:  "use `<!--` to start a comment\nshown",
+			want: []string{"use <c><!--</c> to start a comment", "shown"},
+		},
+		{name: "whole html comment inside a code span kept", src: "``<!-- x -->`` kept", want: []string{"<c><!-- x --></c> kept"}},
+		{name: "html comment after a code span stripped", src: "`a` <!-- h --> b", want: []string{"<c>a</c> b"}},
+		{name: "escaped backtick opens no code span", src: "\\`<!-- h -->` b", want: []string{"`` b"}},
+		{
+			name: "code span after a fence keeps its comment opener",
+			src:  "```\nx\n```\n`<!--`\nshown",
+			want: []string{"<d>x</d>", "<c><!--</c>", "shown"},
+		},
+		{
 			name: "template comment then blank",
 			src:  "<!-- Describe the bug -->\n\nIt crashes",
 			want: []string{"It crashes"},
@@ -196,6 +209,36 @@ func TestRender(t *testing.T) {
 			name: "table left raw",
 			src:  "| a | **b** |\n|---|---|\n| [l](u) | `c` |",
 			want: []string{"| a | **b** |", "|---|---|", "| [l](u) | `c` |"},
+		},
+		{
+			name: "table without leading pipes left raw",
+			src:  "a | **b**\n---|---\n[l](u) | `c`",
+			want: []string{"a | **b**", "---|---", "[l](u) | `c`"},
+		},
+		{
+			name: "aligned delimiter row",
+			src:  " **a** | b |\n:--|--:|\n1 | `2` |",
+			want: []string{" **a** | b |", ":--|--:|", "1 | `2` |"},
+		},
+		{
+			name: "table ends at a line without a pipe",
+			src:  "a | b\n-- | --\n1 | **2**\nafter **x**",
+			want: []string{"a | b", "-- | --", "1 | **2**", "after <b>x</b>"},
+		},
+		{
+			name: "table ends at a blank line",
+			src:  "**a** | b\n--|--\n\nx | **y**",
+			want: []string{"**a** | b", "--|--", "", "x | <b>y</b>"},
+		},
+		{
+			name: "delimiter with another cell count is no table",
+			src:  "**a** | b | c\n--|--",
+			want: []string{"<b>a</b> | b | c", "--|--"},
+		},
+		{
+			name: "pipe in prose without a delimiter row is no table",
+			src:  "**a** | b\nnext | **c**",
+			want: []string{"<b>a</b> | b", "next | <b>c</b>"},
 		},
 		{
 			name:  "wide table cut and panned like code",

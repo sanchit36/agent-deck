@@ -5,18 +5,12 @@ import (
 	"errors"
 	"flag"
 	"fmt"
-	"os/exec"
-	"slices"
 	"strconv"
 	"strings"
-	"time"
 
+	"github.com/asheshgoplani/agent-deck/internal/github"
 	"github.com/asheshgoplani/agent-deck/internal/session"
 )
-
-// linkRepoGitTimeout bounds the local `git remote` reads `session link` runs
-// when no --repo is given.
-const linkRepoGitTimeout = 5 * time.Second
 
 // handleSessionLink records a Link from a session to an Issue or PR
 // (spec #18 §11): `session link <id> issue|pr <n> [--repo [HOST/]OWNER/NAME]`.
@@ -26,7 +20,7 @@ func handleSessionLink(profile string, args []string) {
 	jsonOutput := fs.Bool("json", false, "Output as JSON")
 	quiet := fs.Bool("quiet", false, "Minimal output")
 	quietShort := fs.Bool("q", false, "Minimal output (short)")
-	repoFlag := fs.String("repo", "", "Repo as OWNER/NAME or HOST/OWNER/NAME (default: the session checkout's origin remote)")
+	repoFlag := fs.String("repo", "", "Repo as OWNER/NAME or HOST/OWNER/NAME (default: the session checkout's origin, else its first GitHub remote by name)")
 
 	fs.Usage = func() {
 		fmt.Println("Usage: agent-deck session link <session> issue|pr <number> [--repo [HOST/]OWNER/NAME]")
@@ -192,34 +186,32 @@ func linkJSON(profile string, inst *session.Instance, kind session.LinkKind, lin
 	return data
 }
 
-// linkRepoFromCheckout reads the repo from a checkout's git remotes, locally:
-// origin (even when it is a fork), else the only remote unless that is
-// upstream. Anything else is ambiguous and needs --repo.
+// linkRepoFromCheckout reads the repo from a checkout's git remotes, locally,
+// with the Project rule the forge tabs use (spec §2, github.PickRemote):
+// origin (even when it is a fork); with no origin, the only GitHub remote,
+// else the first alphabetically; upstream never. git runs through
+// github.ReadLocal (bounded, childenv). No gh call: any host that is not a
+// well-known other forge counts as GitHub, so a GHE origin links as is.
 func linkRepoFromCheckout(dir string) (session.Link, error) {
 	if strings.TrimSpace(dir) == "" {
 		return session.Link{}, errors.New("session has no project path")
 	}
-	ctx, cancel := context.WithTimeout(context.Background(), linkRepoGitTimeout)
-	defer cancel()
-	out, err := exec.CommandContext(ctx, "git", "-C", dir, "remote").Output()
+	loc, err := github.ReadLocal(context.Background(), dir)
 	if err != nil {
-		return session.Link{}, fmt.Errorf("listing git remotes in %s: %w", dir, err)
+		return session.Link{}, err
 	}
-	remotes := strings.Fields(string(out))
-	remote := ""
-	switch {
-	case slices.Contains(remotes, "origin"):
-		remote = "origin"
-	case len(remotes) == 1 && remotes[0] != "upstream":
-		remote = remotes[0]
-	case len(remotes) == 0:
-		return session.Link{}, fmt.Errorf("no git remotes in %s", dir)
-	default:
-		return session.Link{}, fmt.Errorf("no origin remote in %s and %d others", dir, len(remotes))
+	res := github.PickRemote(loc.Remotes, linkHostKind)
+	if !res.Found() {
+		return session.Link{}, fmt.Errorf("resolving the GitHub repo of %s: %s", dir, res.Message())
 	}
-	url, err := exec.CommandContext(ctx, "git", "-C", dir, "remote", "get-url", remote).Output()
-	if err != nil {
-		return session.Link{}, fmt.Errorf("reading the url of remote %s in %s: %w", remote, dir, err)
+	return session.Link{Host: res.Repo.Host, Owner: res.Repo.Owner, Name: res.Repo.Name}, nil
+}
+
+// linkHostKind classifies a remote host without gh: other forges are not
+// GitHub, every other host is.
+func linkHostKind(host string) github.HostKind {
+	if github.IsOtherForge(host) {
+		return github.HostOtherForge
 	}
-	return session.ParseLinkRepo(strings.TrimSpace(string(url)))
+	return github.HostGitHub
 }

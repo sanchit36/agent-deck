@@ -15,6 +15,14 @@ Agent Deck is a TUI (Terminal User Interface) that manages multiple AI coding ag
 - **GitHub Issues and PRs**: `SESSIONS │ ISSUES │ PRS` tabs in the TUI for the group's GitHub repo: browse, filter, read conversations and diffs, start a session on an Issue or PR, merge, and live PR state on linked sessions. On by default through the `gh` CLI (must be logged in); `[github] enabled = false` turns it off
 - **Multi-tool support**: Claude Code, Gemini CLI, Codex, OpenCode, OpenCode 2 (`opencode2`), Copilot, Crush, Muse Code, Cursor (terminal), Hermes Agent, pi, Oh My Pi, DeepSeek Harness, and custom tools via `[tools.*]` in config.toml (see the Multi-Tool Support table in README.md for what each one gets)
 
+## GitHub Issues and PRs
+
+- Tabs: the TUI's left panel shows `SESSIONS │ ISSUES │ PRS` for the selected group's GitHub (or GitHub Enterprise) repo. `[` / `]` cycle the tabs; `Alt+S` / `Alt+I` / `Alt+P` jump to one.
+- Keys on a list: `Enter` body and comments, `d` PR diff (`s` split, `|` / `\` pager), `/` filter (GitHub search syntax), `n` start a session in a worktree with a Prompt Template, `a` attach to the linked session, `m` merge a PR (never bypasses branch protection), `o` browser, `y` copy URL, `r` refresh, `p` / `P` Project / Parent Repository. Every key is a rebindable `forge_*` action in `[hotkeys]`.
+- Freshness: the list and the open detail refetch every 60 s while the TUI is in the foreground (`[github] refresh_interval`); a failed refetch keeps them on screen, marked `⚠ stale` with a line saying why. `r` refetches now and re-polls the notification-bar signals. The default `is:open` list reads the repository directly; any other filter goes through GitHub search, whose index can lag new changes by a few minutes.
+- Notification bar: a change on a PR linked to a session (checks failing, changes requested, approved, merged or closed) or a new review request marks that session on the bar with the signal's glyph until you attach or jump to it; `[github] signals = false` turns the marks off.
+- Requirements and off switch: it calls GitHub only through the `gh` CLI, which must be installed and logged in (`gh auth login`). On by default; `[github] enabled = false` in config.toml removes the tabs, the keys and every `gh` call.
+
 ## Install
 
 ```bash

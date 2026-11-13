@@ -446,17 +446,24 @@ func TestForgeMergeFollowUp(t *testing.T) {
 	})
 }
 
-// TestForgeMergeFollowUpUnreadableIsDirty: a worktree whose state cannot
-// be read is protected like a dirty one.
+// TestForgeMergeFollowUpUnreadableIsDirty: a worktree that is not provably
+// clean (unreadable, a jj workspace, not a repository) is protected like a
+// dirty one and needs its own y.
 func TestForgeMergeFollowUpUnreadableIsDirty(t *testing.T) {
-	h, acts := followHome(t)
-	h.gitStateFetch = func(context.Context, string) gitstate.State {
-		return gitstate.State{Err: fmt.Errorf("git status timed out")}
-	}
-	h = drive(t, h, keyLeft())
-	h = drive(t, h, enterKey())
-	if len(acts.deleted) != 0 || !strings.Contains(screen(h), "uncommitted changes") {
-		t.Fatalf("deleted %v without confirmation", acts.deleted)
+	for name, st := range map[string]gitstate.State{
+		"unreadable":   {Err: fmt.Errorf("git status timed out")},
+		"jj workspace": {Repo: "/wt/s1", JJ: true},
+		"not a repo":   {NotRepo: true},
+	} {
+		t.Run(name, func(t *testing.T) {
+			h, acts := followHome(t)
+			h.gitStateFetch = func(context.Context, string) gitstate.State { return st }
+			h = drive(t, h, keyLeft())
+			h = drive(t, h, enterKey())
+			if len(acts.deleted) != 0 || !strings.Contains(screen(h), "uncommitted changes") {
+				t.Fatalf("deleted %v without confirmation", acts.deleted)
+			}
+		})
 	}
 }
 

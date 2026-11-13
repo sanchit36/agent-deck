@@ -86,9 +86,11 @@ type forgeOverlay struct {
 	// first copy arrives and whenever the body is scrolled to its end.
 	// Comments past it are "new". -1 until the first copy.
 	seen int
-	// lookup maps a pressed key to its overlay action.
-	lookup map[string]string
-	memo   forgeOverlayMemo
+	// lookup maps a pressed key to its overlay action, and filesLookup to
+	// its Files action (seen first while the Files tab shows).
+	lookup      map[string]string
+	filesLookup map[string]string
+	memo        forgeOverlayMemo
 	// files is the Files tab's state (forge_files.go).
 	files forgeFilesView
 }
@@ -124,9 +126,12 @@ type forgeMinimizedRow struct{ row, comment int }
 // "open on Files" key (forgeHotkeyActionOrder).
 const (
 	// hotkeyForgeConversation and hotkeyForgeFiles switch the overlay's
-	// tabs.
-	hotkeyForgeConversation = "forge_conversation"
-	hotkeyForgeFiles        = "forge_files"
+	// tabs, as do their second keys hotkeyForgeConversationAlt and
+	// hotkeyForgeFilesAlt.
+	hotkeyForgeConversation    = "forge_conversation"
+	hotkeyForgeFiles           = "forge_files"
+	hotkeyForgeConversationAlt = "forge_conversation_alt"
+	hotkeyForgeFilesAlt        = "forge_files_alt"
 	// hotkeyForgeExpand expands or collapses every minimized comment.
 	hotkeyForgeExpand = "forge_expand"
 )
@@ -137,6 +142,8 @@ const (
 var forgeOverlayActionOrder = []string{
 	hotkeyForgeConversation,
 	hotkeyForgeFiles,
+	hotkeyForgeConversationAlt,
+	hotkeyForgeFilesAlt,
 	hotkeyForgeExpand,
 	hotkeyForgeOpen,
 	hotkeyForgeCopy,
@@ -149,28 +156,12 @@ var forgeOverlayActionOrder = []string{
 // buildForgeOverlayLookup maps each pressed key to its overlay action,
 // explicit spellings before layout twins as buildForgeHotkeyLookup does.
 func buildForgeOverlayLookup(bindings map[string]string) map[string]string {
-	lookup := make(map[string]string, len(forgeOverlayActionOrder)*3)
-	for _, action := range forgeOverlayActionOrder {
-		for _, alias := range explicitHotkeyAliases(bindings[action]) {
-			if _, taken := lookup[alias]; !taken {
-				lookup[alias] = action
-			}
-		}
-	}
-	for _, action := range forgeOverlayActionOrder {
-		for _, alias := range layoutHotkeyAliases(bindings[action]) {
-			if _, taken := lookup[alias]; !taken {
-				lookup[alias] = action
-			}
-		}
-	}
-	return lookup
+	return buildForgeActionLookup(forgeOverlayActionOrder, bindings)
 }
 
 // forgeOverlayFixedKeys are the overlay's keys that are not [hotkeys]
 // actions, by what they do.
 var forgeOverlayFixedKeys = map[string]string{
-	"1": "conversation", "2": "files",
 	"j": "down", "down": "down", "k": "up", "up": "up",
 	"ctrl+d": "half down", "ctrl+u": "half up",
 	" ": "page down", "pgdown": "page down", "pgup": "page up",
@@ -200,6 +191,7 @@ func (h *Home) openForgeOverlay(tab forgeOverlayTab) tea.Cmd {
 		visible: true, width: h.width, height: h.height,
 		repo: lk.Repo, row: r, pr: h.forge.tab == tabPRs,
 		seen: -1, lookup: buildForgeOverlayLookup(h.forge.bindings),
+		filesLookup: buildForgeFilesLookup(h.forge.bindings),
 	}
 	if o.pr {
 		o.tab = tab
@@ -372,7 +364,7 @@ func (h *Home) handleForgeOverlayKey(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 	raw := msg.String()
 	files := o.tab == forgeOverlayFiles
 	if raw == "ctrl+c" || (raw != "q" && o.lookup[raw] == "" && forgeOverlayFixedKeys[raw] == "" &&
-		(!files || forgeFilesFixedKeys[raw] == "") &&
+		(!files || o.filesLookup[raw] == "") &&
 		h.hotkeyLookup[raw] == defaultHotkeyBindings[hotkeyQuit]) {
 		h.closeForgeOverlay()
 		return h.handleMainKey(msg)
@@ -384,9 +376,9 @@ func (h *Home) handleForgeOverlayKey(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 	}
 	page := h.forgeOverlayPage()
 	switch o.lookup[raw] {
-	case hotkeyForgeConversation:
+	case hotkeyForgeConversation, hotkeyForgeConversationAlt:
 		return h, h.setForgeOverlayTab(forgeOverlayConversation)
-	case hotkeyForgeFiles:
+	case hotkeyForgeFiles, hotkeyForgeFilesAlt:
 		return h, h.setForgeOverlayTab(forgeOverlayFiles)
 	case hotkeyForgeExpand:
 		h.toggleForgeMinimized()
@@ -417,10 +409,6 @@ func (h *Home) handleForgeOverlayKey(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 		return h, cmd
 	}
 	switch forgeOverlayFixedKeys[raw] {
-	case "conversation":
-		return h, h.setForgeOverlayTab(forgeOverlayConversation)
-	case "files":
-		return h, h.setForgeOverlayTab(forgeOverlayFiles)
 	case "down":
 		h.forgeOverlayScrollBy(1)
 	case "up":
@@ -792,7 +780,7 @@ func (h *Home) forgeOverlayStatus(total, offset, body int) string {
 			case e.Fetching && (e.HasData() || h.forge.overlay.files.sha != ""):
 				parts = append(parts, lipgloss.NewStyle().Foreground(ColorCyan).Render(forgeSpinnerFrames[h.animationFrame%len(forgeSpinnerFrames)]))
 			case e.Stale() || (e.Err != nil && h.forge.overlay.tab == forgeOverlayFiles && h.forge.overlay.files.sha != ""):
-				parts = append(parts, lipgloss.NewStyle().Foreground(ColorYellow).Render("⚠ stale: "+forgeFailureFor(e.Err, k, h.forgeNow()).lines[0]))
+				parts = append(parts, lipgloss.NewStyle().Foreground(ColorYellow).Render(forgeStaleLine(e.Err, k, h.forgeNow())))
 			}
 		}
 	}

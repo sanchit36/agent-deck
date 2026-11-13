@@ -26,4 +26,17 @@ func TestGroupProjectPaths(t *testing.T) {
 	if got := GroupProjectPaths("empty", instances); len(got) != 0 {
 		t.Fatalf("GroupProjectPaths(empty) = %v, want none", got)
 	}
+	for _, tt := range []struct {
+		inst *Instance
+		want string
+	}{
+		{instances[0], "/src/widgets"},
+		{instances[2], "/src/widgets"},
+		{&Instance{ProjectPath: "/wt/x", WorktreePath: "/wt/x"}, "/wt/x"},
+		{nil, ""},
+	} {
+		if got := ProjectResolvePath(tt.inst); got != tt.want {
+			t.Errorf("ProjectResolvePath(%+v) = %q, want %q", tt.inst, got, tt.want)
+		}
+	}
 }

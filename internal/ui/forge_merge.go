@@ -443,7 +443,7 @@ func (h *Home) forgeMergeCheckDirty() tea.Cmd {
 				msg.clean = append(msg.clean, t.id)
 				continue
 			}
-			if st := fetch(ctx, t.path); st.Dirty || st.Err != nil || st.NotRepo {
+			if st := fetch(ctx, t.path); !st.ProvablyClean() {
 				msg.dirty = append(msg.dirty, t.id)
 				continue
 			}

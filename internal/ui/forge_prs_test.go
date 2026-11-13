@@ -152,8 +152,9 @@ func TestForgePRRowLinkedSession(t *testing.T) {
 }
 
 // TestForgeAutoLinks: the table of PR head-branch auto-detect. A session is
-// linked to a PR when its worktree branch is the PR's head branch in the
-// repository the session's Project resolves to; never twice.
+// linked to a PR of its own Project's list (never the Parent Repository's,
+// spec #18 §5, §11) when its worktree branch is the PR's head branch in
+// that Project; never twice.
 func TestForgeAutoLinks(t *testing.T) {
 	widgets := github.Repo{Host: "github.com", Owner: "me", Name: "widgets"}
 	fork := github.Repo{Host: "github.com", Owner: "zoe", Name: "widgets"}
@@ -165,6 +166,7 @@ func TestForgeAutoLinks(t *testing.T) {
 	}
 	cases := []struct {
 		name  string
+		list  github.Repo // the list's repository; widgets when empty
 		prs   []github.PullRequest
 		cands []forgeLinkCandidate
 		want  []forgeAutoLink
@@ -197,10 +199,16 @@ func TestForgeAutoLinks(t *testing.T) {
 			cands: []forgeLinkCandidate{{id: "s1", branch: "main", repo: widgets}},
 		},
 		{
-			name:  "a session in the fork links to the fork's PR",
+			name:  "a fork session does not link from its Parent Repository's list",
 			prs:   []github.PullRequest{pr(1, "fix", fork)},
 			cands: []forgeLinkCandidate{{id: "s1", branch: "fix", repo: fork}},
-			want:  []forgeAutoLink{{id: "s1", link: link(1)}},
+		},
+		{
+			name:  "a fork session links to its own Project's PR",
+			list:  fork,
+			prs:   []github.PullRequest{pr(1, "fix", fork)},
+			cands: []forgeLinkCandidate{{id: "s1", branch: "fix", repo: fork}},
+			want:  []forgeAutoLink{{id: "s1", link: session.Link{Host: "github.com", Owner: "zoe", Name: "widgets", Number: 1}}},
 		},
 		{
 			name:  "another Project's session does not link",
@@ -256,7 +264,11 @@ func TestForgeAutoLinks(t *testing.T) {
 	}
 	for _, c := range cases {
 		t.Run(c.name, func(t *testing.T) {
-			got := forgeAutoLinks(widgets, c.prs, c.cands)
+			list := c.list
+			if list.Owner == "" {
+				list = widgets
+			}
+			got := forgeAutoLinks(list, c.prs, c.cands)
 			if fmt.Sprint(got) != fmt.Sprint(c.want) {
 				t.Fatalf("got %+v, want %+v", got, c.want)
 			}
@@ -315,6 +327,27 @@ func TestForgePRsAutoLink(t *testing.T) {
 	}
 }
 
+// TestForgePRsAutoLinkSkipsUnlinked: a session whose PR link the user
+// removed (`session unlink <id> pr`) is never relinked by auto-detect.
+func TestForgePRsAutoLinkSkipsUnlinked(t *testing.T) {
+	unlinked := worktreeSession("u", "unlinked", "/src/widgets", "feat/x")
+	unlinked.SetLink(session.LinkPR, session.Link{Host: "github.com", Owner: "me", Name: "widgets", Number: 101})
+	unlinked.ClearLink(session.LinkPR)
+
+	h, _ := prsHome(t, 120, 30, githubtest.PRList, unlinked)
+	_ = drive(t, h, forgeFetchedMsg{key: widgetsPRs, value: prListWith("main", "feat/x")})
+	if l := unlinked.LinkOf(session.LinkPR); l != nil {
+		t.Fatalf("auto-detect relinked an unlinked session to %v", l)
+	}
+	// The apply step re-checks: a link found before the unlink is dropped.
+	h.applyForgeAutoLinked(forgeAutoLinkedMsg{links: []forgeAutoLink{{id: "u", link: session.Link{
+		Host: "github.com", Owner: "me", Name: "widgets", Number: 101,
+	}}}})
+	if l := unlinked.LinkOf(session.LinkPR); l != nil {
+		t.Fatalf("apply relinked an unlinked session to %v", l)
+	}
+}
+
 // TestForgePRsAutoLinkOffRenderPath: the list's arrival does not link in
 // the update itself: resolving the sessions' Projects runs in a command,
 // and View never resolves.
@@ -361,8 +394,9 @@ func TestForgePRsOpenCopyRow(t *testing.T) {
 	}
 }
 
-// TestForgePRsGolden freezes the PRs list (one row linked to a session)
-// and an empty list at dual, stacked and single widths.
+// TestForgePRsGolden freezes the PRs list (one row linked to a session,
+// selected, with its detail served) and an empty list at dual, stacked and
+// single widths.
 func TestForgePRsGolden(t *testing.T) {
 	for _, sz := range forgeFrameSizes {
 		for _, name := range []string{"rows", "none"} {
@@ -370,8 +404,11 @@ func TestForgePRsGolden(t *testing.T) {
 			t.Run(golden, func(t *testing.T) {
 				a := &session.Instance{ID: "a", Title: "fix login", GroupPath: "widgets", ProjectPath: "/src/widgets"}
 				a.SetLink(session.LinkPR, session.Link{Host: "github.com", Owner: "me", Name: "widgets", Number: 14927})
-				h, _ := prsHome(t, sz[0], sz[1], githubtest.PRList, a)
-				if name == "none" {
+				var h *Home
+				if name == "rows" {
+					h, _ = detailPRsHome(t, sz[0], sz[1], a)
+				} else {
+					h, _ = prsHome(t, sz[0], sz[1], githubtest.PRList, a)
 					h = drive(t, h, forgeFetchedMsg{key: widgetsPRs, value: github.PRList{}})
 				}
 				frame := h.View()

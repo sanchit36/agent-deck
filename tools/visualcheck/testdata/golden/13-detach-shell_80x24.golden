@@ -1,16 +1,16 @@
  ●●○ Agent Deck  11 sessions                                            <version>
   All    ● 1   ◐ 2   ○ 1   ■ 2   ✕ 5   !@#& filter • 0 all • % open • …
-SESSIONS                     │ PREVIEW
+ SESSIONS │ ISSUES │ PRS     │ PREVIEW
 ──────────────────────────── │ ─────────────────────────────────────────────────
 1·▾ alpha (7) ● 1 ◐ 1        │ shell-live  ○ idle
    ├─ ■ opencode-idle        │ 📁 /tmp/vc-<tmp>
    ├─ ✕ claude-idle          │ ⏱ <age>
    ├─ ◐ claude-waiting       │ ◉ no viewers
    └─ ■ claude-stopped       │  shell   beta
-    ▾ backend (3) ● 1        │
-     ├─ ✕ codex-idle         │ ────────────────── Output ──────────────────
-     ├─ ● claude-running     │ $
-     └─ ✕ claude-error       │
+    ▾ backend (3) ● 1        │ Git:     master · clean · no upstream
+     ├─ ✕ codex-idle         │
+     ├─ ● claude-running     │ ────────────────── Output ──────────────────
+     └─ ✕ claude-error       │ $
 2·▾ beta (4) ◐ 1             │
    ├─ ✕ gemini-idle          │
    ├─ ✕ pi-idle              │

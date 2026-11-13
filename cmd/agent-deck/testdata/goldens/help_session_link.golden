@@ -11,4 +11,4 @@ Options:
   -quiet
     	Minimal output
   -repo string
-    	Repo as OWNER/NAME or HOST/OWNER/NAME (default: the session checkout's origin remote)
+    	Repo as OWNER/NAME or HOST/OWNER/NAME (default: the session checkout's origin, else its first GitHub remote by name)

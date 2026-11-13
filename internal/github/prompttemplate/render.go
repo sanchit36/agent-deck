@@ -141,7 +141,9 @@ func (v Vars) truncationHint() string {
 
 // scanVariable reports the {name} token starting at text[i] (which is '{'),
 // returning the name and the index just past '}'. ok is false when the
-// braces do not enclose a well-formed name ([a-z0-9-]+).
+// braces do not enclose a well-formed name ([A-Za-z0-9_-]+). Only
+// lowercase hyphenated names are variables; the rest are scanned so that
+// {Title} or {head_branch} warn at config load instead of passing silently.
 func scanVariable(text string, i int) (name string, end int, ok bool) {
 	j := i + 1
 	for j < len(text) {
@@ -152,12 +154,19 @@ func scanVariable(text string, i int) (name string, end int, ok bool) {
 			}
 			return text[i+1 : j], j + 1, true
 		}
-		if (c < 'a' || c > 'z') && (c < '0' || c > '9') && c != '-' {
+		if (c < 'a' || c > 'z') && (c < 'A' || c > 'Z') && (c < '0' || c > '9') && c != '-' && c != '_' {
 			return "", 0, false
 		}
 		j++
 	}
 	return "", 0, false
+}
+
+// meantVariable is the variable an unknown name most likely meant: name
+// lowercased with underscores as hyphens, when that is a variable.
+func meantVariable(name string) (string, bool) {
+	m := strings.ReplaceAll(strings.ToLower(name), "_", "-")
+	return m, m != name && isKnownVariable(m)
 }
 
 // Render fills text with v in one pass over text: substituted values are
