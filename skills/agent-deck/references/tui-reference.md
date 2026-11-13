@@ -324,6 +324,26 @@ cached yet, a failure fills the pane with what to do: an install hint when
 the authorize URL for SAML SSO, `gh has no login for <host>`, `offline ·
 retrying`, or `rate-limited until HH:MM` (polling stops until then).
 
+`/` opens a one-line query bar in the Project line, filled with the filter in
+use, in GitHub search syntax. Plain words narrow the fetched rows as you type
+(title, number, author, labels) and the right end says `N match`. A qualifier
+(`label:bug`, `author:@me`, `is:closed`, ...) runs on `Enter` as one GitHub
+search scoped to the Project and to Issues or PRs. When GitHub has more items
+than the 100 fetched, the bar says `showing matches in the latest 100 · enter
+to search all`, and `Enter` sends the words to GitHub too. `↑`/`↓` fill the bar
+with a preset (Issues: Open, Assigned to me, Created by me, Closed; PRs: Open,
+Review requested from me, Created by me, Drafts, Merged), then this Project's
+recent queries; the filled query stays editable. `Esc` closes the bar without
+changing the filter. A query GitHub rejects shows its message under the bar;
+the bar stays open and the previous rows stay. The applied filter shows as a
+dim chip after `owner/repo ▾`, and is kept per Project and tab until the TUI
+quits; `Esc` on the list resets it to the starting filter (`[github]
+issue_filter` / `pr_filter`, default `is:open`). The tab chip always counts
+the open items, whatever the filter. The default `is:open` list is fetched
+from the repository directly; any other filter goes through GitHub search,
+whose index can lag new changes by a few minutes. Only the default PRs list
+links worktree sessions to their PR.
+
 | Key | Action |
 |-----|--------|
 | `[` / `]` | Previous / next tab, wrapping; from every tab (**rebindable**: `forge_prev_tab`, `forge_next_tab`) |
@@ -332,6 +352,8 @@ retrying`, or `rate-limited until HH:MM` (polling stops until then).
 | `P` | Toggle between the Project and its Parent Repository (from GitHub's fork metadata; a Project that is not a fork says so) (Issues, PRs; **rebindable**: `forge_parent`) |
 | `r` | Refresh: refetch the list and the open detail now (and re-read a PR's `local` row), joining a fetch already running, and restart the poll timer; nothing while GitHub's rate limit lasts (Issues, PRs; **rebindable**: `forge_refresh`; `Ctrl+R` stays the global reload) |
 | `o` / `y` | Open the selected Issue or PR in the browser / copy its URL; on the SAML message, the authorize URL. Both run in the background, never blocking the TUI (Issues, PRs; **rebindable**: `forge_open`, `forge_copy`) |
+| `/` | Filter: open the query bar on the current filter; `Enter` applies, `↑`/`↓` presets and recent queries, `Esc` cancels, `Ctrl+U` clears, `Ctrl+W` deletes a word (Issues, PRs; **rebindable**: `forge_filter`) |
+| `Esc` | Reset a filter other than the starting one; otherwise as on Sessions (Issues, PRs) |
 | `n` | Start a session on the selected Issue or PR: the chooser first when sessions are linked to it (`Enter` attaches, `n` starts a new one anyway, `Esc` cancels), then the new-session dialog, prefilled (see below) (Issues, PRs; **rebindable**: `forge_new`) |
 | `a` | Attach to the session linked to the selected Issue or PR; with several, a picker (`j`/`k` move, `Enter` attaches, `Esc` closes); with none, a message says so (Issues, PRs; **rebindable**: `forge_attach`) |
 | `Enter` | Open the selected row in the overlay; in the single column the first `Enter` opens its detail full screen and `Esc` returns to the list (Issues, PRs; **rebindable**: `forge_view`) |

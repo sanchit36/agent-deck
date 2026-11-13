@@ -1,0 +1,24 @@
+ ●●○ Agent Deck [_test]  no sessions                         v1.16.10 
+  All    ● 0   ◐ 0   ○ 0   !@#& filter • 0 all • % open • …           
+ SESSIONS │ ISSUES 1075 │ PRS                                         
+──────────────────────────────────────────────────────────────────────
+me/widgets ▾  is:closed label:bug                 4 of 2002 · just now
+▌ ✓ `gh auth status` reports rate limit / network failures as "token …
+▌   #14053 · MumuTW · 2d  bug, priority-3, gh-auth                    
+                                                                      
+  ✓ Expiring token auto-refresh can break the stored login when `gh` …
+──────────────────────────────────────────────────────────────────────
+ISSUE #14053                                                          
+──────────────────────────────────────────────────────────────────────
+✓ `gh auth status` reports rate limit / network failures as "token is 
+  invalid" with misleading re-auth advice                             
+                                                                      
+loading…                                                              
+                                                                      
+                                                                      
+                                                                      
+                                                                      
+                                                                      
+                                                                      
+──────────────────────────────────────────────────────────────────────
+[/] tabs  enter view  n new  o open  y copy url  S settings  ? help   

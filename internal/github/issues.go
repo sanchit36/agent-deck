@@ -79,16 +79,8 @@ func (c *Client) IssueList(ctx context.Context, repo Repo) (IssueList, error) {
 		Repository *struct {
 			HasIssuesEnabled bool `json:"hasIssuesEnabled"`
 			Issues           struct {
-				TotalCount int `json:"totalCount"`
-				Nodes      []struct {
-					Number    int       `json:"number"`
-					Title     string    `json:"title"`
-					URL       string    `json:"url"`
-					State     string    `json:"state"`
-					UpdatedAt time.Time `json:"updatedAt"`
-					Author    *gqlActor `json:"author"`
-					Labels    gqlLabels `json:"labels"`
-				} `json:"nodes"`
+				TotalCount int        `json:"totalCount"`
+				Nodes      []gqlIssue `json:"nodes"`
 			} `json:"issues"`
 		} `json:"repository"`
 	}
@@ -104,17 +96,32 @@ func (c *Client) IssueList(ctx context.Context, repo Repo) (IssueList, error) {
 	}
 	out := IssueList{Total: r.Issues.TotalCount, Issues: make([]Issue, 0, len(r.Issues.Nodes))}
 	for _, n := range r.Issues.Nodes {
-		out.Issues = append(out.Issues, Issue{
-			Number:    n.Number,
-			Title:     n.Title,
-			URL:       n.URL,
-			Author:    n.Author.login(),
-			Labels:    n.Labels.names(),
-			UpdatedAt: n.UpdatedAt,
-			Closed:    n.State == "CLOSED",
-		})
+		out.Issues = append(out.Issues, n.issue())
 	}
 	return out, nil
+}
+
+// gqlIssue is an Issue list row as the list and search queries return it.
+type gqlIssue struct {
+	Number    int       `json:"number"`
+	Title     string    `json:"title"`
+	URL       string    `json:"url"`
+	State     string    `json:"state"`
+	UpdatedAt time.Time `json:"updatedAt"`
+	Author    *gqlActor `json:"author"`
+	Labels    gqlLabels `json:"labels"`
+}
+
+func (n gqlIssue) issue() Issue {
+	return Issue{
+		Number:    n.Number,
+		Title:     n.Title,
+		URL:       n.URL,
+		Author:    n.Author.login(),
+		Labels:    n.Labels.names(),
+		UpdatedAt: n.UpdatedAt,
+		Closed:    n.State == "CLOSED",
+	}
 }
 
 // RepoGraphQL runs a GraphQL query against repo's host with $owner and

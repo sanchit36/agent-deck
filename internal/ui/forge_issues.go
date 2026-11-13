@@ -21,8 +21,12 @@ import (
 // forgeRowHeight is the rows a list item takes: two lines and a blank.
 const forgeRowHeight = 3
 
-// fetchIssueList is the Issues list fetcher: one GraphQL request.
+// fetchIssueList is the Issues list fetcher: one GraphQL request, the
+// repository connection for the default list and a search otherwise.
 func fetchIssueList(ctx context.Context, c *github.Client, k freshness.Key) (any, error) {
+	if github.UsesSearch(k.Filter) {
+		return c.SearchIssues(ctx, k.Repo, k.Filter)
+	}
 	return c.IssueList(ctx, k.Repo)
 }
 
@@ -33,7 +37,8 @@ type forgeRow struct {
 	glyphColor lipgloss.TerminalColor
 	title      string
 	// meta is line 2's dim text: #n · author · age.
-	meta string
+	meta   string
+	author string
 	// tags are line 2's labels (Issues).
 	tags []string
 	// marks are line 2's state marks (PRs: ✓ ci  ✔ review).
@@ -85,6 +90,12 @@ func forgeListCounts(v any) (rows, total int, ok bool) {
 	return 0, 0, false
 }
 
+// forgeCounted reports whether v is a list value forgeListCounts counts.
+func forgeCounted(v any) bool {
+	_, _, ok := forgeListCounts(v)
+	return ok
+}
+
 // forgeRows are a cached list value's rows, ages measured at now.
 func forgeRows(v any, now time.Time) []forgeRow {
 	switch l := v.(type) {
@@ -96,6 +107,7 @@ func forgeRows(v any, now time.Time) []forgeRow {
 				glyphColor: issueGlyphColor(is.Closed),
 				title:      forgeOneLine(is.Title),
 				meta:       fmt.Sprintf("#%d · %s · %s", is.Number, forgeOneLine(is.Author), forgeAge(now.Sub(is.UpdatedAt))),
+				author:     is.Author,
 				tags:       is.Labels,
 				url:        is.URL,
 				number:     is.Number,
@@ -162,11 +174,19 @@ func (h *Home) forgeListKeyFor(t leftTab) (freshness.Key, bool) {
 	return freshness.ListKey(repo, kind, h.forgeListFilter(t)), true
 }
 
+// forgeDefaultKeyFor is the key of tab t's default list for the shown
+// Project: the unfiltered list whose total the tab chip shows.
+func forgeDefaultKeyFor(k freshness.Key) freshness.Key {
+	return freshness.ListKey(k.Repo, k.Kind, github.DefaultFilter)
+}
+
 // syncForgeLists points each forge tab's counts and cursor at the cached
-// list of the shown Project: the row count, the open total the tab chip
-// shows, and a cursor kept on a row. A tab whose list key changed (another
-// Project, the Parent Repository) starts over at the top, uncounted until
-// its list loads.
+// list of the shown Project: the rows shown (after narrowing), the rows
+// fetched and GitHub's total, the unfiltered open total the tab chip shows
+// (from the default list, whatever the filter), and a cursor kept on a
+// row. A tab whose list key changed (another Project or filter, the Parent
+// Repository) starts over at the top, uncounted until its list loads; the
+// chip keeps its total while the Project stays.
 func (h *Home) syncForgeLists() {
 	for _, t := range []leftTab{tabIssues, tabPRs} {
 		k, ok := h.forgeListKeyFor(t)
@@ -175,25 +195,40 @@ func (h *Home) syncForgeLists() {
 		}
 		l := &h.forge.lists[t]
 		moved := l.key != k
-		var e freshness.Entry
-		var has bool
-		if h.forge.fresh != nil {
-			e, has = h.forge.fresh.Get(k)
+		get := func(k freshness.Key) (freshness.Entry, bool) {
+			if h.forge.fresh == nil {
+				return freshness.Entry{}, false
+			}
+			return h.forge.fresh.Get(k)
 		}
-		if has && e.HasData() {
+		open, openKnown := l.open, l.openKnown
+		if moved && l.key != (freshness.Key{}) && l.key.Repo != k.Repo {
+			open, openKnown = 0, false
+		}
+		if de, ok := get(forgeDefaultKeyFor(k)); ok && de.HasData() {
+			if _, total, ok := forgeListCounts(de.Value); ok {
+				open, openKnown = total, true
+			}
+		}
+		if e, has := get(k); has && e.HasData() {
 			if rows, total, ok := forgeListCounts(e.Value); ok {
 				if moved {
 					l.cursor, l.offset = 0, 0
 				}
-				l.key, l.count, l.open, l.openKnown = k, rows, total, true
-				l.cursor = max(0, min(l.cursor, rows-1))
+				shown := rows
+				if words := h.forgeNarrowWords(t); len(words) > 0 {
+					shown = len(forgeNarrow(forgeRows(e.Value, h.forgeNow()), words))
+				}
+				l.key, l.count, l.fetched, l.total = k, shown, rows, total
+				l.open, l.openKnown = open, openKnown
+				l.cursor = max(0, min(l.cursor, shown-1))
 				l.offset = max(0, min(l.offset, l.cursor))
 				continue
 			}
 		}
 		// A zero key is a list never counted: leave it as it is.
 		if moved && l.key != (freshness.Key{}) {
-			*l = forgeList{key: k}
+			*l = forgeList{key: k, open: open, openKnown: openKnown}
 		}
 	}
 }
@@ -213,7 +248,7 @@ func (h *Home) forgeVisibleRows() ([]forgeRow, freshness.Entry, bool) {
 	if !ok || !e.HasData() {
 		return nil, e, false
 	}
-	return forgeRows(e.Value, h.forgeNow()), e, true
+	return forgeNarrow(forgeRows(e.Value, h.forgeNow()), h.forgeNarrowWords(h.forge.tab)), e, true
 }
 
 // forgeSelectedRow is the row under the cursor of the list on screen, or
@@ -230,13 +265,20 @@ func (h *Home) forgeSelectedRow() (forgeRow, bool) {
 	return rows[max(0, min(c, len(rows)-1))], true
 }
 
-// forgeCountText is the Project line's count: N open when the list holds
-// every open item, else the rows shown of GitHub's total (100 of 342).
-func forgeCountText(l forgeList) string {
-	if l.count < l.open {
-		return fmt.Sprintf("%d of %d", l.count, l.open)
+// forgeCountText is the Project line's count for the tab on screen: N
+// open for the whole default list, N match for narrowed rows or a whole
+// search, else the rows fetched of GitHub's total (100 of 342).
+func (h *Home) forgeCountText() string {
+	l := h.forge.lists[h.forge.tab]
+	switch {
+	case len(h.forgeNarrowWords(h.forge.tab)) > 0:
+		return fmt.Sprintf("%d match", l.count)
+	case l.fetched < l.total:
+		return fmt.Sprintf("%d of %d", l.fetched, l.total)
+	case h.forgeFiltered(h.forge.tab):
+		return fmt.Sprintf("%d match", l.total)
 	}
-	return fmt.Sprintf("%d open", l.open)
+	return fmt.Sprintf("%d open", l.total)
 }
 
 // renderForgeRows draws the list on screen in width x height: two-line
@@ -250,8 +292,13 @@ func (h *Home) renderForgeRows(width, height int) []string {
 	dim := lipgloss.NewStyle().Foreground(ColorTextDim)
 	if len(rows) == 0 {
 		what := "No open issues"
-		if h.forge.tab == tabPRs {
+		switch {
+		case h.forge.tab == tabPRs && h.forgeFiltered(tabPRs):
+			what = "No pull requests match"
+		case h.forge.tab == tabPRs:
 			what = "No open pull requests"
+		case h.forgeFiltered(tabIssues):
+			what = "No issues match"
 		}
 		return []string{dim.Render(truncateDisplay(what, width, "…"))}
 	}

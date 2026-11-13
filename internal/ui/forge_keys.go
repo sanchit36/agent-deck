@@ -28,6 +28,8 @@ const (
 	// failure message.
 	hotkeyForgeOpen = "forge_open"
 	hotkeyForgeCopy = "forge_copy"
+	// hotkeyForgeFilter opens the query bar of the list.
+	hotkeyForgeFilter = "forge_filter"
 	// hotkeyForgeAttach attaches to the session linked to the selected
 	// row, through a picker when several are.
 	hotkeyForgeAttach = "forge_attach"
@@ -51,6 +53,7 @@ var forgeHotkeyActionOrder = []string{
 	hotkeyForgeRefresh,
 	hotkeyForgeOpen,
 	hotkeyForgeCopy,
+	hotkeyForgeFilter,
 	hotkeyForgeAttach,
 	hotkeyForgeView,
 	hotkeyForgeNew,
@@ -76,6 +79,7 @@ var defaultForgeHotkeyBindings = map[string]string{
 	hotkeyForgeRefresh:     "r",
 	hotkeyForgeOpen:        "o",
 	hotkeyForgeCopy:        "y",
+	hotkeyForgeFilter:      "/",
 	hotkeyForgeAttach:      "a",
 	hotkeyForgeView:        "enter",
 	hotkeyForgeNew:         "n",

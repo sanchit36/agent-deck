@@ -189,6 +189,8 @@ func (h *Home) openForgeOverlay(tab forgeOverlayTab) tea.Cmd {
 	if !ok {
 		return nil
 	}
+	// The overlay has its own key space: an open query bar closes.
+	h.closeForgeBar()
 	o := forgeOverlay{
 		visible: true, width: h.width, height: h.height,
 		repo: lk.Repo, row: r, pr: h.forge.tab == tabPRs,

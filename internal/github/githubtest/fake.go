@@ -86,6 +86,21 @@ const (
 	// passing, failing and absent; review required, approved and changes
 	// requested; drafts; and PRs from forks.
 	PRList = "pr-list"
+	// IssueSearch is the Issues search (github.IssueSearchQuery) for
+	// `repo:cli/cli is:issue is:closed label:bug sort:updated-desc`,
+	// recorded with gh 2.103 and trimmed to four of its 2002 matches.
+	IssueSearch = "issue-search"
+	// PRSearch is the PRs search (github.PRSearchQuery) for
+	// `repo:cli/cli is:pr is:merged sort:updated-desc`, recorded with gh
+	// 2.103 and trimmed to four of its 3359 matches; one is from a fork
+	// and has no check rollup.
+	PRSearch = "pr-search"
+	// SearchRejected is a search GitHub rejects: gh exits 1 with the
+	// GraphQL error on stdout and its message on stderr. Hand-written in
+	// the shape gh 2.103 prints for a rejected search argument (recorded
+	// from `search(first:101)`); GitHub search tolerates almost any user
+	// query, so no user query was found that it rejects.
+	SearchRejected = "search-rejected"
 	// IssueDetail is the detail query (github.DetailQuery) for cli/cli
 	// Issue #14822, recorded with gh 2.103: open, three labels, five
 	// comments.

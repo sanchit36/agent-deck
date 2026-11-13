@@ -109,3 +109,35 @@ func TestUserConfigGitHubSignals(t *testing.T) {
 		t.Fatal("nil config runs the poller")
 	}
 }
+
+// TestUserConfigGitHubFilters pins [github] issue_filter and pr_filter
+// (spec #18 §6): the starting query of each tab, is:open when unset or
+// blank, trimmed otherwise.
+func TestUserConfigGitHubFilters(t *testing.T) {
+	for _, tc := range []struct {
+		name, src     string
+		issues, pulls string
+	}{
+		{"unset", ``, "is:open", "is:open"},
+		{"blank", "[github]\nissue_filter = \"  \"\npr_filter = \"\"\n", "is:open", "is:open"},
+		{"set", "[github]\nissue_filter = \" is:open assignee:@me \"\npr_filter = \"is:open review-requested:@me\"\n",
+			"is:open assignee:@me", "is:open review-requested:@me"},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			var cfg UserConfig
+			if _, err := toml.Decode(tc.src, &cfg); err != nil {
+				t.Fatalf("decode: %v", err)
+			}
+			if got := cfg.GitHubIssueFilter(); got != tc.issues {
+				t.Fatalf("GitHubIssueFilter() = %q, want %q", got, tc.issues)
+			}
+			if got := cfg.GitHubPRFilter(); got != tc.pulls {
+				t.Fatalf("GitHubPRFilter() = %q, want %q", got, tc.pulls)
+			}
+		})
+	}
+	var nilCfg *UserConfig
+	if nilCfg.GitHubIssueFilter() != "is:open" || nilCfg.GitHubPRFilter() != "is:open" {
+		t.Fatal("nil config has a filter other than is:open")
+	}
+}
