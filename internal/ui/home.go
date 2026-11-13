@@ -7189,9 +7189,14 @@ func (h *Home) performFinalShutdown(shutdownPool bool) tea.Cmd {
 	// The forge's gh work (fetches, Project resolution) is cancelled and
 	// joined below; take its handle here, on the Update goroutine.
 	forgeJobs := h.forgeJobs()
+	// So is the Attention signal poller's goroutine.
+	signalsPoller := h.forge.signals.poller
 	return func() tea.Msg {
 		if !forgeJobs.stop(forgeStopTimeout) {
 			uiLog.Warn("forge_jobs_stop_timeout")
+		}
+		if signalsPoller != nil {
+			signalsPoller.Stop()
 		}
 		if len(finalDeletes) > 0 {
 			runBounded(5*time.Second, func() { finalizeRemovedSessions(h.storage, "delete", finalDeletes) })
@@ -8442,9 +8447,10 @@ func (h *Home) renderSessionItem(
 		worktreeBadge = wtStyle.Render(" [" + branch + "]")
 	}
 
-	// Link badge (#12 / PR#34) from the session's stored Issue/PR links.
+	// Link badge (#12 / PR#34) from the session's stored Issue/PR links,
+	// with their Attention signal glyphs while the poller runs.
 	linkBadge := ""
-	if text := sessionLinkBadgeText(inst); text != "" {
+	if text := h.linkBadgeText(inst); text != "" {
 		linkBadge = renderLinkBadge(text, selected)
 	}
 
@@ -8588,16 +8594,17 @@ func (h *Home) renderSessionItem(
 		}
 	}
 	// The link badge never squeezes the title under its floor: in a column
-	// too narrow for both, a session with both links keeps only the PR, then
-	// the badge drops (#2201: badges yield to the title).
+	// too narrow for it, it falls back to shorter forms (a session with both
+	// links keeps only the PR; live glyphs go before the label), then drops
+	// (#2201: badges yield to the title).
 	if listWidth > 0 && linkBadge != "" && listWidth-reserved-1 < minSessionTitleWidth {
 		reserved -= cellWidth(linkBadge)
 		linkBadge = ""
-		if inst.IssueLink != nil && inst.PRLink != nil {
-			short := inst.PRLink.Label(session.LinkPR)
+		for _, short := range h.linkBadgeFallbacks(inst) {
 			if listWidth-reserved-cellWidth(short)-2 >= minSessionTitleWidth {
 				linkBadge = renderLinkBadge(short, selected)
 				reserved += cellWidth(linkBadge)
+				break
 			}
 		}
 	}

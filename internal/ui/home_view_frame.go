@@ -858,16 +858,19 @@ func (h *Home) renderFrame() string {
 	// total (statsCompact) rather than falling through to MaxWidth's blind
 	// mid-text byte truncation, which used to eat the badge on a busy
 	// fleet even with every optional field off (#2301 round-2).
-	optionalSegments := []string{sysStatsSegment, costSegment, accountsSegment, sshSegment}
+	// The review request count (`⇠ n reviews`, Attention signals) is kept
+	// longest: it is the one segment that asks the user to act.
+	optionalSegments := []string{h.reviewCountSegment(), sysStatsSegment, costSegment, accountsSegment, sshSegment}
+	const accountsAt, sshAt = 3, 4
 	headerLeft, versionFits := assembleHeaderLeft(logo, title, stats, statsCompact, statsSep, optionalSegments, versionBadge, h.width)
 	if !versionFits {
 		// Retry with the ssh and accounts fields' compact forms before
 		// dropping them outright.
-		optionalSegments[3] = sshCompactSegment
+		optionalSegments[sshAt] = sshCompactSegment
 		headerLeft, versionFits = assembleHeaderLeft(logo, title, stats, statsCompact, statsSep, optionalSegments, versionBadge, h.width)
 	}
 	if !versionFits {
-		optionalSegments[2] = accountsCompactSegment
+		optionalSegments[accountsAt] = accountsCompactSegment
 		headerLeft, versionFits = assembleHeaderLeft(logo, title, stats, statsCompact, statsSep, optionalSegments, versionBadge, h.width)
 	}
 	_ = versionFits // best-effort below this point; an unreasonably narrow terminal still gets a legible (if cramped) header

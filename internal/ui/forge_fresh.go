@@ -124,8 +124,10 @@ func (h *Home) forgeJobs() *forgeJobs {
 	return h.forge.jobs
 }
 
-// stopForge cancels and joins the forge's gh work (see forgeJobs).
+// stopForge cancels and joins the forge's gh work (see forgeJobs) and the
+// Attention signal poller.
 func (h *Home) stopForge() {
+	h.stopSignals()
 	if h.forge.jobs != nil && !h.forge.jobs.stop(forgeStopTimeout) {
 		uiLog.Warn("forge_jobs_stop_timeout")
 	}
@@ -202,8 +204,12 @@ func (h *Home) forgeRefreshDue() tea.Cmd {
 	return tea.Batch(cmds...)
 }
 
-// forgeOnTick is the main tick's poll.
-func (h *Home) forgeOnTick() tea.Cmd { return h.forgeRefreshDue() }
+// forgeOnTick is the main tick's poll. It also hands the Attention signal
+// poller the current links.
+func (h *Home) forgeOnTick() tea.Cmd {
+	h.signalsOnTick()
+	return h.forgeRefreshDue()
+}
 
 // forgeManualRefresh is r: fetch the visible keys now, joining a fetch
 // already in flight; nothing while the host is rate-limited. The poll timer

@@ -63,6 +63,17 @@ const (
 	// RepoNotFound is `gh api repos/...` for a repository that does not
 	// exist or is not visible.
 	RepoNotFound = "repo-not-found"
+	// SignalsPoll is an Attention signal poll of acme/widgets (r0) with
+	// Issue #12 (i0) open and PR #34 (i1) open, checks passing and a
+	// review required, plus one review request (acme/widgets#77).
+	SignalsPoll = "signals-poll"
+	// SignalsPollChanged is the same poll later: #12 closed, #34 failing
+	// with changes requested, and a second review request
+	// (acme/gadgets#81).
+	SignalsPollChanged = "signals-poll-changed"
+	// SignalsPollRepoGone is the poll after acme/widgets went away: gh
+	// exits 1 with the partial data (r0 null) on stdout.
+	SignalsPollRepoGone = "signals-poll-repo-gone"
 	// IssueList is the lean Issues list query (github.IssueListQuery) for
 	// cli/cli, recorded with gh 2.103 and trimmed to six of its 1075 open
 	// Issues; the last one's author is a deleted account (null).

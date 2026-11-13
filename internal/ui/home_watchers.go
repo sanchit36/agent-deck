@@ -17,6 +17,10 @@ import (
 func (h *Home) Init() tea.Cmd {
 	h.showSetupWizardIfFirstRun()
 
+	// The Attention signal poller ([github] signals) runs while the TUI
+	// runs; performFinalShutdown joins it.
+	h.startSignals()
+
 	// Start system stats collection
 	if h.sshCollector != nil {
 		h.sshCollector.Start()
