@@ -139,6 +139,9 @@ type forgeState struct {
 	// forge_local.go.
 	local     map[prLocalKey]prLocalEntry
 	localRead func(context.Context, gitstate.PRQuery) gitstate.PRLocal
+
+	// overlay is the full-screen Issue/PR overlay (forge_overlay.go).
+	overlay forgeOverlay
 }
 
 type forgeGroupResolvedMsg struct {
@@ -181,6 +184,7 @@ func (h *Home) setForgeEnabled(enabled bool, overrides map[string]string) {
 		h.forge.bar = forgeFilterBar{}
 		h.forge.sessionPick = nil
 		h.forge.detailFull = false
+		h.closeForgeOverlay()
 	}
 	h.syncForgeHelp()
 }
@@ -860,6 +864,8 @@ func (h *Home) renderForgeHelpBar() string {
 		if _, ok := h.forgeSelectedRow(); ok {
 			if h.getLayoutMode() == LayoutModeSingle && !h.forgeDetailFull() {
 				add(h.forgeKey(hotkeyForgeView), "detail")
+			} else {
+				add(h.forgeKey(hotkeyForgeView), "view")
 			}
 			if insts, _, _ := h.forgeSelectedSessions(); len(insts) > 0 {
 				add(h.forgeKey(hotkeyForgeAttach), "attach")
@@ -920,8 +926,11 @@ func (h *Home) forgeHelpRows() [][2]string {
 		{h.forgeKey(hotkeyForgeFilter), "Filter (GitHub search syntax)"},
 		{"Esc", "Reset the filter"},
 		{h.forgeKey(hotkeyForgeAttach), "Attach to the linked session"},
-		{h.forgeKey(hotkeyForgeView), "Detail full screen (single column)"},
+		{h.forgeKey(hotkeyForgeView), "Open the item (single column: detail first)"},
 		{"j/k ↑↓", "Move in the list"},
+		{joinHotkeyLabels(h.forgeKey(hotkeyForgeConversation), h.forgeKey(hotkeyForgeFiles)), "Open item: Conversation / Files"},
+		{h.forgeKey(hotkeyForgeExpand), "Open item: expand hidden comments"},
+		{"Esc / q", "Open item: close"},
 		{"", ""},
 		{h.actionKey(hotkeyHelp), "This help"},
 		{h.actionKey(hotkeyQuit), "Quit"},

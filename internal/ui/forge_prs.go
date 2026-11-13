@@ -120,6 +120,7 @@ func prRows(l github.PRList, now time.Time) []forgeRow {
 			url:       p.URL,
 			number:    p.Number,
 			updatedAt: p.UpdatedAt,
+			state:     prStateWord(p),
 		})
 	}
 	return rows

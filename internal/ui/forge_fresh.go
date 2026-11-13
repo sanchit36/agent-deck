@@ -37,6 +37,8 @@ func defaultForgeFetchers() map[freshness.Kind]forgeFetchFunc {
 		freshness.IssueList: fetchIssueList,
 		freshness.PRList:    fetchPRList,
 		freshness.Detail:    fetchDetail,
+		// The overlay's Conversation tab (forge_overlay.go).
+		freshness.Conversation: fetchConversation,
 	}
 }
 
@@ -175,6 +177,9 @@ func (h *Home) forgeVisibleKeys() []freshness.Key {
 	if h.forge.detail.Kind != "" {
 		keys = append(keys, h.forge.detail)
 	}
+	if ck, open := h.forgeOverlayKey(); open {
+		keys = append(keys, ck)
+	}
 	return keys
 }
 
@@ -247,6 +252,7 @@ func (h *Home) forgeFetch(k freshness.Key) tea.Cmd {
 // auto-detect.
 func (h *Home) applyForgeFetched(msg forgeFetchedMsg) tea.Cmd {
 	h.forgeCache().Done(msg.key, msg.value, msg.err, h.forgeNow())
+	h.forgeOverlayFetched(msg.key)
 	if msg.err == nil {
 		h.markForgeRowsSeen(msg.key, msg.value)
 	}

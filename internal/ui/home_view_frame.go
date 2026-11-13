@@ -628,6 +628,9 @@ func (h *Home) renderFrame() string {
 	if h.contextPager.IsVisible() {
 		return h.contextPager.View()
 	}
+	if h.forgeOverlayVisible() {
+		return h.renderForgeOverlay()
+	}
 	if h.sessionPickerDialog.IsVisible() {
 		return h.sessionPickerDialog.View()
 	}

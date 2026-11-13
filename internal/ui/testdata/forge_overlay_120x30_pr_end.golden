@@ -1,0 +1,30 @@
+ ◌ #14927  Add guided multi-account setup and evaluation                                                         draft
+ [ Conversation ]   Files   
+────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────
+ | `script/identity-e2e/runner_test.go` | Tests runner setup, interaction, isolation, and cleanup. |
+ | `script/identity-e2e/runner_helper_test.go` | Supplies fake gh and SSH executables. |
+ | `script/identity-e2e/run.sh` | Adds guided live identity journeys and resource cleanup. |
+ | `script/identity-e2e/reset_downgrade_test.go` | Checks configuration preservation across reset and downgrade. |
+ | `script/identity-e2e/README.md` | Documents setup, evaluation, limitations, and recovery. |
+ | `script/identity-e2e/offline_test.go` | Adds offline identity and routing regression journeys. |
+ | `script/identity-e2e/fixture_test.go` | Provides synthetic accounts and simulated Git transports. |
+ | `script/identity-e2e/bootstrap.sh` | Implements account selection, isolated setup, and guided prompts. |
+ | `pkg/cmd/version/version.go` | Reports when debug keyring isolation is enabled. |
+ | `internal/keyring/keyring.go` | Blocks keyring operations under debug isolation. |
+ | `internal/keyring/isolation_test.go` | Checks isolation preserves existing keyring credentials. |
+ | `internal/debug/config.go` | Adds the debug keyring-isolation setting. |
+ | `internal/debug/config_test.go` | Clears the new setting during test setup. |
+ | `internal/config/identity_isolation_test.go` | Checks isolated login/logout preserves operator tokens. |
+ | `acceptance/testdata/identity/identity-lifecycle.txtar` | Exercises identity lifecycle and worktree behavior. |
+ | `acceptance/README.md` | Documents lifecycle isolation and credential requirements. |
+ | `acceptance/acceptance_test.go` | Adds isolation gating and private token-file helpers. |
+ | `.github/skills/setting-up-identites/tests/scenarios.json` | Defines offline onboarding and approval-boundary cases›
+ | `.github/skills/setting-up-identites/SKILL.md` | Adds guided prototype setup and scoped undo instructions. |
+ | `.github/skills/setting-up-identites/references/workflow.md` | Provides inspection, setup, verification, and cleanu›
+ 
+ Review effort: Balanced
+ 
+ ────────────────────────────────────────────────────────────────────────────────────────────────────
+ 4 inline review comments: open in browser
+ 135–159 of 159
+ c/d tabs · j/k scroll · o open · y copy url · r refresh · esc close

@@ -109,6 +109,27 @@ const (
 	// 2.103: a draft with one failing check of 25, review required, four
 	// commits and one review.
 	PRDetail = "pr-detail"
+	// IssueConversation is the Conversation query
+	// (github.ConversationQuery) for cli/cli Issue #326, recorded with gh
+	// 2.103: 108 comments (the first 100 returned), 28 of them minimized
+	// (spam, off-topic), five by deleted accounts.
+	IssueConversation = "issue-conversation"
+	// PRConversation is the Conversation query for cli/cli PR #8361,
+	// recorded with gh 2.103: an edited body, two comments (one minimized
+	// as spam) and three reviews (changes requested, an empty COMMENTED
+	// review holding one inline comment, approved) with four inline
+	// comments in all.
+	PRConversation = "pr-conversation"
+	// IssueRowConversation is the Conversation query for cli/cli Issue
+	// #14822 (the IssueList and IssueDetail item), recorded with gh 2.103:
+	// five comments, the first by a bot (cli-triage), the second
+	// minimized as spam.
+	IssueRowConversation = "issue-row-conversation"
+	// PRRowConversation is the Conversation query for cli/cli PR #14927
+	// (the PRList and PRDetail item), recorded with gh 2.103: an edited
+	// body, no comments and one COMMENTED review by a bot with four
+	// inline comments.
+	PRRowConversation = "pr-row-conversation"
 )
 
 // Load returns the fixture named name.
