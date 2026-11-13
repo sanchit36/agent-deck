@@ -574,6 +574,17 @@ type Instance struct {
 	// favourite, so the save writes an explicit false (favorite_persist.go).
 	favoriteCleared bool
 
+	// IssueLink and PRLink are the session's Links (spec #18 §11): at most
+	// one Issue and one PR, each repo + number. Set by `session link`,
+	// cleared by `session unlink`; drawn as the static `#12` / `PR#34` row
+	// badge. Persisted in the tool_data extras zone (link_persist.go).
+	IssueLink *Link `json:"issue_link,omitempty"`
+	PRLink    *Link `json:"pr_link,omitempty"`
+	// issueLinkCleared / prLinkCleared make the save write an explicit null
+	// after an unlink (link_persist.go).
+	issueLinkCleared bool
+	prLinkCleared    bool
+
 	// IsForkAwaitingStart signals that this instance was produced by a
 	// fork builder and must run a pre-built fork command verbatim on the
 	// first Start() (#745). Claude fork targets usually store that command
