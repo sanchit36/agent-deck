@@ -99,7 +99,11 @@ func (l forgeLauncher) launch(ctx context.Context, p forgeLaunchPlan) forgeLaunc
 
 	switch {
 	case p.kind == session.LinkIssue && p.worktree:
-		if existing := forgeExistingWorktree(p.repoRoot, p.branch); existing != "" {
+		existing, inMain := forgeExistingWorktree(p.repoRoot, p.branch)
+		if inMain {
+			return fail(fmt.Errorf("%s is checked out in the main checkout %s: switch that checkout to another branch, or untick Worktree to work there", p.branch, p.repoRoot))
+		}
+		if existing != "" {
 			dir = existing
 			break
 		}
@@ -120,7 +124,9 @@ func (l forgeLauncher) launch(ctx context.Context, p forgeLaunchPlan) forgeLaunc
 		}
 		dir, created, branch = wt, wt, p.branch
 	case p.kind == session.LinkPR && p.worktree:
-		if existing := forgeExistingWorktree(p.repoRoot, p.branch); existing != "" {
+		// A head the main checkout holds (a fork's main, say) gets a new
+		// worktree: gh pr checkout names its branch there.
+		if existing, _ := forgeExistingWorktree(p.repoRoot, p.branch); existing != "" {
 			dir = existing
 			break
 		}
@@ -200,14 +206,30 @@ func (l forgeLauncher) prCheckout(ctx context.Context, p forgeLaunchPlan, dir st
 	return nil
 }
 
-// forgeExistingWorktree is the worktree that has branch checked out, ""
-// when none does (or branch is empty: a detached worktree has no branch).
-func forgeExistingWorktree(repoRoot, branch string) string {
+// forgeExistingWorktree is the linked worktree that has branch checked
+// out, "" when none does (or branch is empty: a detached worktree has no
+// branch). The main checkout is never one to reuse: inMain reports that it
+// holds branch, and a session recording it as its worktree would have
+// Delete and Finish act on the repository itself.
+func forgeExistingWorktree(repoRoot, branch string) (linked string, inMain bool) {
 	if branch == "" {
-		return ""
+		return "", false
 	}
-	wt, _ := git.GetWorktreeForBranch(repoRoot, branch)
-	return wt
+	wts, err := git.ListWorktrees(repoRoot)
+	if err != nil {
+		return "", false
+	}
+	for i, wt := range wts {
+		if wt.Branch != branch {
+			continue
+		}
+		// git lists the main worktree (or a bare repository) first.
+		if i == 0 || wt.Bare {
+			return "", true
+		}
+		return wt.Path, false
+	}
+	return "", false
 }
 
 // forgeWorktreePath is where a launch's worktree for branch goes, by the

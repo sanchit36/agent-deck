@@ -290,3 +290,46 @@ func TestForgeLaunchPRUntickedChecksOutInRepo(t *testing.T) {
 		t.Fatalf("path %q worktree %q", res.inst.ProjectPath, res.inst.WorktreePath)
 	}
 }
+
+// TestForgeLaunchNeverUsesMainCheckout: a branch the main checkout holds
+// is never "reused": a PR whose head is that branch (a fork's main) gets a
+// new worktree and gh pr checkout, and an Issue branch checked out there
+// is refused with the reason, so no session records the repository root
+// as its worktree (a later Delete or Finish would act on it).
+func TestForgeLaunchNeverUsesMainCheckout(t *testing.T) {
+	t.Run("pr head is main", func(t *testing.T) {
+		repo := launchTestRepo(t)
+		fake := githubtest.NewFake().Serve(githubtest.MustLoad(t, githubtest.OK), prCheckoutArgs("34")...)
+		rec := &startRecorder{}
+		plan := prPlan(repo)
+		plan.branch = "main"
+		res := rec.launcher(checkoutGh{t: t, head: "fork-main", fake: fake}).launch(context.Background(), plan)
+		if res.err != nil {
+			t.Fatal(res.err)
+		}
+		if res.inst.WorktreePath == repo || res.inst.ProjectPath == repo {
+			t.Fatalf("the session runs in the main checkout: worktree %q path %q", res.inst.WorktreePath, res.inst.ProjectPath)
+		}
+		if calls := fake.Calls(); len(calls) != 1 || calls[0].Dir != res.inst.WorktreePath {
+			t.Fatalf("gh calls %+v, want pr checkout in the new worktree %q", calls, res.inst.WorktreePath)
+		}
+		if got := strings.TrimSpace(gitOutUI(t, repo, "rev-parse", "--abbrev-ref", "HEAD")); got != "main" {
+			t.Fatalf("the main checkout moved to %q", got)
+		}
+	})
+	t.Run("issue branch checked out in the main checkout", func(t *testing.T) {
+		repo := launchTestRepo(t)
+		gitMustUI(t, repo, "checkout", "-q", "-b", "feature/12-fix-crash")
+		rec := &startRecorder{}
+		res := rec.launcher(githubtest.NewFake()).launch(context.Background(), issuePlan(repo))
+		if res.err == nil || !strings.Contains(res.err.Error(), "main checkout") {
+			t.Fatalf("err %v, want a refusal naming the main checkout", res.err)
+		}
+		if res.inst != nil || len(rec.calls) != 0 {
+			t.Fatalf("a session started in the main checkout: %+v", rec.started)
+		}
+		if n := worktreeCount(t, repo); n != 1 {
+			t.Fatalf("%d worktrees, want only the main one", n)
+		}
+	})
+}
