@@ -1006,6 +1006,8 @@ panel for the GitHub repository (Project) of the selected group.
 enabled = true
 refresh_interval = 60
 signals = true
+issue_filter = "is:open"
+pr_filter = "is:open"
 ```
 
 | Key | Type | Default | Description |
@@ -1013,6 +1015,8 @@ signals = true
 | `enabled` | bool | `false` | Turns the feature on. Off means no tab strip, no forge keys and no `gh` calls: the TUI is exactly as without it. |
 | `refresh_interval` | int (seconds) | `60` | How often the list on screen refetches. Values below `30` are raised to `30`; `0` means manual refresh (`r`) only. Only the visible tab of the visible Project polls, and only while the TUI is in the foreground with no session attached. |
 | `signals` | bool | `true` | Attention signals: live badges on sessions linked to an Issue or PR, the `⇠ n reviews` header count, and a notification-bar mark (plus a desktop notification with `[notifications] desktop = true`) when a linked PR's checks start failing, its review changes, it is merged or closed, or a review is requested from you. A poller of its own makes one `gh api graphql` request per host every `refresh_interval`, while the TUI runs, attached or not; `0` there stops it too. `false` turns it off completely. |
+| `issue_filter` | string | `"is:open"` | The Issues tab's starting filter, in GitHub search syntax (for example `"is:open assignee:@me"`). Empty means the default. `is:open` is the default list: the 100 most recently updated open Issues, fetched from the repository without search. Any other filter runs as a GitHub search scoped to the Project, which can lag new changes by a few minutes. `Esc` on the tab comes back to this filter. |
+| `pr_filter` | string | `"is:open"` | The PRs tab's starting filter, as `issue_filter` (for example `"is:open review-requested:@me"`). |
 
 Lists are cached in memory per Project, kind and filter. Going back to a tab
 shows its cached list at once and refetches it if it is older than the
@@ -1039,6 +1043,7 @@ fire on their Russian ЙЦУКЕН twin.
 | `forge_refresh` | `r` | Issues, PRs | refetch the list (and the open detail) now |
 | `forge_open` | `o` | Issues, PRs | open the selected row in the browser (the SAML authorize URL while that message shows) |
 | `forge_copy` | `y` | Issues, PRs | copy the selected row's URL (the SAML authorize URL while that message shows) |
+| `forge_filter` | `/` | Issues, PRs | open the query bar (GitHub search syntax) |
 
 ## [display] Section
 

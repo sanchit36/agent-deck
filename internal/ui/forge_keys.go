@@ -28,6 +28,8 @@ const (
 	// failure message.
 	hotkeyForgeOpen = "forge_open"
 	hotkeyForgeCopy = "forge_copy"
+	// hotkeyForgeFilter opens the query bar of the list.
+	hotkeyForgeFilter = "forge_filter"
 )
 
 // forgeHotkeyActionOrder is every forge action; later slices append theirs.
@@ -42,6 +44,7 @@ var forgeHotkeyActionOrder = []string{
 	hotkeyForgeRefresh,
 	hotkeyForgeOpen,
 	hotkeyForgeCopy,
+	hotkeyForgeFilter,
 }
 
 // forgeTabActions switch tabs and work from every tab, Sessions included.
@@ -64,6 +67,7 @@ var defaultForgeHotkeyBindings = map[string]string{
 	hotkeyForgeRefresh:     "r",
 	hotkeyForgeOpen:        "o",
 	hotkeyForgeCopy:        "y",
+	hotkeyForgeFilter:      "/",
 }
 
 // forgeFallThroughKeys are the overview keys (canonical, as normalizeMainKey

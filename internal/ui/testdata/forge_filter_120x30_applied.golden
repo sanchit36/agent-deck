@@ -1,0 +1,30 @@
+ ●●○ Agent Deck [_test]  no sessions                                                                           v1.16.10 
+  All    ● 0   ◐ 0   ○ 0   !@#& filter • 0 all • % open • ^ archived • t view • * time                                  
+ SESSIONS │ ISSUES 1075 │ PRS              │ PREVIEW                                                                    
+────────────────────────────────────────── │ ───────────────────────────────────────────────────────────────────────────
+me/widgets ▾  is:cl…  4 of 2002 · just now │ fix login  ■ stopped                                                       
+▌ ✓ `gh auth status` reports rate limit /… │ 📁 /src/widgets                                                            
+▌   #14053 · MumuTW · 2d  bug, priority-3… │ ⏱ unknown                                                                  
+                                           │  claude   widgets                                                          
+  ✓ Expiring token auto-refresh can break… │ ─────────────────────────────── Claude ───────────────────────────────     
+    #14844 · babakks · 2d  bug, priority-… │ Status:  ○ Not connected                                                   
+                                           │ Model:   tool default                                                      
+  ✓ `gh attestation verify` fails with cr… │                                                                            
+    #9101 · capri-xiyue · 1w  bug, needs-… │ ─────────────────────────── Process Exited ───────────────────────────     
+                                           │                                                                            
+  ✓ `gh auth login` freezes after selecti… │ ■ Process exited                                                           
+    #7359 · xandmore · 1w  bug, more-info… │                                                                            
+                                           │ The process ended or was stopped.                                          
+                                           │ The session record is preserved for resuming.                              
+                                           │                                                                            
+                                           │ Actions:                                                                   
+                                           │   R Resume  - restart with session resume                                  
+                                           │   d Delete  - remove from list                                             
+                                           │   Enter - attach (will auto-start)                                         
+                                           │                                                                            
+                                           │                                                                            
+                                           │                                                                            
+                                           │                                                                            
+                                           │                                                                            
+────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────
+[/] tabs  o open  y copy url  / filter  esc reset  r refresh  p project  P parent  S settings  ? help                   

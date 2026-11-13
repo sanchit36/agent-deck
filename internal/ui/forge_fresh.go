@@ -154,9 +154,6 @@ func (h *Home) forgeCache() *freshness.Cache {
 	return h.forge.fresh
 }
 
-// forgeListFilter is the filter the tab's list is fetched with.
-func (h *Home) forgeListFilter(leftTab) string { return "is:open" }
-
 // forgeListKey is the cache key of the list on screen; false when no forge
 // tab shows a Project.
 func (h *Home) forgeListKey() (freshness.Key, bool) {
@@ -243,15 +240,19 @@ func (h *Home) forgeFetch(k freshness.Key) tea.Cmd {
 	})
 }
 
-// applyForgeFetched writes a result under its key. A PRs list that
-// arrives starts Link auto-detect.
+// applyForgeFetched writes a result under its key and settles a filter
+// submitted for it. A default PRs list that arrives starts Link
+// auto-detect.
 func (h *Home) applyForgeFetched(msg forgeFetchedMsg) tea.Cmd {
 	h.forgeCache().Done(msg.key, msg.value, msg.err, h.forgeNow())
 	if msg.err == nil {
 		h.markForgeRowsSeen(msg.key, msg.value)
 	}
+	h.applyForgeFilterFetched(msg)
 	h.syncForgeLists()
-	if l, ok := msg.value.(github.PRList); ok && msg.err == nil {
+	// Only the default list links sessions: a filtered one may hold
+	// merged or closed PRs.
+	if l, ok := msg.value.(github.PRList); ok && msg.err == nil && msg.key.Filter == github.DefaultFilter {
 		return h.forgeAutoLinkCmd(msg.key.Repo, l)
 	}
 	return nil
@@ -286,8 +287,8 @@ func (h *Home) forgeFreshText() string {
 	}
 	dim := lipgloss.NewStyle().Foreground(ColorTextDim)
 	var parts []string
-	if l := h.forge.lists[h.forge.tab]; l.openKnown && e.HasData() {
-		parts = append(parts, dim.Render(forgeCountText(l)))
+	if e.HasData() && forgeCounted(e.Value) {
+		parts = append(parts, dim.Render(h.forgeCountText()))
 	}
 	switch {
 	case e.Fetching:
@@ -350,6 +351,10 @@ type forgeFailure struct {
 func forgeFailureFor(err error, k freshness.Key, now time.Time) forgeFailure {
 	if errors.Is(err, github.ErrIssuesDisabled) {
 		return forgeFailure{lines: []string{"Issues are disabled for " + repoLabel(k.Repo)}, empty: true}
+	}
+	var qe *github.QueryError
+	if errors.As(err, &qe) {
+		return forgeFailure{lines: []string{"⚠ GitHub rejected the filter: " + qe.Message, "/ edit · esc reset"}}
 	}
 	var ge *github.Error
 	if !errors.As(err, &ge) {

@@ -17,8 +17,12 @@ import (
 // line 2, and each list that arrives links worktree sessions to the PR
 // their branch heads, off the render path.
 
-// fetchPRList is the PRs list fetcher: one GraphQL request.
+// fetchPRList is the PRs list fetcher: one GraphQL request, the repository
+// connection for the default list and a search otherwise.
 func fetchPRList(ctx context.Context, c *github.Client, k freshness.Key) (any, error) {
+	if github.UsesSearch(k.Filter) {
+		return c.SearchPRs(ctx, k.Repo, k.Filter)
+	}
 	return c.PRList(ctx, k.Repo)
 }
 
@@ -108,6 +112,7 @@ func prRows(l github.PRList, now time.Time) []forgeRow {
 			glyphColor: prGlyphColor(p),
 			title:      forgeOneLine(p.Title),
 			meta:       fmt.Sprintf("#%d · %s · %s", p.Number, forgeOneLine(p.Author), forgeAge(now.Sub(p.UpdatedAt))),
+			author:     p.Author,
 			marks: []forgeMark{
 				{glyph: checkGlyph(p.Checks), color: checkGlyphColor(p.Checks), label: "ci"},
 				{glyph: reviewGlyph(p.Review), color: reviewGlyphColor(p.Review), label: "review"},

@@ -46,6 +46,10 @@ type forgeList struct {
 	// false until a list has loaded.
 	open      int
 	openKnown bool
+	// fetched is the rows the cached list holds and total how many GitHub
+	// counts for its filter; count is the rows shown after narrowing.
+	fetched int
+	total   int
 	// key is the cache key of the list counted (see syncForgeLists).
 	key freshness.Key
 }
@@ -107,6 +111,15 @@ type forgeState struct {
 	// signals is the Attention signal poller and what it publishes
 	// (forge_signals.go).
 	signals signalsState
+
+	// Filtering (forge_filter.go): the applied filter per Project + tab
+	// (absent: the starting one), recent queries, the query bar, and the
+	// starting filters from [github] issue_filter / pr_filter.
+	filters     map[forgeFilterScope]forgeFilter
+	recent      map[forgeFilterScope][]string
+	bar         forgeFilterBar
+	issueFilter string
+	prFilter    string
 }
 
 type forgeGroupResolvedMsg struct {
@@ -133,6 +146,7 @@ const forgeResolveTimeout = 30 * time.Second
 func (h *Home) reloadForgeFromConfig() {
 	cfg, _ := session.LoadUserConfig()
 	h.forge.interval = cfg.GitHubRefreshInterval()
+	h.forge.issueFilter, h.forge.prFilter = cfg.GitHubIssueFilter(), cfg.GitHubPRFilter()
 	h.setForgeEnabled(cfg.GitHubEnabled(), session.GetHotkeyOverrides())
 	h.syncSignalsPoller(cfg)
 }
@@ -145,6 +159,7 @@ func (h *Home) setForgeEnabled(enabled bool, overrides map[string]string) {
 	if !enabled {
 		h.forge.tab = tabSessions
 		h.forge.picker = false
+		h.forge.bar = forgeFilterBar{}
 	}
 	h.syncForgeHelp()
 }
@@ -170,6 +185,7 @@ func (h *Home) forgeKey(action string) string {
 func (h *Home) switchForgeTab(t leftTab) tea.Cmd {
 	h.forge.tab = t
 	h.forge.picker = false
+	h.closeForgeBar()
 	h.syncForgeHelp()
 	return h.forgeEnsureProject()
 }
@@ -181,6 +197,9 @@ func (h *Home) switchForgeTab(t leftTab) tea.Cmd {
 func (h *Home) handleForgeKey(msg tea.KeyMsg, raw, key string) (bool, tea.Model, tea.Cmd) {
 	if h.forge.bypass || h.welcomeActive() || h.sessionRefPicking() {
 		return false, h, nil
+	}
+	if h.forge.bar.open && h.forgeTabActive() {
+		return h.handleForgeBarKey(msg)
 	}
 	action := h.forge.lookup[raw]
 	// On Sessions a key the user bound to a session action keeps it.
@@ -217,6 +236,14 @@ func (h *Home) handleForgeKey(msg tea.KeyMsg, raw, key string) (bool, tea.Model,
 		return true, h, h.forgeOpenURL()
 	case hotkeyForgeCopy:
 		return true, h, h.forgeCopyURL()
+	case hotkeyForgeFilter:
+		h.openForgeBar()
+		return true, h, nil
+	}
+	if key == "esc" {
+		if cmd, ok := h.resetForgeFilter(); ok {
+			return true, h, cmd
+		}
 	}
 	if mv, ok := forgeMovementKeys[raw]; ok {
 		h.moveForgeCursor(mv)
@@ -285,6 +312,7 @@ func (h *Home) openForgePicker() {
 	if v == nil || len(v.group.Projects) == 0 {
 		return
 	}
+	h.closeForgeBar()
 	h.forge.picker = true
 	h.forge.pickerAt = v.selected
 }
@@ -475,6 +503,7 @@ func (h *Home) toggleForgeParent() tea.Cmd {
 	if !ok || v.parentResolving {
 		return nil
 	}
+	h.closeForgeBar()
 	v.note = ""
 	if v.parent {
 		v.parent = false
@@ -658,13 +687,18 @@ func (h *Home) renderLeftPane(width, height int) string {
 }
 
 func (h *Home) renderForgeList(width, height int) string {
-	lines := []string{h.renderForgeProjectLine(width)}
+	var lines []string
+	if h.forgeBarShowing(h.forge.tab) {
+		lines = append([]string{h.renderForgeBarLine(width)}, h.renderForgeBarNotes(width)...)
+	} else {
+		lines = []string{h.renderForgeProjectLine(width)}
+	}
 	if h.forge.picker {
 		lines = append(lines, h.renderForgePicker(width)...)
 	} else if body := h.renderForgeListBody(width); body != nil {
 		lines = append(lines, body...)
 	} else {
-		lines = append(lines, h.renderForgeRows(width, height-1)...)
+		lines = append(lines, h.renderForgeRows(width, height-len(lines))...)
 	}
 	if len(lines) > height {
 		lines = lines[:max(0, height)]
@@ -705,7 +739,7 @@ func (h *Home) renderForgeProjectLine(width int) string {
 		if v.parent {
 			left += dim.Render(" (parent)")
 		}
-		left += dim.Render("  is:open")
+		left += dim.Render("  " + h.forgeFilterChip())
 		switch {
 		case v.parentResolving:
 			right = dim.Render("finding parent…")
@@ -765,15 +799,24 @@ func (h *Home) renderForgeHelpBar() string {
 			ctx = append(ctx, footerHint{key: key, label: label})
 		}
 	}
-	if h.forge.picker {
+	switch {
+	case h.forge.picker:
 		add("↑↓", "move")
 		add("enter", "select")
 		add("esc", "close")
-	} else {
+	case h.forgeBarShowing(h.forge.tab):
+		add("enter", "apply")
+		add("↑↓", "presets")
+		add("esc", "cancel")
+	default:
 		add(joinHotkeyLabels(h.forgeKey(hotkeyForgePrevTab), h.forgeKey(hotkeyForgeNextTab)), "tabs")
 		if _, ok := h.forgeSelectedRow(); ok {
 			add(h.forgeKey(hotkeyForgeOpen), "open")
 			add(h.forgeKey(hotkeyForgeCopy), "copy url")
+		}
+		add(h.forgeKey(hotkeyForgeFilter), "filter")
+		if !h.forgeFilterIsDefault(h.forge.tab) {
+			add("esc", "reset")
 		}
 		add(h.forgeKey(hotkeyForgeRefresh), "refresh")
 		add(h.forgeKey(hotkeyForgeProject), "project")
@@ -821,6 +864,8 @@ func (h *Home) forgeHelpRows() [][2]string {
 		{h.forgeKey(hotkeyForgeRefresh), "Refresh the list"},
 		{h.forgeKey(hotkeyForgeOpen), "Open in the browser"},
 		{h.forgeKey(hotkeyForgeCopy), "Copy the URL"},
+		{h.forgeKey(hotkeyForgeFilter), "Filter (GitHub search syntax)"},
+		{"Esc", "Reset the filter"},
 		{"j/k ↑↓", "Move in the list"},
 		{"", ""},
 		{h.actionKey(hotkeyHelp), "This help"},
