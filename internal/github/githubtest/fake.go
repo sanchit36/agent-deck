@@ -86,6 +86,14 @@ const (
 	// passing, failing and absent; review required, approved and changes
 	// requested; drafts; and PRs from forks.
 	PRList = "pr-list"
+	// IssueDetail is the detail query (github.DetailQuery) for cli/cli
+	// Issue #14822, recorded with gh 2.103: open, three labels, five
+	// comments.
+	IssueDetail = "issue-detail"
+	// PRDetail is the detail query for cli/cli PR #14927, recorded with gh
+	// 2.103: a draft with one failing check of 25, review required, four
+	// commits and one review.
+	PRDetail = "pr-detail"
 )
 
 // Load returns the fixture named name.
