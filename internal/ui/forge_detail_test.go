@@ -190,6 +190,34 @@ func TestForgeDetailPolledWhenUpdated(t *testing.T) {
 	}
 }
 
+// TestForgeDetailPolledOnInterval: the detail on screen refetches every
+// refresh interval even when no list row reports a newer updatedAt (a PR's
+// checks change without it), and not while polling pauses.
+func TestForgeDetailPolledOnInterval(t *testing.T) {
+	h, fake := detailPRsHome(t, 120, 30)
+	clk := &forgeClock{now: prsT0}
+	h.forge.now = clk.Now
+	if n := detailCalls(fake, 14927); n != 1 {
+		t.Fatalf("%d detail requests after the open, want 1", n)
+	}
+	clk.advance(59 * time.Second)
+	h = runCmds(t, h, h.forgeOnTick())
+	if n := detailCalls(fake, 14927); n != 1 {
+		t.Fatalf("%d detail requests before the interval, want 1", n)
+	}
+	clk.advance(time.Second)
+	h = runCmds(t, h, h.forgeOnTick())
+	if n := detailCalls(fake, 14927); n != 2 {
+		t.Fatalf("%d detail requests at the interval, want 2 (the open and the poll)", n)
+	}
+	h.isAttaching.Store(true)
+	clk.advance(10 * time.Minute)
+	_ = runCmds(t, h, h.forgeOnTick())
+	if n := detailCalls(fake, 14927); n != 2 {
+		t.Fatalf("%d detail requests while attached, want 2 (polling pauses)", n)
+	}
+}
+
 // TestForgeDetailFailureWithoutCache: a failed detail fetch with nothing
 // cached keeps the row's title and says what failed.
 func TestForgeDetailFailureWithoutCache(t *testing.T) {

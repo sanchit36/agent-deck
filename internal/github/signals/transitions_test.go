@@ -131,3 +131,23 @@ func TestBadge(t *testing.T) {
 		}
 	}
 }
+
+// TestReviewCountForIgnoresCase: the on-screen Project comes from a git
+// remote, whose spelling may differ in case from the repository GitHub's
+// review search returns; the PRS chip still counts its requests.
+func TestReviewCountForIgnoresCase(t *testing.T) {
+	snap := &Snapshot{Reviews: map[string]HostReviews{
+		"github.com": {Requests: []ReviewRequest{
+			{Repo: github.Repo{Host: "github.com", Owner: "Acme", Name: "Widgets"}, Number: 81},
+			{Repo: github.Repo{Host: "github.com", Owner: "acme", Name: "gadgets"}, Number: 82},
+		}},
+	}}
+	for _, repo := range []github.Repo{
+		{Owner: "acme", Name: "widgets"},
+		{Host: "GitHub.com", Owner: "ACME", Name: "widgets"},
+	} {
+		if got := snap.ReviewCountFor(repo); got != 1 {
+			t.Errorf("ReviewCountFor(%v) = %d, want 1", repo, got)
+		}
+	}
+}

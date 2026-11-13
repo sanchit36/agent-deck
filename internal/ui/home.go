@@ -7231,18 +7231,12 @@ func (h *Home) performFinalShutdown(shutdownPool bool) tea.Cmd {
 	// Deletes still on the undo stack can no longer be undone once the TUI
 	// exits: take them here, on the Update goroutine, and sweep them below.
 	finalDeletes := undoEntryIDs(h.takeUndoStack())
-	// The forge's gh work (fetches, Project resolution) is cancelled and
-	// joined below; take its handle here, on the Update goroutine.
-	forgeJobs := h.forgeJobs()
-	// So is the Attention signal poller's goroutine.
-	signalsPoller := h.forge.signals.poller
+	// The forge's gh work (fetches, Project resolution) and the Attention
+	// signal poller are cancelled and joined below; take their handles
+	// here, on the Update goroutine.
+	stopForge := h.forgeShutdown()
 	return func() tea.Msg {
-		if !forgeJobs.stop(forgeStopTimeout) {
-			uiLog.Warn("forge_jobs_stop_timeout")
-		}
-		if signalsPoller != nil {
-			signalsPoller.Stop()
-		}
+		stopForge()
 		if len(finalDeletes) > 0 {
 			runBounded(5*time.Second, func() { finalizeRemovedSessions(h.storage, "delete", finalDeletes) })
 		}

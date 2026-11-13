@@ -225,7 +225,7 @@ func TestSignalsPollerEndToEnd(t *testing.T) {
 	h.instances = []*session.Instance{inst}
 
 	h.startSignals()
-	t.Cleanup(h.stopForge)
+	t.Cleanup(h.stopSignals)
 	poller := h.forge.signals.poller
 	if poller == nil {
 		t.Fatal("no poller with the gate on")
@@ -277,13 +277,50 @@ func TestSignalsPollerEndToEnd(t *testing.T) {
 		t.Fatalf("bar after a visit = %q, want empty", bar)
 	}
 
-	h.stopForge()
-	if poller.Running() || h.forge.signals.poller != nil {
-		t.Fatal("poller not joined on stop")
+	// Quitting (performFinalShutdown's forgeShutdown) joins the poller.
+	h.forgeShutdown()()
+	if poller.Running() {
+		t.Fatal("poller not joined on quit")
 	}
-	if h.forge.signals.snap.Load() != nil {
+	// Turning signals off also takes the badges away.
+	h.stopSignals()
+	if h.forge.signals.poller != nil || h.forge.signals.snap.Load() != nil {
 		t.Fatal("badges stay after the poller stopped")
 	}
+}
+
+// TestSignalsPollProjectHosts: the hosts of the resolved Projects reach the
+// poller, so a GHE host gets its review search before any session links an
+// item there.
+func TestSignalsPollProjectHosts(t *testing.T) {
+	h := forgeFrameHome(t, 120, 30, false, gateOn)
+	forgeShowRepo(h, github.Repo{Host: "ghe.example.com", Owner: "acme", Name: "tools"})
+	h.refreshSignalLinks()
+	if got := h.forge.signals.hosts(); !slices.Contains(got, "ghe.example.com") {
+		t.Fatalf("hosts for the poller = %q, want ghe.example.com", got)
+	}
+}
+
+// TestSignalsManualRefreshClearsLoginWarning: a host gh was not logged in
+// to shows ⚠; after gh auth login, r re-runs the signal poll and the ⚠
+// clears without a restart.
+func TestSignalsManualRefreshClearsLoginWarning(t *testing.T) {
+	h := forgeFrameHome(t, 120, 30, false, gateOn)
+	runner := &signalsRunner{fixture: githubtest.MustLoad(t, githubtest.NotLoggedIn)}
+	clk := &lockedClock{now: freshT0}
+	h.forge.client = github.NewClient(runner)
+	h.forge.now = clk.Now
+	h.forge.signals.ticks = make(chan time.Time)
+	inst := &session.Instance{ID: "a", Title: "fix login", Tool: "claude", Status: session.StatusIdle}
+	inst.SetLink(session.LinkPR, session.Link{Host: "github.com", Owner: "acme", Name: "widgets", Number: 34})
+	h.instances = []*session.Instance{inst}
+	h.startSignals()
+	t.Cleanup(h.stopSignals)
+	signalsWaitFor(t, "the ⚠", func() bool { return strings.Contains(h.linkBadgeText(inst), "⚠") })
+
+	runner.set(githubtest.MustLoad(t, githubtest.SignalsPoll))
+	_ = h.forgeManualRefresh()
+	signalsWaitFor(t, "the ⚠ to clear", func() bool { return !strings.Contains(h.linkBadgeText(inst), "⚠") })
 }
 
 // TestSignalsOffSwitch: [github] signals = false, the gate off, or
@@ -294,14 +331,14 @@ func TestSignalsOffSwitch(t *testing.T) {
 		h := forgeFrameHome(t, 120, 30, false, cfg)
 		h.startSignals()
 		if h.forge.signals.poller != nil {
-			h.stopForge()
+			h.stopSignals()
 			t.Fatalf("config %q started the poller", cfg)
 		}
 	}
 	h := forgeFrameHome(t, 120, 30, false, gateOn)
 	h.reloadForgeFromConfig()
 	if h.forge.signals.poller != nil {
-		h.stopForge()
+		h.stopSignals()
 		t.Fatal("a Home that never ran Init started the poller")
 	}
 }

@@ -23,6 +23,13 @@ func (r Repo) HostOrDefault() string {
 	return r.Host
 }
 
+// SameRepo reports whether a and b name one repository: GitHub ignores
+// case in hosts, owners and names, and an empty host is DefaultHost.
+func SameRepo(a, b Repo) bool {
+	return strings.EqualFold(a.HostOrDefault(), b.HostOrDefault()) &&
+		strings.EqualFold(a.Owner, b.Owner) && strings.EqualFold(a.Name, b.Name)
+}
+
 // String is HOST/OWNER/REPO, the form `gh -R` takes.
 func (r Repo) String() string { return r.HostOrDefault() + "/" + r.Owner + "/" + r.Name }
 

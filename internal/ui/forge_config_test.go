@@ -34,7 +34,7 @@ func TestForgeConfigLoadErrorIsLogged(t *testing.T) {
 
 	h := NewHome()
 	h.reloadForgeFromConfig()
-	t.Cleanup(h.stopForge)
+	t.Cleanup(func() { h.forgeShutdown()() })
 
 	if !strings.Contains(buf.String(), `"msg":"forge_config_load_failed"`) || !strings.Contains(buf.String(), "config.toml parse error") {
 		t.Fatalf("config load error not logged; log:\n%s", buf.String())
