@@ -12,6 +12,7 @@ Agent Deck is a TUI (Terminal User Interface) that manages multiple AI coding ag
 - **MCP Socket Pool**: Share MCP processes across sessions, reducing memory by 85-90%
 - **Global search**: Full-text search across past agent conversations (the Recall index)
 - **Git worktrees**: Isolate agent work on separate branches automatically
+- **GitHub Issues and PRs**: `SESSIONS │ ISSUES │ PRS` tabs in the TUI for the group's GitHub repo: browse, filter, read conversations and diffs, start a session on an Issue or PR, merge, and live PR state on linked sessions. On by default through the `gh` CLI (must be logged in); `[github] enabled = false` turns it off
 - **Multi-tool support**: Claude Code, Gemini CLI, Codex, OpenCode, OpenCode 2 (`opencode2`), Copilot, Crush, Muse Code, Cursor (terminal), Hermes Agent, pi, Oh My Pi, DeepSeek Harness, and custom tools via `[tools.*]` in config.toml (see the Multi-Tool Support table in README.md for what each one gets)
 
 ## Install

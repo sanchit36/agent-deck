@@ -2,6 +2,7 @@ package ui
 
 import (
 	"fmt"
+	"slices"
 	"strings"
 	"time"
 
@@ -766,7 +767,7 @@ func (h *Home) renderForgeOverlay() string {
 
 	// Footer: status, then the key hints.
 	out = append(out, truncateDisplay(" "+h.forgeOverlayStatus(total, offset, page), width, "…"))
-	out = append(out, dim.Render(truncateDisplay(" "+h.forgeOverlayHints(), width, "…")))
+	out = append(out, dim.Render(truncateDisplay(" "+h.forgeOverlayHints(width-1), width, "…")))
 	return strings.Join(out, "\n")
 }
 
@@ -802,8 +803,26 @@ func (h *Home) forgeOverlayStatus(total, offset, body int) string {
 	return strings.Join(parts, dim.Render(" · "))
 }
 
-// forgeOverlayHints is the overlay's hint footer.
-func (h *Home) forgeOverlayHints() string {
+// forgeOverlayHintsSpare are the hints every overlay tab shares and the
+// help lists, in the order they are left out of a footer wider than its
+// row (spec #18 slice 21: the Files tab's own keys come first).
+var forgeOverlayHintsSpare = []string{"refresh", "copy url", "open", "scroll"}
+
+// forgeOverlayHints is the overlay's hint footer, at most width cells when
+// leaving out forgeOverlayHintsSpare gets it there (the caller cuts the
+// rest).
+func (h *Home) forgeOverlayHints(width int) string {
+	hints := h.forgeOverlayHintList()
+	for _, spare := range forgeOverlayHintsSpare {
+		if lipgloss.Width(strings.Join(hints, " · ")) <= width {
+			break
+		}
+		hints = slices.DeleteFunc(hints, func(s string) bool { return strings.HasSuffix(s, " "+spare) })
+	}
+	return strings.Join(hints, " · ")
+}
+
+func (h *Home) forgeOverlayHintList() []string {
 	o := &h.forge.overlay
 	var hints []string
 	add := func(key, label string) {
@@ -829,7 +848,7 @@ func (h *Home) forgeOverlayHints() string {
 	add(key(hotkeyForgeCopy), "copy url")
 	add(key(hotkeyForgeRefresh), "refresh")
 	add("esc", "close")
-	return strings.Join(hints, " · ")
+	return hints
 }
 
 // issueStateWord is an Issue's state in words.

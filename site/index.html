@@ -652,6 +652,27 @@ bind-key -T copy-mode MouseDragEnd1Pane send-keys -X copy-pipe-and-cancel "xclip
             </div>
         </section>
 
+        <!-- GitHub Issues and PRs -->
+        <section class="py-16">
+            <div class="max-w-3xl mx-auto px-6">
+                <h2 class="text-2xl font-semibold text-center mb-4">GitHub Issues and PRs, Next to Your Agents</h2>
+                <p class="text-tn-dim text-center mb-8">
+                    The session list has <span class="mono text-tn-accent">SESSIONS │ ISSUES │ PRS</span> tabs for the group's GitHub repository.
+                    Browse and filter Issues and pull requests, read the conversation and the diff, start an agent on an Issue or PR
+                    in its own worktree, and merge, without leaving the terminal.
+                </p>
+                <ul class="text-tn-dim text-sm space-y-2 mb-6">
+                    <li><span class="text-tn-accent mono">[</span> / <span class="text-tn-accent mono">]</span> switch tabs; <span class="text-tn-accent mono">Enter</span> opens an Issue or PR, <span class="text-tn-accent mono">n</span> starts a session on it, <span class="text-tn-accent mono">m</span> merges a PR.</li>
+                    <li>Sessions linked to a PR show its live state (<span class="mono">✗</span> checks failing, <span class="mono">±</span> changes requested, <span class="mono">✔</span> approved), and a change marks the session on the tmux notification bar (<span class="mono">[1] ✗ fix login</span>) until you visit it.</li>
+                    <li>Filters use GitHub search syntax; the default open list is read from the repository directly, while other filters go through GitHub search, whose index can lag new changes by a few minutes.</li>
+                </ul>
+                <p class="text-tn-dim text-sm text-center">
+                    On by default, through the <span class="mono">gh</span> CLI (run <span class="mono">gh auth login</span> first).
+                    Turn it off with <span class="mono text-tn-accent">[github] enabled = false</span> in <span class="mono">config.toml</span>.
+                </p>
+            </div>
+        </section>
+
         <!-- Supported Tools -->
         <section class="bg-tn-surface/30 py-16">
             <div class="max-w-3xl mx-auto px-6 text-center">
@@ -717,6 +738,10 @@ bind-key -T copy-mode MouseDragEnd1Pane send-keys -X copy-pipe-and-cancel "xclip
                         <div class="flex justify-between">
                             <span class="text-tn-dim">Detach</span>
                             <span class="text-tn-accent">Ctrl+Q</span>
+                        </div>
+                        <div class="flex justify-between">
+                            <span class="text-tn-dim">Issues / PRs tabs</span>
+                            <span class="text-tn-accent">[ ]</span>
                         </div>
                     </div>
                 </div>

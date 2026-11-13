@@ -158,6 +158,7 @@ The main-menu composer currently supports local sessions only, not remote-sessio
 | `Shift+drag` | Select text natively (`Option+drag` in iTerm2) — see below |
 | `Alt+W` | Show me around: what you can do, your agents and sign-in |
 | `Alt+N` | What's new: this version's highlights and your reports it fixed ("Is it fixed for you?"); opens by itself after an update |
+| `[` / `]` | GitHub Issues / PRs tabs (see [GitHub Issues and PRs](#github-issues-and-prs)) |
 | `?` | Full help |
 
 > **Why can't I drag-select text?** The TUI holds the terminal in mouse
@@ -381,6 +382,45 @@ Waiting sessions appear right in your tmux status bar. Press `Ctrl+b`, release, 
 ```
 
 By default the session that started waiting most recently is `[1]`. To order the bar by the session you used most recently instead, like Alt+Tab, set `sort = "last_accessed"` under `[notifications]` in `config.toml` (default: `"waiting"`). Only visits through the agent-deck TUI count: attaching from its session list and jumping with the bar's `Ctrl+b` number keys. Attaching with the `agent-deck` CLI or the web UI does not change the order. `minimal = true` ignores `sort`.
+
+A change on a GitHub PR linked to a session (checks failing, changes
+requested, approved, merged or closed) or a new review request for you marks
+that session on the bar with the signal's glyph, even when it is not waiting,
+until you attach to it or jump to it:
+
+```
+⚡ [1] ✗ fix login [2] api
+```
+
+`[github] signals = false` turns these marks off.
+
+### GitHub Issues and PRs
+
+The left panel has `SESSIONS │ ISSUES │ PRS` tabs for the GitHub repository of
+the selected group (GitHub and GitHub Enterprise). `[` / `]` cycle the tabs;
+`Alt+S` / `Alt+I` / `Alt+P` jump to one.
+
+- **Browse**: the 100 most recently updated open Issues or PRs, each PR with its check and review state; the right pane shows the selected item's detail.
+- **Read**: `Enter` opens an overlay with the body and comments and, for a PR, its diff (`d`; `s` side by side, `|` / `\` send it to your pager, such as `delta`).
+- **Filter**: `/` takes GitHub search syntax (`label:bug`, `review-requested:@me`, ...).
+- **Work on it**: `n` starts a session on the Issue or PR in a worktree, with a Prompt Template as its first message; `m` merges a PR through a dialog that never bypasses branch protection.
+- **Links**: a session started that way, a worktree session on a PR's head branch, or one linked with `agent-deck session link` shows `#12` / `PR#34` on its row, with the item's live state (`✗` checks failing, `±` changes requested, `✔` approved, `◆` merged).
+
+It reaches GitHub only through the `gh` CLI, so `gh` must be installed and
+logged in (`gh auth login`, `-h <host>` for GitHub Enterprise). The list on
+screen refetches every 60 s while the TUI is in the foreground
+(`[github] refresh_interval`). The default `is:open` list is read from the
+repository directly; any other filter goes through GitHub search, whose index
+can lag new changes by a few minutes.
+
+It is on by default. To turn it off (no tabs, no GitHub keys, no `gh` calls):
+
+```toml
+[github]
+enabled = false
+```
+
+See the [TUI Reference](skills/agent-deck/references/tui-reference.md#github-tabs) for every key and the [configuration reference](skills/agent-deck/references/config-reference.md#github-section) for the `[github]` options.
 
 ### Git Worktrees
 

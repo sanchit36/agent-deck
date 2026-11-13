@@ -10,15 +10,16 @@ import (
 )
 
 // TestUserConfigGitHubEnabled pins the forge gate (spec #18 §0): [github]
-// enabled decodes onto UserConfig, is off when unset, and an unset section
-// is not written back.
+// enabled decodes onto UserConfig, is on when unset (the integration ships
+// on), only an explicit false turns it off, and an unset section is not
+// written back.
 func TestUserConfigGitHubEnabled(t *testing.T) {
 	for _, tc := range []struct {
 		name, src string
 		want      bool
 	}{
-		{"unset", ``, false},
-		{"section without key", "[github]\n", false},
+		{"unset", ``, true},
+		{"section without key", "[github]\n", true},
 		{"on", "[github]\nenabled = true\n", true},
 		{"off", "[github]\nenabled = false\n", false},
 	} {
@@ -33,8 +34,8 @@ func TestUserConfigGitHubEnabled(t *testing.T) {
 		})
 	}
 	var nilCfg *UserConfig
-	if nilCfg.GitHubEnabled() {
-		t.Fatal("nil config reports the gate on")
+	if !nilCfg.GitHubEnabled() {
+		t.Fatal("nil config reports the gate off, want the default (on)")
 	}
 
 	var buf bytes.Buffer
@@ -87,11 +88,12 @@ func TestUserConfigGitHubSignals(t *testing.T) {
 		name, src string
 		want      bool
 	}{
-		{"unset gate off", ``, false},
+		{"unset", ``, true},
 		{"gate on", "[github]\nenabled = true\n", true},
 		{"gate on signals off", "[github]\nenabled = true\nsignals = false\n", false},
 		{"gate on signals on", "[github]\nenabled = true\nsignals = true\n", true},
-		{"gate off signals on", "[github]\nsignals = true\n", false},
+		{"gate default signals on", "[github]\nsignals = true\n", true},
+		{"gate off signals on", "[github]\nenabled = false\nsignals = true\n", false},
 		{"manual refresh", "[github]\nenabled = true\nrefresh_interval = 0\n", false},
 	} {
 		t.Run(tc.name, func(t *testing.T) {
@@ -105,8 +107,8 @@ func TestUserConfigGitHubSignals(t *testing.T) {
 		})
 	}
 	var nilCfg *UserConfig
-	if nilCfg.GitHubSignals() {
-		t.Fatal("nil config runs the poller")
+	if !nilCfg.GitHubSignals() {
+		t.Fatal("nil config stops the poller, want the default (on)")
 	}
 }
 

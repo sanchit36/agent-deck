@@ -149,3 +149,29 @@ func TestForgeFilesFailure(t *testing.T) {
 		t.Fatalf("failure not shown:\n%s", frame)
 	}
 }
+
+// TestForgeFilesHintFooterFits: at 120 columns the Files tab's hint footer
+// fits whole by leaving out the hints every tab shares (o, y, r, j/k: they
+// are in the help), so the Files keys, m merge and esc close all show;
+// wider, nothing is left out.
+func TestForgeFilesHintFooterFits(t *testing.T) {
+	h, _ := filesPRHome(t, 120, 30)
+	h = openFiles(t, h)
+	lines := frameLines(h.View())
+	footer := strings.TrimRight(lines[len(lines)-1], " ")
+	if strings.Contains(footer, "…") {
+		t.Fatalf("footer cut: %q", footer)
+	}
+	for _, want := range []string{"n/N hunk", "|/\\ pager", "S new session", "m merge", "esc close"} {
+		if !strings.Contains(footer, want) {
+			t.Fatalf("footer lacks %q: %q", want, footer)
+		}
+	}
+
+	wide, _ := filesPRHome(t, 200, 30)
+	wide = openFiles(t, wide)
+	lines = frameLines(wide.View())
+	if footer := lines[len(lines)-1]; !strings.Contains(footer, "o open · y copy url · r refresh · esc close") {
+		t.Fatalf("wide footer left hints out: %q", footer)
+	}
+}

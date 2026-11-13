@@ -809,7 +809,7 @@ agent-deck session set-parent <session> <parent>
 agent-deck session unset-parent <session>
 ```
 
-### session link / unlink (behind `[github] enabled`)
+### session link / unlink
 
 ```bash
 agent-deck session link <session> issue|pr <number> [--repo [HOST/]OWNER/NAME] [--json] [-q]

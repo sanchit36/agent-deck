@@ -290,7 +290,9 @@ func TestAmbiguousWideTerminal_FrameKeepsItsRows_Issue2334(t *testing.T) {
 			t.Errorf("row %d lost %q (frame shifted): got %q", i, name, got[i])
 		}
 	}
-	if !strings.HasPrefix(got[2], "SESSIONS") {
+	// The titles row opens with SESSIONS: the panel title, or the first
+	// chip of the GitHub tab strip (" SESSIONS │ ISSUES │ PRS").
+	if !strings.HasPrefix(strings.TrimLeft(got[2], " "), "SESSIONS") {
 		t.Errorf("titles row moved: row 2 = %q", got[2])
 	}
 	if n := countRowsContaining(got, "conductor-buddi-sharjeel  "); n != 1 {

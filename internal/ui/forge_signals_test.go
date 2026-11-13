@@ -290,7 +290,7 @@ func TestSignalsPollerEndToEnd(t *testing.T) {
 // refresh_interval = 0 start no poller; a Home that is not running (no
 // Init) never polls.
 func TestSignalsOffSwitch(t *testing.T) {
-	for _, cfg := range []string{"", gateOn + "signals = false\n", gateOn + "refresh_interval = 0\n"} {
+	for _, cfg := range []string{gateOff, gateOn + "signals = false\n", gateOn + "refresh_interval = 0\n"} {
 		h := forgeFrameHome(t, 120, 30, false, cfg)
 		h.startSignals()
 		if h.forge.signals.poller != nil {
