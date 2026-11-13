@@ -8408,6 +8408,12 @@ func (h *Home) renderSessionItem(
 		worktreeBadge = wtStyle.Render(" [" + branch + "]")
 	}
 
+	// Link badge (#12 / PR#34) from the session's stored Issue/PR links.
+	linkBadge := ""
+	if text := sessionLinkBadgeText(inst); text != "" {
+		linkBadge = renderLinkBadge(text, selected)
+	}
+
 	// Sandbox badge for containerized sessions.
 	sandboxBadge := ""
 	if inst.IsSandboxed() {
@@ -8526,7 +8532,7 @@ func (h *Home) renderSessionItem(
 	reserved := leftGutterWidth + cellWidth(baseIndent) + cellWidth(selectionPrefix) +
 		cellWidth(treeStyle.Render(treeConnector)) + cellWidth(windowChevron) + cellWidth(childFoldBadge) +
 		cellWidth(status) + 1 + cellWidth(tool) +
-		cellWidth(maestroBadge) + cellWidth(yoloBadge) + cellWidth(worktreeBadge) +
+		cellWidth(maestroBadge) + cellWidth(yoloBadge) + cellWidth(worktreeBadge) + cellWidth(linkBadge) +
 		cellWidth(sandboxBadge) + cellWidth(multiRepoBadge) + cellWidth(sshBadge) +
 		cellWidth(agentBadge) + cellWidth(timestampBadge)
 	// Keep a useful title before spending narrow-row space on a worktree badge.
@@ -8545,6 +8551,20 @@ func (h *Home) renderSessionItem(
 				worktreeBadge = lipgloss.NewStyle().Foreground(ColorCyan).Render(badge)
 			}
 			reserved = reserved - originalWidth + cellWidth(badge)
+		}
+	}
+	// The link badge never squeezes the title under its floor: in a column
+	// too narrow for both, a session with both links keeps only the PR, then
+	// the badge drops (#2201: badges yield to the title).
+	if listWidth > 0 && linkBadge != "" && listWidth-reserved-1 < minSessionTitleWidth {
+		reserved -= cellWidth(linkBadge)
+		linkBadge = ""
+		if inst.IssueLink != nil && inst.PRLink != nil {
+			short := inst.PRLink.Label(session.LinkPR)
+			if listWidth-reserved-cellWidth(short)-2 >= minSessionTitleWidth {
+				linkBadge = renderLinkBadge(short, selected)
+				reserved += cellWidth(linkBadge)
+			}
 		}
 	}
 	// Reserve the title's floor before the viewers and account badges claim
@@ -8594,7 +8614,7 @@ func (h *Home) renderSessionItem(
 	// The leading gutter (leftGutterWidth) keeps sessions aligned with group
 	// rows, which reserve the same gutter for root hotkey numbers.
 	row := fmt.Sprintf(
-		"%s%s%s%s%s%s %s%s%s%s%s%s%s%s%s%s%s%s%s%s",
+		"%s%s%s%s%s%s %s%s%s%s%s%s%s%s%s%s%s%s%s%s%s",
 		strings.Repeat(" ", leftGutterWidth),
 		baseIndent,
 		selectionPrefix,
@@ -8606,6 +8626,7 @@ func (h *Home) renderSessionItem(
 		maestroBadge,
 		yoloBadge,
 		worktreeBadge,
+		linkBadge,
 		sandboxBadge,
 		multiRepoBadge,
 		sshBadge,
