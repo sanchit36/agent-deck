@@ -1,0 +1,14 @@
+Usage: agent-deck session link <session> issue|pr <number> [--repo [HOST/]OWNER/NAME]
+
+Link a session to a GitHub issue or pull request. A session holds at most
+one issue link and one PR link; linking again replaces the old one.
+The TUI shows the link as a #12 / PR#34 badge on the session row.
+
+Options:
+  -json
+    	Output as JSON
+  -q	Minimal output (short)
+  -quiet
+    	Minimal output
+  -repo string
+    	Repo as OWNER/NAME or HOST/OWNER/NAME (default: the session checkout's origin remote)

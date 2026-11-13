@@ -78,6 +78,10 @@ func handleSession(profile string, args []string) {
 		handleSessionSetParent(profile, args[1:])
 	case "unset-parent":
 		handleSessionUnsetParent(profile, args[1:])
+	case "link":
+		handleSessionLink(profile, args[1:])
+	case "unlink":
+		handleSessionUnlink(profile, args[1:])
 	case "update":
 		// Issue #974: users expect `session update <id> --no-parent` and
 		// `session update <id> --parent <p>` to mirror typical CRUD verbs.
@@ -194,6 +198,8 @@ func printSessionHelp() {
 	fmt.Println("  annotate <id>|--self    Record durable hints/tags (purpose, ticket, why, decision, outcome) for recall")
 	fmt.Println("  set-parent <id> <parent>  Link session as sub-session of parent")
 	fmt.Println("  unset-parent <id>       Remove sub-session link")
+	fmt.Println("  link <id> issue|pr <n>  Link session to a GitHub issue or PR (--repo [HOST/]OWNER/NAME)")
+	fmt.Println("  unlink <id> issue|pr    Remove a session's issue or PR link")
 	fmt.Println("  update <id> --no-parent          Alias for unset-parent <id>")
 	fmt.Println("  update <id> --parent <pid>       Alias for set-parent <id> <pid>")
 	fmt.Println("  set-transition-notify <id> <on|off>  Enable/disable transition notifications")

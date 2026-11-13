@@ -809,6 +809,26 @@ agent-deck session set-parent <session> <parent>
 agent-deck session unset-parent <session>
 ```
 
+### session link / unlink (behind `[github] enabled`)
+
+```bash
+agent-deck session link <session> issue|pr <number> [--repo [HOST/]OWNER/NAME] [--json] [-q]
+agent-deck session unlink <session> issue|pr [--json] [-q]
+```
+
+Links a session to a GitHub issue or pull request. A session holds at most one issue link and one PR link (linking again replaces the old one); one issue or PR may be linked to many sessions. The link is the repo plus the number, stored on the session record in the state DB: it survives restarts, is kept after the issue closes or the PR merges, and is deleted with the session. The TUI draws it as a static `#12` / `PR#34` badge on the session row.
+
+`--repo` takes `OWNER/NAME` (host `github.com`), `HOST/OWNER/NAME` for GitHub Enterprise, or a remote URL. Without it the repo comes from the session checkout's `origin` remote (else its only remote, unless that is `upstream`), read locally with `git`. `link` makes no `gh` call and does not check that the number exists. The number may be written `12` or `#12`.
+
+`unlink` exits 1 when the session has no link of that kind. Both resolve the profile (`-p`) before opening the state DB. `--json` reports `profile`, `session_id`, `kind`, `linked` and, for `link`, `repo`, `number` and `badge`.
+
+```bash
+agent-deck session link my-session issue 12                  # repo from the checkout's origin
+agent-deck session link my-session pr 34 --repo acme/app
+agent-deck session link my-session pr 7 --repo ghe.corp.example/team/svc --json
+agent-deck session unlink my-session pr
+```
+
 ### session switch-account
 
 ```bash
