@@ -994,77 +994,9 @@ func (h *Home) renderPreviewPane(width, height int) string {
 		b.WriteString(h.renderAgentCard(agentRow, width))
 	}
 
-	// Worktree info section (for sessions running in git worktrees)
-	if selected.IsWorktree() {
-		wtHeader := renderSectionDivider("Worktree", width-4)
-		b.WriteString(wtHeader)
-		b.WriteString("\n")
-
-		wtLabelStyle := lipgloss.NewStyle().Foreground(ColorText)
-		wtBranchStyle := lipgloss.NewStyle().Foreground(ColorCyan).Bold(true)
-		wtValueStyle := lipgloss.NewStyle().Foreground(ColorText)
-		wtHintStyle := lipgloss.NewStyle().Foreground(ColorText).Italic(true)
-		wtKeyStyle := lipgloss.NewStyle().Foreground(ColorAccent).Bold(true)
-
-		// Branch
-		if selected.WorktreeBranch != "" {
-			b.WriteString(wtLabelStyle.Render("Branch:  "))
-			b.WriteString(wtBranchStyle.Render(selected.WorktreeBranch))
-			b.WriteString("\n")
-		}
-
-		// Repo root (truncated)
-		if selected.WorktreeRepoRoot != "" {
-			repoPath := truncatePath(selected.WorktreeRepoRoot, width-4-9)
-			b.WriteString(wtLabelStyle.Render("Repo:    "))
-			b.WriteString(wtValueStyle.Render(repoPath))
-			b.WriteString("\n")
-		}
-
-		// Worktree path (truncated)
-		if selected.WorktreePath != "" {
-			wtPath := truncatePath(selected.WorktreePath, width-4-9)
-			b.WriteString(wtLabelStyle.Render("Path:    "))
-			b.WriteString(wtValueStyle.Render(wtPath))
-			b.WriteString("\n")
-		}
-
-		// Dirty status (lazy-cached, fetched via previewDebounce handler with 10s TTL)
-		h.worktreeDirtyMu.Lock()
-		isDirty, hasCached := h.worktreeDirtyCache[selected.ID]
-		h.worktreeDirtyMu.Unlock()
-
-		dirtyLabel := "checking..."
-		dirtyStyle := wtValueStyle
-		if hasCached {
-			if isDirty {
-				dirtyLabel = "dirty (uncommitted changes)"
-				dirtyStyle = lipgloss.NewStyle().Foreground(ColorYellow)
-			} else {
-				dirtyLabel = "clean"
-				dirtyStyle = lipgloss.NewStyle().Foreground(ColorGreen)
-			}
-		}
-		b.WriteString(wtLabelStyle.Render("Status:  "))
-		b.WriteString(dirtyStyle.Render(dirtyLabel))
-		b.WriteString("\n")
-
-		// Setup hint
-		if setupKey := h.actionKey(hotkeyWorktreeSetup); setupKey != "" {
-			b.WriteString(wtHintStyle.Render("Setup:   "))
-			b.WriteString(wtKeyStyle.Render(setupKey))
-			b.WriteString(wtHintStyle.Render(" re-run setup script"))
-			b.WriteString("\n")
-		}
-
-		// Finish hint
-		if finishKey := h.actionKey(hotkeyWorktreeFinish); finishKey != "" {
-			b.WriteString(wtHintStyle.Render("Finish:  "))
-			b.WriteString(wtKeyStyle.Render(finishKey))
-			b.WriteString(wtHintStyle.Render(" merge + cleanup"))
-			b.WriteString("\n")
-		}
-	}
+	// Git section: every session in a git repo, from the git-state cache
+	// (filled asynchronously by the preview-debounce handler; no git here).
+	b.WriteString(h.renderGitSection(selected, width))
 
 	// Multi-repo info section
 	if selected.IsMultiRepo() {
@@ -2510,15 +2442,12 @@ func (h *Home) getGroupWorktreeInfo(group *session.Group) *groupWorktreeInfo {
 			return nil // Different repos, skip
 		}
 
-		// Get dirty status from cache
-		h.worktreeDirtyMu.Lock()
-		isDirty, hasCached := h.worktreeDirtyCache[sess.ID]
-		h.worktreeDirtyMu.Unlock()
-
+		// Get dirty status from the git-state cache
+		st, hasCached := h.gitState.Get(h.gitCheckoutPath(sess))
 		branches = append(branches, groupWorktreeBranch{
 			branch:       sess.WorktreeBranch,
-			isDirty:      isDirty,
-			dirtyChecked: hasCached,
+			isDirty:      st.Dirty,
+			dirtyChecked: hasCached && st.Err == nil,
 		})
 	}
 

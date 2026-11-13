@@ -7,6 +7,7 @@ import (
 	tea "github.com/charmbracelet/bubbletea"
 
 	"github.com/asheshgoplani/agent-deck/internal/costs"
+	"github.com/asheshgoplani/agent-deck/internal/gitstate"
 	"github.com/asheshgoplani/agent-deck/internal/session"
 	"github.com/asheshgoplani/agent-deck/internal/statedb"
 	"github.com/asheshgoplani/agent-deck/internal/update"
@@ -282,11 +283,12 @@ type systemThemeMsg struct {
 	dark bool
 }
 
-// worktreeDirtyCheckMsg is sent when an async worktree dirty check completes
-type worktreeDirtyCheckMsg struct {
+// gitStateFetchedMsg carries the local git state of one checkout path,
+// fetched for the session sessionID.
+type gitStateFetchedMsg struct {
+	path      string
 	sessionID string
-	isDirty   bool
-	err       error
+	state     gitstate.State
 }
 
 // worktreeSetupResultMsg is sent when re-running the worktree setup script completes
