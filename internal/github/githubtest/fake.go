@@ -94,6 +94,14 @@ const (
 	// 2.103: a draft with one failing check of 25, review required, four
 	// commits and one review.
 	PRDetail = "pr-detail"
+	// ItemTextIssue is the launch text query (github.ItemTextQuery) for
+	// acme/widgets Issue #12 with comments: a CRLF body, two
+	// comments, the second by a deleted account. Hand-written.
+	ItemTextIssue = "item-text-issue"
+	// ItemTextPR is the same query for PR #34 with comments and review
+	// threads: one open thread with a reply, one resolved and outdated
+	// (line null). Hand-written.
+	ItemTextPR = "item-text-pr"
 )
 
 // Load returns the fixture named name.
