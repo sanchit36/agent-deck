@@ -228,8 +228,16 @@ The Project is resolved the first time a forge tab shows the group, never while
 the list is drawn. Click the `owner/repo ▾` chip or press `p` to choose among a
 group's Projects; it starts on the selected session's Project.
 
+The Issues tab lists the 100 most recently updated open Issues, fetched in one
+GitHub GraphQL request. Each Issue is two lines and a blank: the state glyph
+(`○` open, `✓` closed) and the title, then `#n · author · age` and the labels,
+dim. The selected row has a `▌` bar; long titles and labels are cut at the
+pane's edge with `…`. A repository with Issues turned off says `Issues are
+disabled for owner/repo`; an empty list says `No open issues`.
+
 The right end of the Project line says how fresh the list is: `updated 2m ago`
-(`N open · 2m ago` once the count is known), a spinner while it loads, or
+(`N open · 2m ago` once the count is known, or `100 of 342 · 2m ago` when
+GitHub has more open items than the list fetched), a spinner while it loads, or
 `⚠ stale` when the last refetch failed and the previous list is still shown.
 The visible list refetches every `[github] refresh_interval` (default 60 s)
 while the TUI is in the foreground and no session is attached. With nothing
@@ -245,7 +253,7 @@ retrying`, or `rate-limited until HH:MM` (polling stops until then).
 | `p` | Project selector: `j`/`k` move, `Enter` selects, `Esc` closes (Issues, PRs; **rebindable**: `forge_project`) |
 | `P` | Toggle between the Project and its Parent Repository (from GitHub's fork metadata; a Project that is not a fork says so) (Issues, PRs; **rebindable**: `forge_parent`) |
 | `r` | Refresh: refetch the list and the open detail now, joining a fetch already running, and restart the poll timer; nothing while GitHub's rate limit lasts (Issues, PRs; **rebindable**: `forge_refresh`; `Ctrl+R` stays the global reload) |
-| `o` / `y` | On the SAML message: open / copy the authorize URL (Issues, PRs; **rebindable**: `forge_open`, `forge_copy`) |
+| `o` / `y` | Open the selected Issue or PR in the browser / copy its URL; on the SAML message, the authorize URL. Both run in the background, never blocking the TUI (Issues, PRs; **rebindable**: `forge_open`, `forge_copy`) |
 | `j`/`k`, `↑`/`↓`, `Ctrl+U/D`, `PgUp`/`PgDn`, `Ctrl+B/F`, `Home`/`End` | Move in the tab's list (Issues, PRs) |
 
 On the Issues and PRs tabs every other session key is ignored except these,

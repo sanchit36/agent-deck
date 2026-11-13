@@ -1037,8 +1037,8 @@ fire on their Russian ЙЦУКЕН twin.
 | `forge_project` | `p` | Issues, PRs | Project selector of the group |
 | `forge_parent` | `P` | Issues, PRs | toggle the Project and its Parent Repository |
 | `forge_refresh` | `r` | Issues, PRs | refetch the list (and the open detail) now |
-| `forge_open` | `o` | Issues, PRs | open the SAML authorize URL in the browser, while that message shows |
-| `forge_copy` | `y` | Issues, PRs | copy the SAML authorize URL, while that message shows |
+| `forge_open` | `o` | Issues, PRs | open the selected row in the browser (the SAML authorize URL while that message shows) |
+| `forge_copy` | `y` | Issues, PRs | copy the selected row's URL (the SAML authorize URL while that message shows) |
 
 ## [display] Section
 

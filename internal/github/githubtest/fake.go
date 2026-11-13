@@ -74,6 +74,13 @@ const (
 	// SignalsPollRepoGone is the poll after acme/widgets went away: gh
 	// exits 1 with the partial data (r0 null) on stdout.
 	SignalsPollRepoGone = "signals-poll-repo-gone"
+	// IssueList is the lean Issues list query (github.IssueListQuery) for
+	// cli/cli, recorded with gh 2.103 and trimmed to six of its 1075 open
+	// Issues; the last one's author is a deleted account (null).
+	IssueList = "issue-list"
+	// IssueListDisabled is the same query for torvalds/linux, which has
+	// Issues turned off.
+	IssueListDisabled = "issue-list-disabled"
 )
 
 // Load returns the fixture named name.

@@ -33,7 +33,9 @@ type forgeFetchFunc func(ctx context.Context, c *github.Client, key freshness.Ke
 // defaultForgeFetchers are the fetchers by kind. The list, detail and diff
 // slices add theirs here; a kind with no fetcher is never fetched.
 func defaultForgeFetchers() map[freshness.Kind]forgeFetchFunc {
-	return map[freshness.Kind]forgeFetchFunc{}
+	return map[freshness.Kind]forgeFetchFunc{
+		freshness.IssueList: fetchIssueList,
+	}
 }
 
 // forgeFetchedMsg is one fetch's outcome, for key whatever view shows now.
@@ -160,19 +162,7 @@ func (h *Home) forgeListKey() (freshness.Key, bool) {
 	if !h.forgeTabActive() {
 		return freshness.Key{}, false
 	}
-	v := h.forgeView()
-	if v == nil || v.resolving {
-		return freshness.Key{}, false
-	}
-	repo, ok := v.shownRepo()
-	if !ok {
-		return freshness.Key{}, false
-	}
-	kind := freshness.IssueList
-	if h.forge.tab == tabPRs {
-		kind = freshness.PRList
-	}
-	return freshness.ListKey(repo, kind, h.forgeListFilter(h.forge.tab)), true
+	return h.forgeListKeyFor(h.forge.tab)
 }
 
 // forgeVisibleKeys are the keys on screen: the list, and the open detail
@@ -199,6 +189,7 @@ func (h *Home) forgePaused() bool {
 // forgeRefreshDue starts the fetches the visible keys are due for: a first
 // open, a list older than the refresh interval, a retry after backoff.
 func (h *Home) forgeRefreshDue() tea.Cmd {
+	h.syncForgeLists()
 	if h.forgePaused() {
 		return nil
 	}
@@ -254,6 +245,10 @@ func (h *Home) forgeFetch(k freshness.Key) tea.Cmd {
 // applyForgeFetched writes a result under its key.
 func (h *Home) applyForgeFetched(msg forgeFetchedMsg) {
 	h.forgeCache().Done(msg.key, msg.value, msg.err, h.forgeNow())
+	if msg.err == nil {
+		h.markForgeRowsSeen(msg.key, msg.value)
+	}
+	h.syncForgeLists()
 }
 
 // forgeVisibleEntry is the cache entry of the list on screen.
@@ -286,7 +281,7 @@ func (h *Home) forgeFreshText() string {
 	dim := lipgloss.NewStyle().Foreground(ColorTextDim)
 	var parts []string
 	if l := h.forge.lists[h.forge.tab]; l.openKnown && e.HasData() {
-		parts = append(parts, dim.Render(fmt.Sprintf("%d open", l.open)))
+		parts = append(parts, dim.Render(forgeCountText(l)))
 	}
 	switch {
 	case e.Fetching:
@@ -396,9 +391,12 @@ func forgeFailureFor(err error, k freshness.Key, now time.Time) forgeFailure {
 	return forgeFailure{lines: []string{"⚠ gh failed: " + msg}}
 }
 
-// forgeVisibleURL is the URL o and y act on: the SAML authorize URL while
-// its message shows. Later slices add the selected row's URL.
+// forgeVisibleURL is the URL o and y act on: the selected row's, or the
+// SAML authorize URL while its message shows.
 func (h *Home) forgeVisibleURL() string {
+	if r, ok := h.forgeSelectedRow(); ok {
+		return r.url
+	}
 	k, e, ok := h.forgeVisibleEntry()
 	if !ok || e.HasData() || e.Err == nil {
 		return ""

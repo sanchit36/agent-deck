@@ -1,0 +1,30 @@
+ ●●○ Agent Deck [_test]  no sessions                                                                           v1.16.10 
+  All    ● 0   ◐ 0   ○ 0   !@#& filter • 0 all • % open • ^ archived • t view • * time                                  
+ SESSIONS │ ISSUES 1075 │ PRS              │ PREVIEW                                                                    
+────────────────────────────────────────── │ ───────────────────────────────────────────────────────────────────────────
+me/widgets ▾  is:op…  6 of 1075 · just now │ fix login  ■ stopped                                                       
+▌ ○ gh run view --job --log-failed fails … │ 📁 /src/widgets                                                            
+▌   #14822 · henrymodisett · 15m  bug, pr… │ ⏱ unknown                                                                  
+                                           │  claude   widgets                                                          
+  ○ gh auth saves plain text token, even … │ ─────────────────────────────── Claude ───────────────────────────────     
+    #8954 · 3f6a · 48m  bug, needs-triage… │ Status:  ○ Not connected                                                   
+                                           │ Model:   tool default                                                      
+  ○ `gh pr create` reports a generic perm… │                                                                            
+    #14874 · will-lynas · 2h  blocked, en… │ ─────────────────────────── Process Exited ───────────────────────────     
+                                           │                                                                            
+  ○ Support generating `.gitignore` files… │ ■ Process exited                                                           
+    #15047 · antarupdey81 · 3h  needs-tri… │                                                                            
+                                           │ The process ended or was stopped.                                          
+  ○ `gh run view --log` silently drops th… │ The session record is preserved for resuming.                              
+    #15019 · jeffwall-curlewlabs · 6h  ne… │                                                                            
+                                           │ Actions:                                                                   
+  ○ `gh cs create` doesn't offer location… │   R Resume  - restart with session resume                                  
+    #14558 · ghost · 10h  enhancement, gh… │   d Delete  - remove from list                                             
+                                           │   Enter - attach (will auto-start)                                         
+                                           │                                                                            
+                                           │                                                                            
+                                           │                                                                            
+                                           │                                                                            
+                                           │                                                                            
+────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────
+[/] tabs  o open  y copy url  r refresh  p project  P parent  S settings  ? help                                        
