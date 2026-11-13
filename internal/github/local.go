@@ -60,12 +60,20 @@ func localGit(ctx context.Context, dir string, args ...string) ([]byte, error) {
 	// #nosec G204 -- "git" is a fixed binary run with a literal argv (no
 	// shell); dir is passed as the value of -C, never as an option.
 	cmd := exec.CommandContext(ctx, "git", append([]string{"-C", dir}, args...)...)
-	cmd.Env = append(localGitEnv(childenv.ForLaunch("")), "GIT_TERMINAL_PROMPT=0", "GIT_OPTIONAL_LOCKS=0")
+	cmd.Env = append(GitEnv(), "GIT_OPTIONAL_LOCKS=0")
 	out, err := cmd.Output()
 	if err != nil && ctx.Err() != nil {
 		return nil, fmt.Errorf("running git %s: %w", args[0], ctx.Err())
 	}
 	return out, err
+}
+
+// GitEnv is the environment of a git child process run on a local
+// checkout for the GitHub integration: the launch environment
+// (internal/childenv) without the variables that point git elsewhere (see
+// localGitEnv), and never a terminal prompt.
+func GitEnv() []string {
+	return append(localGitEnv(childenv.ForLaunch("")), "GIT_TERMINAL_PROMPT=0")
 }
 
 // localGitEnv drops the variables that would point git at some other

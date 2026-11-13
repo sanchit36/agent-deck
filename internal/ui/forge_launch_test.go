@@ -474,7 +474,9 @@ func TestForgeLaunchIssueSmoke(t *testing.T) {
 // TestForgeLaunchPRSmoke: a PR launch checks the PR out with gh in a new
 // worktree and Links the session to the PR.
 func TestForgeLaunchPRSmoke(t *testing.T) {
-	_, local := launchRepoCheckout(t)
+	repo, local := launchRepoCheckout(t)
+	// The PR's base, as a fetch of origin leaves it.
+	gitMustUI(t, repo, "update-ref", "refs/remotes/origin/williammartin-multiaccount-draft-07-explain", "HEAD")
 	h, fake := launchHome(t, "", true, local, githubtest.ItemTextPR)
 	fake.ServeFunc(githubtest.MustLoad(t, githubtest.OK), func(args []string) bool {
 		return len(args) > 2 && args[0] == "pr" && args[1] == "checkout" && args[2] == "14927"

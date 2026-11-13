@@ -11,6 +11,7 @@ import (
 	"path/filepath"
 	"strconv"
 	"strings"
+	"time"
 
 	"github.com/asheshgoplani/agent-deck/internal/git"
 	"github.com/asheshgoplani/agent-deck/internal/github"
@@ -141,7 +142,7 @@ func (l forgeLauncher) launch(ctx context.Context, p forgeLaunchPlan) forgeLaunc
 		if err := os.MkdirAll(filepath.Dir(wt), 0o755); err != nil {
 			return fail(fmt.Errorf("creating the worktree parent directory: %w", err))
 		}
-		if err := addDetachedWorktree(p.repoRoot, wt, p.baseBranch); err != nil {
+		if err := addDetachedWorktree(ctx, p.repoRoot, wt, p.baseBranch); err != nil {
 			return fail(err)
 		}
 		dir, created = wt, wt
@@ -150,11 +151,11 @@ func (l forgeLauncher) launch(ctx context.Context, p forgeLaunchPlan) forgeLaunc
 		}
 		setupErr = runForgeWorktreeSetup(p.repoRoot, wt)
 	case p.kind == session.LinkPR:
-		dirty, err := git.HasUncommittedChanges(p.repoRoot)
+		status, err := forgeGit(ctx, p.repoRoot, "status", "--porcelain")
 		if err != nil {
 			return fail(fmt.Errorf("checking %s for uncommitted changes: %w", p.repoRoot, err))
 		}
-		if dirty {
+		if strings.TrimSpace(string(status)) != "" {
 			return fail(fmt.Errorf("%s has uncommitted changes: commit or stash them, or tick Worktree", p.repoRoot))
 		}
 		if err := l.prCheckout(ctx, p, dir); err != nil {
@@ -162,8 +163,8 @@ func (l forgeLauncher) launch(ctx context.Context, p forgeLaunchPlan) forgeLaunc
 		}
 	}
 	if p.worktree && branch == "" {
-		if b, err := git.GetCurrentBranch(dir); err == nil {
-			branch = b
+		if b, err := forgeGit(ctx, dir, "rev-parse", "--abbrev-ref", "HEAD"); err == nil {
+			branch = strings.TrimSpace(string(b))
 		}
 	}
 
@@ -242,26 +243,56 @@ func forgeWorktreePath(repoRoot, branch string) (string, error) {
 	return wt, nil
 }
 
-// addDetachedWorktree adds a worktree at wt detached at the PR's base:
-// the remote-tracking origin/<base>, else the local <base>, else HEAD.
-func addDetachedWorktree(repoRoot, wt, base string) error {
-	var points []string
-	if base != "" {
-		points = append(points, "origin/"+base, base)
+// forgeLaunchGitTimeout bounds each git call of a launch; worktree add
+// checks out the whole tree, so it is generous.
+const forgeLaunchGitTimeout = 2 * time.Minute
+
+// forgeGit runs git in dir under ctx and forgeLaunchGitTimeout, with the
+// child environment of github.GitEnv, and returns its stdout. A failure
+// carries git's stderr.
+func forgeGit(ctx context.Context, dir string, args ...string) ([]byte, error) {
+	ctx, cancel := context.WithTimeout(ctx, forgeLaunchGitTimeout)
+	defer cancel()
+	// #nosec G204 -- "git" is a fixed binary run with a literal argv (no
+	// shell); dir is the value of -C and refs are single arguments.
+	cmd := exec.CommandContext(ctx, "git", append([]string{"-C", dir}, args...)...)
+	cmd.Env = github.GitEnv()
+	var stderr bytes.Buffer
+	cmd.Stderr = &stderr
+	out, err := cmd.Output()
+	if err != nil {
+		if ctxErr := ctx.Err(); ctxErr != nil {
+			return out, fmt.Errorf("running git %s: %w", args[0], ctxErr)
+		}
+		if msg := strings.TrimSpace(stderr.String()); msg != "" {
+			return out, fmt.Errorf("running git %s: %s: %w", args[0], msg, err)
+		}
+		return out, fmt.Errorf("running git %s: %w", args[0], err)
 	}
-	points = append(points, "HEAD")
-	start := "HEAD"
-	for _, pt := range points {
-		// #nosec G204 -- fixed git subcommand; pt is a ref name passed as one argument.
-		if exec.Command("git", "-C", repoRoot, "rev-parse", "--verify", "--quiet", pt+"^{commit}").Run() == nil {
+	return out, nil
+}
+
+// addDetachedWorktree adds a worktree at wt detached at the PR's base:
+// the remote-tracking origin/<base>, else the local <base>. A base the
+// repository does not have is an error, never a start at HEAD.
+func addDetachedWorktree(ctx context.Context, repoRoot, wt, base string) error {
+	if base == "" {
+		return errors.New("the PR's base branch is not known: wait for its details to load and launch again")
+	}
+	start := ""
+	for _, pt := range []string{"origin/" + base, base} {
+		if _, err := forgeGit(ctx, repoRoot, "rev-parse", "--verify", "--quiet", pt+"^{commit}"); err == nil {
 			start = pt
 			break
+		} else if ctx.Err() != nil {
+			return fmt.Errorf("looking up the PR base %s: %w", base, err)
 		}
 	}
-	// #nosec G204 -- fixed git subcommand with path and ref arguments.
-	out, err := exec.Command("git", "-C", repoRoot, "worktree", "add", "--detach", wt, start).CombinedOutput()
-	if err != nil {
-		return fmt.Errorf("creating the worktree at %s: %s: %w", wt, strings.TrimSpace(string(out)), err)
+	if start == "" {
+		return fmt.Errorf("the PR base %s is not in %s: run git fetch origin %s and launch again", base, repoRoot, base)
+	}
+	if _, err := forgeGit(ctx, repoRoot, "worktree", "add", "--detach", wt, start); err != nil {
+		return fmt.Errorf("creating the worktree at %s: %w", wt, err)
 	}
 	return nil
 }

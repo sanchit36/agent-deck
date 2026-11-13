@@ -333,3 +333,55 @@ func TestForgeLaunchNeverUsesMainCheckout(t *testing.T) {
 		}
 	})
 }
+
+// TestForgeLaunchPRMissingBase: a PR worktree starts detached at the PR's
+// base; a base the repository does not have (or an unknown one) is an
+// error naming it, never a silent start at HEAD.
+func TestForgeLaunchPRMissingBase(t *testing.T) {
+	for _, base := range []string{"release-9", ""} {
+		t.Run("base "+base, func(t *testing.T) {
+			repo := launchTestRepo(t)
+			fake := githubtest.NewFake().Serve(githubtest.MustLoad(t, githubtest.OK), prCheckoutArgs("34")...)
+			rec := &startRecorder{}
+			plan := prPlan(repo)
+			plan.baseBranch = base
+			res := rec.launcher(checkoutGh{t: t, head: "widget-sizes", fake: fake}).launch(context.Background(), plan)
+			if res.err == nil || !strings.Contains(res.err.Error(), "base") || (base != "" && !strings.Contains(res.err.Error(), base)) {
+				t.Fatalf("err %v, want one naming the missing base %q", res.err, base)
+			}
+			if len(fake.Calls()) != 0 || len(rec.calls) != 0 {
+				t.Fatalf("gh calls %d, starts %d after a missing base", len(fake.Calls()), len(rec.calls))
+			}
+			if n := worktreeCount(t, repo); n != 1 {
+				t.Fatalf("%d worktrees, want only the main one", n)
+			}
+		})
+	}
+}
+
+// TestForgeLaunchPRWorktreeAtBase: the worktree starts at the base's
+// remote-tracking ref (origin/<base>), not at the main checkout's HEAD.
+func TestForgeLaunchPRWorktreeAtBase(t *testing.T) {
+	repo := launchTestRepo(t)
+	base := strings.TrimSpace(gitOutUI(t, repo, "rev-parse", "HEAD"))
+	gitMustUI(t, repo, "update-ref", "refs/remotes/origin/release-9", base)
+	gitMustUI(t, repo, "commit", "-q", "--allow-empty", "-m", "ahead of the base")
+	rec := &startRecorder{}
+	plan := prPlan(repo)
+	plan.baseBranch = "release-9"
+	// The fake gh pr checkout changes nothing, so the start sees the
+	// commit the worktree was made at.
+	fake := githubtest.NewFake().Serve(githubtest.MustLoad(t, githubtest.OK), prCheckoutArgs("34")...)
+	var at string
+	l := rec.launcher(fake)
+	l.start = func(inst *session.Instance, _ string) error {
+		at = strings.TrimSpace(gitOutUI(t, inst.ProjectPath, "rev-parse", "HEAD"))
+		return nil
+	}
+	if res := l.launch(context.Background(), plan); res.err != nil {
+		t.Fatal(res.err)
+	}
+	if at != base {
+		t.Fatalf("worktree HEAD %s, want the base %s", at, base)
+	}
+}
