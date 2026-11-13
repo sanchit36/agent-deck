@@ -55,6 +55,14 @@ const (
 	AuthStatusOK      = "auth-status-ok"
 	AuthStatusNoHost  = "auth-status-no-host"
 	AuthStatusOffline = "auth-status-offline"
+	// RepoFork is `gh api repos/me/widgets`: a fork whose parent is
+	// acme/widgets (GitHub's REST repository shape, trimmed).
+	RepoFork = "repo-fork"
+	// RepoSource is `gh api repos/acme/widgets`: not a fork.
+	RepoSource = "repo-source"
+	// RepoNotFound is `gh api repos/...` for a repository that does not
+	// exist or is not visible.
+	RepoNotFound = "repo-not-found"
 )
 
 // Load returns the fixture named name.
