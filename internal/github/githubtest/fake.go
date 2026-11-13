@@ -138,6 +138,11 @@ const (
 	// body, no comments and one COMMENTED review by a bot with four
 	// inline comments.
 	PRRowConversation = "pr-row-conversation"
+	// PRDiff is the diff of cli/cli PR #14927 (the PRList and PRDetail
+	// item) at its head d43c4e3a (github.PRDiffArgs), recorded with gh
+	// 2.103: 21 files (+4835 −1), 15 of them new, a txtar under testdata/
+	// and six files over 400 lines.
+	PRDiff = "pr-diff"
 )
 
 // Load returns the fixture named name.
