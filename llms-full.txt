@@ -152,9 +152,10 @@ the selected group (GitHub and GitHub Enterprise). `[` / `]` cycle the tabs;
 - **Links**: a session started that way, a worktree session on a PR's head branch, or one linked with `agent-deck session link` shows `#12` / `PR#34` on its row, with the item's live state (`✗` checks failing, `±` changes requested, `✔` approved, `◆` merged).
 
 It reaches GitHub only through the `gh` CLI, so `gh` must be installed and
-logged in (`gh auth login`, `-h <host>` for GitHub Enterprise). The list on
-screen refetches every 60 s while the TUI is in the foreground
-(`[github] refresh_interval`). The default `is:open` list is read from the
+logged in (`gh auth login`, `-h <host>` for GitHub Enterprise). The list and
+the open detail on screen refetch every 60 s while the TUI is in the
+foreground (`[github] refresh_interval`); a failed refetch keeps them on
+screen, marked `⚠ stale` with a line saying why. The default `is:open` list is read from the
 repository directly; any other filter goes through GitHub search, whose index
 can lag new changes by a few minutes.
 

@@ -267,8 +267,8 @@ base branch (`into`), checks (`✗ 1 failed · 11 passed`), review, merge state
 comments, reviews, pushes, check results and state changes. The body and
 comments are in the overlay (`Enter`). The detail is one GraphQL request: its cached
 copy shows at once, it is fetched fresh each time you open it (once the
-cursor rests on the row), and it refetches while on screen when the list
-reports the item changed. In the single column the list has the screen;
+cursor rests on the row), and it refetches while on screen every
+`[github] refresh_interval` and when the list reports the item changed. In the single column the list has the screen;
 `Enter` opens the selected row's detail full screen and `Esc` returns to the
 list.
 
@@ -353,9 +353,11 @@ the new diff while the old one stays on screen).
 The right end of the Project line says how fresh the list is: `updated 2m ago`
 (`N open · 2m ago` once the count is known, or `100 of 342 · 2m ago` when
 GitHub has more open items than the list fetched), a spinner while it loads, or
-`⚠ stale` when the last refetch failed and the previous list is still shown.
-The visible list refetches every `[github] refresh_interval` (default 60 s)
-while the TUI is in the foreground and no session is attached. With nothing
+`⚠ stale` when the last refetch failed and the previous list is still shown,
+with one line over the rows saying why (`⚠ offline · retrying`, a login
+hint, ...); a stale detail or overlay says `⚠ stale: <reason>`. The visible
+list and the open detail refetch every `[github] refresh_interval` (default
+60 s) while the TUI is in the foreground and no session is attached. With nothing
 cached yet, a failure fills the pane with what to do: an install hint when
 `gh` is missing, `gh auth login -h <host>` for a missing login or bad token,
 the authorize URL for SAML SSO, `gh has no login for <host>`, `offline ·
@@ -387,7 +389,7 @@ links worktree sessions to their PR.
 | `Alt+S` / `Alt+I` / `Alt+P` | Sessions / Issues / PRs tab; from every tab (**rebindable**: `forge_tab_sessions`, `forge_tab_issues`, `forge_tab_prs`) |
 | `p` | Project selector: `j`/`k` move, `Enter` selects, `Esc` closes (Issues, PRs; **rebindable**: `forge_project`) |
 | `P` | Toggle between the Project and its Parent Repository (from GitHub's fork metadata; a Project that is not a fork says so) (Issues, PRs; **rebindable**: `forge_parent`) |
-| `r` | Refresh: refetch the list and the open detail now (and re-read a PR's `local` row), joining a fetch already running, and restart the poll timer; nothing while GitHub's rate limit lasts (Issues, PRs; **rebindable**: `forge_refresh`; `Ctrl+R` stays the global reload) |
+| `r` | Refresh: refetch the list and the open detail now (and re-read a PR's `local` row; under a filter, also the tab chip's unfiltered total), resolve the group's Projects again, re-poll the Attention signals of every host, join a fetch already running, and restart the poll timer; nothing while GitHub's rate limit lasts (Issues, PRs; **rebindable**: `forge_refresh`; `Ctrl+R` stays the global reload) |
 | `o` / `y` | Open the selected Issue or PR in the browser / copy its URL; on the SAML message, the authorize URL. Both run in the background, never blocking the TUI (Issues, PRs; **rebindable**: `forge_open`, `forge_copy`) |
 | `/` | Filter: open the query bar on the current filter; `Enter` applies, `↑`/`↓` presets and recent queries, `Esc` cancels, `Ctrl+U` clears, `Ctrl+W` deletes a word (Issues, PRs; **rebindable**: `forge_filter`) |
 | `Esc` | Reset a filter other than the starting one; otherwise as on Sessions (Issues, PRs) |
