@@ -213,7 +213,23 @@ func (h *Home) forgeRefreshDue() tea.Cmd {
 			cmds = append(cmds, h.forgeFetch(k))
 		}
 	}
+	// The chip's total is fetched once, not polled (interval 0).
+	if dk, ok := h.forgeChipTotalKey(); ok && h.forgeCache().Due(dk, now, 0) {
+		cmds = append(cmds, h.forgeFetch(dk))
+	}
 	return tea.Batch(cmds...)
+}
+
+// forgeChipTotalKey is the default list of the tab on screen while a
+// filter is applied: the tab chip shows its unfiltered open total (spec
+// #18 §6), which a filtered list does not carry. False on the default
+// filter, whose own list is that total.
+func (h *Home) forgeChipTotalKey() (freshness.Key, bool) {
+	k, ok := h.forgeListKey()
+	if !ok || k.Filter == github.DefaultFilter {
+		return freshness.Key{}, false
+	}
+	return forgeDefaultKeyFor(k), true
 }
 
 // forgeOnTick is the main tick's poll. It also hands the Attention signal
@@ -223,14 +239,19 @@ func (h *Home) forgeOnTick() tea.Cmd {
 	return h.forgeRefreshDue()
 }
 
-// forgeManualRefresh is r: fetch the visible keys now, joining a fetch
-// already in flight; nothing while the host is rate-limited. The poll timer
-// restarts when the fetch lands.
+// forgeManualRefresh is r: fetch the visible keys (and the tab chip's
+// total under a filter) now, joining a fetch already in flight; nothing
+// while the host is rate-limited. The poll timer restarts when the fetch
+// lands.
 func (h *Home) forgeManualRefresh() tea.Cmd {
 	h.forgeExpirePRLocal()
 	now := h.forgeNow()
 	var cmds []tea.Cmd
-	for _, k := range h.forgeVisibleKeys() {
+	keys := h.forgeVisibleKeys()
+	if dk, ok := h.forgeChipTotalKey(); ok {
+		keys = append(keys, dk)
+	}
+	for _, k := range keys {
 		if _, limited := h.forgeCache().RateLimited(k.Repo.Host, now); limited {
 			continue
 		}
