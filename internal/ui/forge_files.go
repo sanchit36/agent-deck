@@ -82,7 +82,10 @@ type forgeFilesView struct {
 	// split is the reader's s: side by side when the overlay is
 	// forgeFilesSplitWidth wide, else unified with a line saying why.
 	split bool
-	memo  forgeDiffRowsMemo
+	// pagerErr is the last pager's failure, shown in the status row until
+	// the next Files key.
+	pagerErr string
+	memo     forgeDiffRowsMemo
 }
 
 // forgeDiffRowKind is what one row of a file's diff shows.
@@ -958,6 +961,7 @@ func (h *Home) toggleForgeFileExpanded() {
 func (h *Home) handleForgeFilesKey(raw string) (bool, tea.Cmd) {
 	o := &h.forge.overlay
 	f := &o.files
+	f.pagerErr = ""
 	d, has := h.forgeFilesDiff()
 	switch forgeFilesFixedKeys[raw] {
 	case "next hunk":

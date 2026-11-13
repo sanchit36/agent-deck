@@ -79,9 +79,14 @@ func (h *Home) forgeOpenPager(whole bool) tea.Cmd {
 }
 
 // applyForgePagerDone reports a pager that failed (a missing command, a
-// non-zero exit) in the footer.
+// non-zero exit): in the log and, since the overlay covers the footer's
+// toasts, in the overlay's status row until the next Files key.
 func (h *Home) applyForgePagerDone(msg forgePagerDoneMsg) {
-	if msg.err != nil {
-		h.setError(fmt.Errorf("running diff pager %q: %w", msg.pager, msg.err))
+	if msg.err == nil {
+		return
+	}
+	h.setError(fmt.Errorf("running diff pager %q: %w", msg.pager, msg.err))
+	if h.forgeOverlayVisible() {
+		h.forge.overlay.files.pagerErr = fmt.Sprintf("diff pager %q: %v", msg.pager, msg.err)
 	}
 }

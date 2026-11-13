@@ -777,6 +777,9 @@ func (h *Home) forgeOverlayStatus(total, offset, body int) string {
 	k, ok := h.forgeOverlayKey()
 	if h.forge.overlay.tab == forgeOverlayFiles {
 		k, ok = h.forgeFilesStatusKey()
+		if e := h.forge.overlay.files.pagerErr; e != "" {
+			parts = append(parts, lipgloss.NewStyle().Foreground(ColorYellow).Render("⚠ "+forgeOneLine(e)))
+		}
 	}
 	if ok && h.forge.fresh != nil {
 		if e, has := h.forge.fresh.Get(k); has {

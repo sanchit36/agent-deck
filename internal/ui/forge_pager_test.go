@@ -106,7 +106,13 @@ func TestForgeFilesPagerKeys(t *testing.T) {
 	if !h.forgeOverlayVisible() || h.forge.overlay.tab != forgeOverlayFiles {
 		t.Fatal("the overlay did not stay on Files after the pager")
 	}
-	if h.err == nil || !strings.Contains(h.err.Error(), "less -R") {
-		t.Fatalf("a failed pager is not reported: %v", h.err)
+	// The overlay covers the footer toasts: the failure shows in its own
+	// status row until the next key.
+	if frame := filesFrame(h); !strings.Contains(frame, `⚠ diff pager "less -R": exit status 2`) {
+		t.Fatalf("a failed pager is not reported on the overlay:\n%s", frame)
+	}
+	h = drive(t, h, runeKey('j'))
+	if frame := filesFrame(h); strings.Contains(frame, "diff pager") {
+		t.Fatalf("the pager failure outlived the next key:\n%s", frame)
 	}
 }
