@@ -18,6 +18,12 @@ func forgeFrameHome(t *testing.T, w, h int, embedded bool, configTOML string) *H
 	forceTrueColorProfile()
 	withTempAgentDeckHome(t, configTOML)
 	withControllerVersion(t, "1.16.10")
+	return newForgeFrameHome(w, h, embedded)
+}
+
+// newForgeFrameHome builds forgeFrameHome's Home under whatever HOME and
+// config are already in place.
+func newForgeFrameHome(w, h int, embedded bool) *Home {
 	grp := &session.Group{Name: "widgets", Path: "widgets", Expanded: true, DefaultPath: "/src/widgets"}
 	a := &session.Instance{ID: "a", Title: "fix login", Tool: "claude", Status: session.StatusStopped, GroupPath: "widgets", ProjectPath: "/src/widgets"}
 	b := &session.Instance{ID: "b", Title: "review", Tool: "codex", Status: session.StatusStopped, GroupPath: "widgets", ProjectPath: "/src/widgets"}

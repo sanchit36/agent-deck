@@ -95,6 +95,16 @@ type HelpOverlay struct {
 	// allKeys selects the full key list. '?' opens on the short "5 keys to
 	// start" view (onboarding, ASK-211); Tab switches between the two.
 	allKeys bool
+
+	// forgeRows, when set, is the GitHub section shown in place of the key
+	// list while an Issues/PRs tab is active ([github] enabled): the forge
+	// keys, a blank row, then the global keys that still work there.
+	forgeRows [][2]string
+}
+
+// SetForgeRows sets the GitHub section; nil restores the normal help.
+func (h *HelpOverlay) SetForgeRows(rows [][2]string) {
+	h.forgeRows = rows
 }
 
 // SetHasAgents records whether anything has been adopted.
@@ -188,6 +198,11 @@ func (h *HelpOverlay) Update(msg tea.Msg) (*HelpOverlay, tea.Cmd) {
 	}
 
 	if key, ok := msg.(tea.KeyMsg); ok {
+		// The GitHub section fits on one page: any key closes it.
+		if h.forgeRows != nil {
+			h.Hide()
+			return h, nil
+		}
 		// Tab switches between "5 keys to start" and all keys.
 		if key.String() == "tab" {
 			h.allKeys = !h.allKeys
@@ -242,6 +257,9 @@ func (h *HelpOverlay) Update(msg tea.Msg) (*HelpOverlay, tea.Cmd) {
 func (h *HelpOverlay) View() string {
 	if !h.visible {
 		return ""
+	}
+	if h.forgeRows != nil {
+		return h.viewForge()
 	}
 	if !h.allKeys {
 		return h.viewShort()
@@ -689,6 +707,34 @@ func (h *HelpOverlay) shortHelpKeys() [][2]string {
 		}
 	}
 	return out
+}
+
+// viewForge renders the GitHub section: forge keys, then the global keys
+// that still work on a forge tab. Rows with an unbound key are dropped.
+func (h *HelpOverlay) viewForge() string {
+	titleStyle := lipgloss.NewStyle().Bold(true).Foreground(ColorAccent)
+	sectionStyle := lipgloss.NewStyle().Foreground(ColorCyan).Bold(true)
+	keyStyle := lipgloss.NewStyle().Foreground(ColorPurple).Width(14)
+	descStyle := lipgloss.NewStyle().Foreground(ColorText)
+	dimStyle := lipgloss.NewStyle().Foreground(ColorComment).Italic(true)
+
+	dialogWidth := fitDialogWidth(64, 35, h.width)
+	keyWidth := 14
+	descWidth := max(10, dialogWidth-2-4-2-keyWidth-1)
+	lines := []string{titleStyle.Render("GITHUB"), ""}
+	for _, r := range h.forgeRows {
+		if r[0] == "" && r[1] == "" {
+			lines = append(lines, "", sectionStyle.Render("ALSO ON THIS TAB"))
+			continue
+		}
+		if strings.TrimSpace(r[0]) == "" {
+			continue
+		}
+		lines = append(lines, renderHelpRow(r[0], r[1], keyWidth, descWidth, keyStyle, descStyle)...)
+	}
+	lines = append(lines, "", dimStyle.Render("any key to close"))
+	box := renderSurfaceBox(DialogBoxStyle.Width(dialogWidth), strings.Join(lines, "\n"))
+	return centerInScreen(box, h.width, h.height)
 }
 
 // viewShort renders "5 keys to start": the keys a new user needs, with Tab

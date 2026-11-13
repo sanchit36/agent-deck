@@ -27,6 +27,7 @@ All options for `$XDG_CONFIG_HOME/agent-deck/config.toml` (default `~/.config/ag
 - [[sessions] Section](#sessions-section)
 - [[interval_hooks.*] Section](#interval_hooks-section)
 - [[prompt_templates.<name>] Section](#prompt_templatesname-section)
+- [[github] Section](#github-section)
 - [[display] Section](#display-section)
 - [[ui] Section](#ui-section)
   - [[ui.remote_preview] Section](#uiremote_preview-section)
@@ -992,6 +993,38 @@ a variable name not in the list above (left as written); a PR variable in an iss
 be read yet; two `default` templates of one kind for the same Project (the
 first by name wins); a bad `applies_to` or not exactly one of `text`/`file`
 (the template is ignored).
+
+## [github] Section
+
+(behind `[github] enabled`)
+
+The GitHub integration in the TUI: `SESSIONS │ ISSUES │ PRS` tabs in the left
+panel for the GitHub repository (Project) of the selected group.
+
+```toml
+[github]
+enabled = true
+```
+
+| Key | Type | Default | Description |
+|-----|------|---------|-------------|
+| `enabled` | bool | `false` | Turns the feature on. Off means no tab strip, no forge keys and no `gh` calls: the TUI is exactly as without it. |
+
+**Forge hotkeys.** Every forge key is a `[hotkeys]` action prefixed `forge_`
+(empty string unbinds; for example `forge_next_tab = "}"` under `[hotkeys]`
+rebinds next tab). They are resolved apart from the session keys, so they
+take effect only with `enabled = true`, and like the session keys they also
+fire on their Russian ЙЦУКЕН twin.
+
+| Action | Default | Where | Does |
+|--------|---------|-------|------|
+| `forge_prev_tab` | `[` | every tab | previous tab (wraps) |
+| `forge_next_tab` | `]` | every tab | next tab (wraps) |
+| `forge_tab_sessions` | `alt+s` | every tab | Sessions tab |
+| `forge_tab_issues` | `alt+i` | every tab | Issues tab |
+| `forge_tab_prs` | `alt+p` | every tab | PRs tab |
+| `forge_project` | `p` | Issues, PRs | Project selector of the group |
+| `forge_parent` | `P` | Issues, PRs | toggle the Project and its Parent Repository |
 
 ## [display] Section
 

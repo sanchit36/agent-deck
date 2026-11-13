@@ -1566,8 +1566,8 @@ func (h *Home) renderDualColumnLayout(contentHeight int) string {
 		sessionsTitle = fmt.Sprintf("SESSIONS %d%%", 100-pct)
 		previewTitle = fmt.Sprintf("PREVIEW %d%%", pct)
 	}
-	leftTitle := h.renderPanelTitle(sessionsTitle, leftWidth)
-	leftContent := h.renderSessionList(leftWidth, panelContentHeight)
+	leftTitle := h.leftPanelTitle(sessionsTitle, leftWidth)
+	leftContent := h.renderLeftPane(leftWidth, panelContentHeight)
 	// CRITICAL: Ensure left content has exactly panelContentHeight lines
 	leftContent = ensureExactHeight(leftContent, panelContentHeight)
 	leftPanel := leftTitle + "\n" + leftContent
@@ -1673,8 +1673,8 @@ func (h *Home) renderStackedLayout(totalHeight int) string {
 	}
 
 	// Session list (full width)
-	listTitle := h.renderPanelTitle(h.sidebarTitle(), h.width)
-	listContent := h.renderSessionList(h.width, listHeight-2) // -2 for title
+	listTitle := h.leftPanelTitle(h.sidebarTitle(), h.width)
+	listContent := h.renderLeftPane(h.width, listHeight-2) // -2 for title
 	listContent = ensureExactHeight(listContent, listHeight-2)
 	b.WriteString(listTitle)
 	b.WriteString("\n")
@@ -1704,8 +1704,8 @@ func (h *Home) renderSingleColumnLayout(totalHeight int) string {
 	// Full height for list
 	listHeight := totalHeight - 2 // -2 for title
 
-	listTitle := h.renderPanelTitle(h.sidebarTitle(), h.width)
-	listContent := h.renderSessionList(h.width, listHeight)
+	listTitle := h.leftPanelTitle(h.sidebarTitle(), h.width)
+	listContent := h.renderLeftPane(h.width, listHeight)
 	listContent = ensureExactHeight(listContent, listHeight)
 
 	b.WriteString(listTitle)
@@ -1748,6 +1748,9 @@ func (h *Home) renderEmbeddedOnlyLayout(contentHeight int) string {
 func (h *Home) renderHelpBar() string {
 	if h.width < layoutBreakpointSingle {
 		return h.renderHelpBarTiny()
+	}
+	if h.forgeTabActive() {
+		return h.renderForgeHelpBar()
 	}
 
 	switch h.footerMode {
