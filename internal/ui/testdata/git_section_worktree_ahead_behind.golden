@@ -1,0 +1,8 @@
+─────────────────────────────────── Git ───────────────────────────────────
+Branch:  feature/x
+Repo:    /work/repo
+Path:    /work/repo/.worktrees/feature-x
+Status:  clean
+Upstream: origin/feature/x · ↑2 ↓1
+Setup:   b re-run setup script
+Finish:  W merge + cleanup

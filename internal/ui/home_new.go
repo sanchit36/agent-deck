@@ -14,6 +14,7 @@ import (
 
 	"github.com/asheshgoplani/agent-deck/internal/costs"
 	"github.com/asheshgoplani/agent-deck/internal/feedback"
+	"github.com/asheshgoplani/agent-deck/internal/gitstate"
 	"github.com/asheshgoplani/agent-deck/internal/intervalhook"
 	"github.com/asheshgoplani/agent-deck/internal/logging"
 	"github.com/asheshgoplani/agent-deck/internal/menudata"
@@ -238,8 +239,8 @@ func NewHomeWithProfileAndMode(profile string) *Home {
 		parentChildrenCollapsed:   make(map[string]bool),
 		remoteGroupsCollapsed:     make(map[string]bool),
 		remoteSessionOrder:        make(remoteOrder),
-		worktreeDirtyCache:        make(map[string]bool),
-		worktreeDirtyCacheTs:      make(map[string]time.Time),
+		gitState:                  gitstate.NewCache(gitstate.TTL),
+		gitStateFetch:             gitstate.Fetch,
 		statusTrigger:             make(chan statusUpdateRequest, 1), // Buffered to avoid blocking
 		statusWorkerDone:          statusWorkerDone,
 		idleTimeoutWatcher:        session.NewIdleTimeoutWatcher(session.IdleTimeoutWatcherConfig{}),

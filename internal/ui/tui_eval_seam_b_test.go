@@ -28,6 +28,7 @@ import (
 	"testing"
 	"time"
 
+	"github.com/asheshgoplani/agent-deck/internal/gitstate"
 	"github.com/asheshgoplani/agent-deck/internal/session"
 	tea "github.com/charmbracelet/bubbletea"
 	"github.com/charmbracelet/x/exp/teatest"
@@ -177,8 +178,8 @@ func seamBNewHome() *Home {
 		creatingSessions:     make(map[string]*CreatingSession),
 		lastLogActivity:      make(map[string]time.Time),
 		windowsCollapsed:     make(map[string]bool),
-		worktreeDirtyCache:   make(map[string]bool),
-		worktreeDirtyCacheTs: make(map[string]time.Time),
+		gitState:             gitstate.NewCache(gitstate.TTL),
+		gitStateFetch:        gitstate.Fetch,
 		hotkeys:              make(map[string]string),
 		hotkeyLookup:         make(map[string]string),
 		blockedHotkeys:       make(map[string]bool),
