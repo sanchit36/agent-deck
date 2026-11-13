@@ -107,6 +107,9 @@ type forgeState struct {
 	// detailDelay is the debounce before an open detail is fetched:
 	// forgeDetailDelay when zero, none when negative (tests).
 	detailDelay time.Duration
+	// launcher runs launches from an Issue or PR (forge_launch_run.go);
+	// its zero value is the real thing. Injectable for tests.
+	launcher forgeLauncher
 	// sessionPick is the attach picker of a row with several linked
 	// sessions; nil when closed.
 	sessionPick *forgeSessionPick
@@ -268,6 +271,8 @@ func (h *Home) handleForgeKey(msg tea.KeyMsg, raw, key string) (bool, tea.Model,
 		return true, h, h.forgeCopyURL()
 	case hotkeyForgeAttach:
 		return true, h, h.forgeAttach()
+	case hotkeyForgeNew:
+		return true, h, h.forgeNew()
 	case hotkeyForgeView:
 		return true, h, h.forgeOpenItem()
 	case hotkeyForgeFilter:
@@ -853,6 +858,9 @@ func (h *Home) renderForgeHelpBar() string {
 	case h.forge.sessionPick != nil:
 		add("↑↓", "move")
 		add("enter", "attach")
+		if h.forge.sessionPick.launch {
+			add(h.forgeKey(hotkeyForgeNew), "new session")
+		}
 		add("esc", "close")
 	default:
 		// esc resets a filter before it backs out of the detail.
@@ -867,6 +875,7 @@ func (h *Home) renderForgeHelpBar() string {
 			} else {
 				add(h.forgeKey(hotkeyForgeView), "view")
 			}
+			add(h.forgeKey(hotkeyForgeNew), "new")
 			if insts, _, _ := h.forgeSelectedSessions(); len(insts) > 0 {
 				add(h.forgeKey(hotkeyForgeAttach), "attach")
 			}
@@ -925,6 +934,7 @@ func (h *Home) forgeHelpRows() [][2]string {
 		{h.forgeKey(hotkeyForgeCopy), "Copy the URL"},
 		{h.forgeKey(hotkeyForgeFilter), "Filter (GitHub search syntax)"},
 		{"Esc", "Reset the filter"},
+		{h.forgeKey(hotkeyForgeNew), "Start a session on the row (chooser if linked)"},
 		{h.forgeKey(hotkeyForgeAttach), "Attach to the linked session"},
 		{h.forgeKey(hotkeyForgeView), "Open the item (single column: detail first)"},
 		{"j/k ↑↓", "Move in the list"},

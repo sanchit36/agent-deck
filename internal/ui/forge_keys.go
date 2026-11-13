@@ -36,6 +36,9 @@ const (
 	// hotkeyForgeView views the selected row: in the single column the
 	// first press opens the full-screen detail.
 	hotkeyForgeView = "forge_view"
+	// hotkeyForgeNew starts a session on the selected row, through the
+	// chooser when sessions are linked to it.
+	hotkeyForgeNew = "forge_new"
 )
 
 // forgeHotkeyActionOrder is every forge action; later slices append theirs.
@@ -53,6 +56,7 @@ var forgeHotkeyActionOrder = []string{
 	hotkeyForgeFilter,
 	hotkeyForgeAttach,
 	hotkeyForgeView,
+	hotkeyForgeNew,
 }
 
 // forgeTabActions switch tabs and work from every tab, Sessions included.
@@ -78,6 +82,7 @@ var defaultForgeHotkeyBindings = map[string]string{
 	hotkeyForgeFilter:      "/",
 	hotkeyForgeAttach:      "a",
 	hotkeyForgeView:        "enter",
+	hotkeyForgeNew:         "n",
 	// The overlay's own key space (forge_overlay.go).
 	hotkeyForgeConversation: "c",
 	hotkeyForgeFiles:        "d",

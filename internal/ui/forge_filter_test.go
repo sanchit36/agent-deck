@@ -273,6 +273,26 @@ func TestForgeFilterEscBeforeDetail(t *testing.T) {
 	}
 }
 
+// TestForgeFilterNotInOverlay: the overlay has its own key space, so /
+// and esc there never open the bar or reset the filter.
+func TestForgeFilterNotInOverlay(t *testing.T) {
+	h, fake := detailIssuesHome(t, 120, 30)
+	serveSearch(fake, github.IssueSearchQuery, "repo:me/widgets is:issue is:closed sort:updated-desc", githubtest.MustLoad(t, githubtest.IssueSearch))
+	h = filterQuery(t, h, "is:closed")
+	h = drive(t, h, specialKey(tea.KeyEnter))
+	if !h.forge.overlay.visible {
+		t.Fatal("enter did not open the overlay")
+	}
+	h = drive(t, h, runeKey('/'))
+	if h.forge.bar.open {
+		t.Fatal("/ opened the query bar inside the overlay")
+	}
+	h = drive(t, h, specialKey(tea.KeyEsc))
+	if h.forgeFilterIsDefault(tabIssues) {
+		t.Fatal("esc in the overlay reset the filter")
+	}
+}
+
 // TestForgeFilterPerProjectAndTab: a filter belongs to its Project and tab
 // for the run: the other tab and the Parent Repository keep their own.
 func TestForgeFilterPerProjectAndTab(t *testing.T) {

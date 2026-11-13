@@ -1,0 +1,30 @@
+                 ╭────────────────────────────────────────────────────────────────────────────────────╮                 
+                 │                                                                                    │                 
+                 │                                                                                    │                 
+                 │    New Session                                                                     │                 
+                 │                                                                                    │                 
+                 │      in group: widgets                                                             │                 
+                 │                                                                                    │                 
+                 │    ▶ Name:  > PR#14927 Add guided multi-account setup and eva…                     │                 
+                 │                                                                                    │                 
+                 │      Agent:   shell     claude     gemini     opencode     opencode2               │                 
+                 │               codex     pi     copilot     crush     muse     cursor agent         │                 
+                 │               hermes     deepseek     omp                                          │                 
+                 │                                                                                    │                 
+                 │      Path:  > /src/widgets                                                         │                 
+                 │                                                                                    │                 
+                 │      Template: pr-review                                                           │                 
+                 │      │ Address the review feedback on pull request #14927 in me/widgets: Add g…    │                 
+                 │      │ https://github.com/cli/cli/pull/14927                                       │                 
+                 │      │ Branch williammartin-multiaccount-draft-08-evaluation into williammarti…    │                 
+                 │      │                                                                             │                 
+                 │      19 lines, 567 B · ctrl+e edit                                                 │                 
+                 │                                                                                    │                 
+                 │      Model ID:                                                                     │                 
+                 │      > tool default (↓ to browse)                                                  │                 
+                 │      Examples: claude-opus-5-5, claude-sonnet-5, claude-haiku-4-5                  │                 
+                 │      ↓ more fields                                                                 │                 
+                 │    Tab next │ ↑↓ navigate │ Enter create │ Esc cancel                              │                 
+                 │                                                                                    │                 
+                 │                                                                                    │                 
+                 ╰────────────────────────────────────────────────────────────────────────────────────╯                 

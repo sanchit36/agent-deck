@@ -291,9 +291,11 @@ func TestForgeOverlayClose(t *testing.T) {
 	for _, k := range []tea.KeyMsg{overlayEsc(), runeKey('q')} {
 		h, _ := overlayIssueHome(t, 120, 30)
 		h = openOverlay(t, h)
-		h = drive(t, h, runeKey('n'))
+		// x (send output) is an overview key with no overlay meaning (n is
+		// the overlay's launch since #35).
+		h = drive(t, h, runeKey('x'))
 		h = drive(t, h, runeKey('?'))
-		if h.newDialog.IsVisible() || h.helpOverlay.IsVisible() || !h.forgeOverlayVisible() {
+		if h.newDialog.IsVisible() || h.sessionPickerDialog.IsVisible() || h.helpOverlay.IsVisible() || !h.forgeOverlayVisible() {
 			t.Fatal("an overview key reached past the overlay")
 		}
 		h = drive(t, h, k)

@@ -130,3 +130,20 @@ func TestFakeRecordsCallsAndRejectsUnknownCalls(t *testing.T) {
 		t.Fatalf("Calls() = %+v, want the one call made", calls)
 	}
 }
+
+// TestExecRunnerRunsInCallDir: a Call with Dir runs gh in that directory
+// (gh pr checkout acts on the working directory's repository).
+func TestExecRunnerRunsInCallDir(t *testing.T) {
+	testutil.InstallFakeGh(t, "pwd")
+	dir, err := filepath.EvalSymlinks(t.TempDir())
+	if err != nil {
+		t.Fatal(err)
+	}
+	res, err := github.ExecRunner{}.Run(context.Background(), github.Call{Args: []string{"pr", "checkout", "1"}, Dir: dir})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if got := string(bytes.TrimSpace(res.Stdout)); got != dir {
+		t.Fatalf("gh ran in %q, want %q", got, dir)
+	}
+}
