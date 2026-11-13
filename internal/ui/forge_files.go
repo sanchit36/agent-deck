@@ -24,8 +24,9 @@ import (
 // The diff is one Freshness key, freshness.DiffKey(repo, n, headSHA): the
 // head SHA comes from the PR's cached detail (fetched here when no detail
 // pane has it, as in the single column), and a diff is never refetched for
-// the same head. While a new head's diff loads, the last one stays on
-// screen. It is parsed where it is fetched (github.ParseDiff), off the
+// the same head while it is cached. While a new head's diff loads, the
+// last one stays on screen; the cached diffs are bounded
+// (forge_files_cache.go). It is parsed where it is fetched (github.ParseDiff), off the
 // render path; the view keeps a per-file row model and styles only the
 // rows on screen, so a frame costs the same for a 10-line and a
 // 1500-line file.
@@ -186,6 +187,7 @@ func (h *Home) forgeFilesKeys() []freshness.Key {
 // diff once it is cached.
 func (h *Home) forgeFilesFetch() tea.Cmd {
 	h.adoptForgeFilesDiff()
+	h.boundForgeDiffs()
 	if h.forgePaused() {
 		return nil
 	}

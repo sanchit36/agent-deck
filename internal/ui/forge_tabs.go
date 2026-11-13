@@ -96,6 +96,10 @@ type forgeState struct {
 	// fetch each kind; jobs runs and joins the gh work.
 	fresh    *freshness.Cache
 	interval time.Duration
+	// diffs are the diff keys the Files tab has shown or asked for, least
+	// recently used first, so their cache stays bounded
+	// (forge_files_cache.go).
+	diffs    []freshness.Key
 	fetchers map[freshness.Kind]forgeFetchFunc
 	client   *github.Client
 	jobs     *forgeJobs
