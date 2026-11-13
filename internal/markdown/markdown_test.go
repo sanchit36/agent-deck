@@ -211,6 +211,36 @@ func TestRender(t *testing.T) {
 			want: []string{"| a | **b** |", "|---|---|", "| [l](u) | `c` |"},
 		},
 		{
+			name: "table without leading pipes left raw",
+			src:  "a | **b**\n---|---\n[l](u) | `c`",
+			want: []string{"a | **b**", "---|---", "[l](u) | `c`"},
+		},
+		{
+			name: "aligned delimiter row",
+			src:  " **a** | b |\n:--|--:|\n1 | `2` |",
+			want: []string{" **a** | b |", ":--|--:|", "1 | `2` |"},
+		},
+		{
+			name: "table ends at a line without a pipe",
+			src:  "a | b\n-- | --\n1 | **2**\nafter **x**",
+			want: []string{"a | b", "-- | --", "1 | **2**", "after <b>x</b>"},
+		},
+		{
+			name: "table ends at a blank line",
+			src:  "**a** | b\n--|--\n\nx | **y**",
+			want: []string{"**a** | b", "--|--", "", "x | <b>y</b>"},
+		},
+		{
+			name: "delimiter with another cell count is no table",
+			src:  "**a** | b | c\n--|--",
+			want: []string{"<b>a</b> | b | c", "--|--"},
+		},
+		{
+			name: "pipe in prose without a delimiter row is no table",
+			src:  "**a** | b\nnext | **c**",
+			want: []string{"<b>a</b> | b", "next | <b>c</b>"},
+		},
+		{
 			name:  "wide table cut and panned like code",
 			src:   "| aaaa | bbbb |",
 			width: 6,
