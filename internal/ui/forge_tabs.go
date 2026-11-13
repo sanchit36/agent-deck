@@ -94,8 +94,20 @@ type forgeState struct {
 	client   *github.Client
 	jobs     *forgeJobs
 	// detail is the key of the open detail (zero Kind: none); r refreshes
-	// it with the list. Set by the detail pane.
+	// it with the list. Set by syncForgeDetail (forge_detail.go).
 	detail freshness.Key
+	// detailFull is true while the single column shows the full-screen
+	// detail (enter opens it, esc returns).
+	detailFull bool
+	// detailDelay is the debounce before an open detail is fetched:
+	// forgeDetailDelay when zero, none when negative (tests).
+	detailDelay time.Duration
+	// sessionPick is the attach picker of a row with several linked
+	// sessions; nil when closed.
+	sessionPick *forgeSessionPick
+	// attach attaches to a session by id; nil means as enter does on the
+	// Sessions tab. Injectable for tests.
+	attach func(id string) tea.Cmd
 	// background is true while the terminal reports it lost focus.
 	background bool
 	// now, openURL and copyURL are injectable for tests; nil means
@@ -145,6 +157,8 @@ func (h *Home) setForgeEnabled(enabled bool, overrides map[string]string) {
 	if !enabled {
 		h.forge.tab = tabSessions
 		h.forge.picker = false
+		h.forge.sessionPick = nil
+		h.forge.detailFull = false
 	}
 	h.syncForgeHelp()
 }
@@ -170,6 +184,8 @@ func (h *Home) forgeKey(action string) string {
 func (h *Home) switchForgeTab(t leftTab) tea.Cmd {
 	h.forge.tab = t
 	h.forge.picker = false
+	h.forge.sessionPick = nil
+	h.forge.detailFull = false
 	h.syncForgeHelp()
 	return h.forgeEnsureProject()
 }
@@ -205,6 +221,9 @@ func (h *Home) handleForgeKey(msg tea.KeyMsg, raw, key string) (bool, tea.Model,
 	if h.forge.picker {
 		return h.handleForgePickerKey(msg, key)
 	}
+	if h.forge.sessionPick != nil {
+		return h.handleForgeSessionPickKey(msg, key)
+	}
 	switch action {
 	case hotkeyForgeProject:
 		h.openForgePicker()
@@ -217,10 +236,18 @@ func (h *Home) handleForgeKey(msg tea.KeyMsg, raw, key string) (bool, tea.Model,
 		return true, h, h.forgeOpenURL()
 	case hotkeyForgeCopy:
 		return true, h, h.forgeCopyURL()
+	case hotkeyForgeAttach:
+		return true, h, h.forgeAttach()
+	case hotkeyForgeView:
+		return true, h, h.forgeOpenItem()
 	}
 	if mv, ok := forgeMovementKeys[raw]; ok {
 		h.moveForgeCursor(mv)
-		return true, h, nil
+		return true, h, h.syncForgeDetail()
+	}
+	if key == "esc" && h.forgeDetailFull() {
+		h.forge.detailFull = false
+		return true, h, h.syncForgeDetail()
 	}
 	return h.forgeFallThrough(msg, key)
 }
@@ -661,6 +688,8 @@ func (h *Home) renderForgeList(width, height int) string {
 	lines := []string{h.renderForgeProjectLine(width)}
 	if h.forge.picker {
 		lines = append(lines, h.renderForgePicker(width)...)
+	} else if h.forge.sessionPick != nil {
+		lines = append(lines, h.renderForgeSessionPick(width)...)
 	} else if body := h.renderForgeListBody(width); body != nil {
 		lines = append(lines, body...)
 	} else {
@@ -765,13 +794,27 @@ func (h *Home) renderForgeHelpBar() string {
 			ctx = append(ctx, footerHint{key: key, label: label})
 		}
 	}
-	if h.forge.picker {
+	switch {
+	case h.forge.picker:
 		add("↑↓", "move")
 		add("enter", "select")
 		add("esc", "close")
-	} else {
+	case h.forge.sessionPick != nil:
+		add("↑↓", "move")
+		add("enter", "attach")
+		add("esc", "close")
+	default:
+		if h.forgeDetailFull() {
+			add("esc", "back")
+		}
 		add(joinHotkeyLabels(h.forgeKey(hotkeyForgePrevTab), h.forgeKey(hotkeyForgeNextTab)), "tabs")
 		if _, ok := h.forgeSelectedRow(); ok {
+			if h.getLayoutMode() == LayoutModeSingle && !h.forgeDetailFull() {
+				add(h.forgeKey(hotkeyForgeView), "detail")
+			}
+			if insts, _, _ := h.forgeSelectedSessions(); len(insts) > 0 {
+				add(h.forgeKey(hotkeyForgeAttach), "attach")
+			}
 			add(h.forgeKey(hotkeyForgeOpen), "open")
 			add(h.forgeKey(hotkeyForgeCopy), "copy url")
 		}
@@ -821,6 +864,8 @@ func (h *Home) forgeHelpRows() [][2]string {
 		{h.forgeKey(hotkeyForgeRefresh), "Refresh the list"},
 		{h.forgeKey(hotkeyForgeOpen), "Open in the browser"},
 		{h.forgeKey(hotkeyForgeCopy), "Copy the URL"},
+		{h.forgeKey(hotkeyForgeAttach), "Attach to the linked session"},
+		{h.forgeKey(hotkeyForgeView), "Detail full screen (single column)"},
 		{"j/k ↑↓", "Move in the list"},
 		{"", ""},
 		{h.actionKey(hotkeyHelp), "This help"},

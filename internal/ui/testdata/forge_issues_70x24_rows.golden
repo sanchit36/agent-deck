@@ -8,17 +8,17 @@ me/widgets ▾  is:open                             6 of 1075 · just now
                                                                       
   ○ gh auth saves plain text token, even though I have keyring        
 ──────────────────────────────────────────────────────────────────────
-PREVIEW                                                               
+ISSUE #14822                                                          
 ──────────────────────────────────────────────────────────────────────
-fix login  ■ stopped                                                  
-📁 /src/widgets                                                       
-⏱ unknown                                                             
- claude   widgets                                                     
-───────────────────────────── Claude ─────────────────────────────    
-Status:  ○ Not connected                                              
-Model:   tool default                                                 
+○ gh run view --job --log-failed fails on required shared-workflow    
+  metadata 404                                                        
                                                                       
-───────────────────────── Process Exited ─────────────────────────    
-                                                                      
+⚠ gh failed: githubtest: no fixture for gh api --hostname github.com  
+graphql -f                                                            
+query=query($owner:String!,$name:String!,$number:Int!){repository(owne
+r:$owner,name:$name){issueOrPullRequest(number:$number){__typename    
+...on Issue{number title url issueState:state createdAt updatedAt     
+author{login} labels(first:20){nodes{name}}                           
+assignees(first:10){nodes{login}} comments{totalCount}                
 ──────────────────────────────────────────────────────────────────────
 [/] tabs  o open  y copy url  r refresh  p project  S settings  ? help
