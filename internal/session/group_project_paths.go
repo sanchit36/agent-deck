@@ -12,10 +12,7 @@ func GroupProjectPaths(groupPath string, instances []*Instance) []string {
 		if inst == nil || inst.GroupPath != groupPath {
 			continue
 		}
-		p := inst.ProjectPath
-		if inst.IsWorktree() && inst.WorktreeRepoRoot != "" {
-			p = inst.WorktreeRepoRoot
-		}
+		p := ProjectResolvePath(inst)
 		if p == "" || seen[p] {
 			continue
 		}
@@ -23,4 +20,17 @@ func GroupProjectPaths(groupPath string, instances []*Instance) []string {
 		paths = append(paths, p)
 	}
 	return paths
+}
+
+// ProjectResolvePath is the path inst's GitHub Project resolves from: its
+// ProjectPath, or for a worktree session its main repository
+// (WorktreeRepoRoot). Empty for a nil instance or one with no path.
+func ProjectResolvePath(inst *Instance) string {
+	if inst == nil {
+		return ""
+	}
+	if inst.IsWorktree() && inst.WorktreeRepoRoot != "" {
+		return inst.WorktreeRepoRoot
+	}
+	return inst.ProjectPath
 }

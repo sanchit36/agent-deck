@@ -5,6 +5,7 @@ import (
 	"errors"
 	"fmt"
 	"os/exec"
+	"slices"
 	"sort"
 	"strings"
 	"time"
@@ -74,7 +75,11 @@ type forgeGroupView struct {
 	// unsupported replaces resolution for groups the forge never resolves
 	// (SSH remote groups).
 	unsupported string
-	selected    int
+	// selected follows the cursor session's Project (else the first)
+	// until the user picks one with the selector; picked keeps that pick
+	// while it is still one of the group's Projects.
+	selected int
+	picked   bool
 
 	parent          bool
 	parentResolving bool
@@ -179,7 +184,6 @@ type forgeState struct {
 type forgeGroupResolvedMsg struct {
 	groupPath string
 	group     github.Group
-	selected  int
 	err       error
 }
 
@@ -381,11 +385,8 @@ func (h *Home) handleForgePickerKey(msg tea.KeyMsg, key string) (bool, tea.Model
 		}
 	case "enter":
 		if v != nil && h.forge.pickerAt < n {
-			if v.selected != h.forge.pickerAt {
-				v.selected = h.forge.pickerAt
-				v.parent = false
-				v.note = ""
-			}
+			v.picked = true
+			v.selectProject(h.forge.pickerAt)
 		}
 		h.forge.picker = false
 		return true, h, h.forgeRefreshDue()
@@ -467,13 +468,13 @@ func (h *Home) forgeTarget() (groupPath, defaultPath string, sessionPaths []stri
 		groupPath = item.Path
 	case session.ItemTypeSession:
 		if item.Session != nil {
-			groupPath, cursorPath = item.Session.GroupPath, item.Session.ProjectPath
+			groupPath, cursorPath = item.Session.GroupPath, session.ProjectResolvePath(item.Session)
 		} else {
 			groupPath = item.Path
 		}
 	case session.ItemTypeWindow:
 		if inst := h.getInstanceByID(item.WindowSessionID); inst != nil {
-			groupPath, cursorPath = inst.GroupPath, inst.ProjectPath
+			groupPath, cursorPath = inst.GroupPath, session.ProjectResolvePath(inst)
 		}
 	default:
 		groupPath = item.Path
@@ -481,11 +482,7 @@ func (h *Home) forgeTarget() (groupPath, defaultPath string, sessionPaths []stri
 	if h.groupTree != nil {
 		if g := h.groupTree.Groups[groupPath]; g != nil {
 			defaultPath = g.DefaultPath
-			for _, inst := range g.Sessions {
-				if inst != nil && inst.ProjectPath != "" {
-					sessionPaths = append(sessionPaths, inst.ProjectPath)
-				}
-			}
+			sessionPaths = session.GroupProjectPaths(groupPath, g.Sessions)
 		}
 	}
 	return groupPath, defaultPath, sessionPaths, cursorPath, false
@@ -537,14 +534,17 @@ func (h *Home) forgeResolveProject(retry bool) (cmd tea.Cmd, resolving bool) {
 		h.forge.views[groupPath] = &forgeGroupView{unsupported: "remote groups have no GitHub tabs"}
 		return nil, false
 	}
+	r := h.forgeResolver()
 	sig := forgePathsSig(defaultPath, sessionPaths)
 	if v == nil {
 		v = &forgeGroupView{}
 		h.forge.views[groupPath] = v
-	} else if v.unsupported != "" || v.inflight || (!v.forget && sig == v.sig && (!retry || v.err == nil)) {
-		return nil, v.resolving
+	} else {
+		v.followCursor(r, cursorPath)
+		if v.unsupported != "" || v.inflight || (!v.forget && sig == v.sig && (!retry || v.err == nil)) {
+			return nil, v.resolving
+		}
 	}
-	r := h.forgeResolver()
 	if v.forget {
 		v.forget = false
 		r.InvalidateHosts()
@@ -560,19 +560,38 @@ func (h *Home) forgeResolveProject(retry bool) (cmd tea.Cmd, resolving bool) {
 		ctx, cancel := context.WithTimeout(jobCtx, forgeResolveTimeout)
 		defer cancel()
 		g, err := r.ResolveGroup(ctx, defaultPath, sessionPaths)
-		msg := forgeGroupResolvedMsg{groupPath: groupPath, group: g, err: err}
-		if err == nil && cursorPath != "" {
-			if res, ok := r.Cached(cursorPath); ok && res.Found() {
-				for i, p := range g.Projects {
-					if p.Repo == res.Repo {
-						msg.selected = i
-						break
-					}
+		return forgeGroupResolvedMsg{groupPath: groupPath, group: g, err: err}
+	}), v.resolving
+}
+
+// followCursor selects the cursor session's Project (cursorPath is the
+// path it resolves from), else the first, unless the user picked one. It
+// reads the resolver's cache only: no git, no gh.
+func (v *forgeGroupView) followCursor(r *github.Resolver, cursorPath string) {
+	if v.picked || len(v.group.Projects) == 0 {
+		return
+	}
+	want := 0
+	if cursorPath != "" {
+		if res, ok := r.Cached(cursorPath); ok && res.Found() {
+			for i, p := range v.group.Projects {
+				if p.Repo == res.Repo {
+					want = i
+					break
 				}
 			}
 		}
-		return msg
-	}), v.resolving
+	}
+	v.selectProject(want)
+}
+
+// selectProject shows Project i; a different Project starts on itself, not
+// its Parent Repository.
+func (v *forgeGroupView) selectProject(i int) {
+	if i == v.selected {
+		return
+	}
+	v.selected, v.parent, v.note = i, false, ""
 }
 
 // forgeReResolve is r's part in resolution: the shown group resolves again
@@ -589,8 +608,10 @@ func (h *Home) forgeReResolve() tea.Cmd {
 }
 
 // applyForgeGroupResolved installs a group's Projects, keeping the selected
-// Project while it is still one of them, starts a resolution asked for
-// while this one ran, and fetches what the visible view is due for.
+// Project while it is still one of them (an explicit pick that is gone
+// gives way to the cursor's), then, for the shown group, follows the
+// cursor and starts a resolution asked for while this one ran, and fetches
+// what the visible view is due for.
 func (h *Home) applyForgeGroupResolved(msg forgeGroupResolvedMsg) tea.Cmd {
 	if h.forge.views == nil {
 		h.forge.views = map[string]*forgeGroupView{}
@@ -602,28 +623,21 @@ func (h *Home) applyForgeGroupResolved(msg forgeGroupResolvedMsg) tea.Cmd {
 	}
 	prev, hadPrev := v.project()
 	v.resolving, v.inflight = false, false
-	switch {
-	case msg.err != nil && hadPrev:
+	if msg.err != nil && hadPrev {
 		// A resolution that could not finish leaves the Projects on
 		// screen; the next tab open (or r) tries again.
 		v.err = msg.err
-	case hadPrev:
-		v.group, v.err = msg.group, nil
-		v.selected = -1
-		for i, p := range v.group.Projects {
-			if p.Repo == prev {
-				v.selected = i
-				break
-			}
+	} else {
+		v.group, v.err = msg.group, msg.err
+		i := -1
+		if hadPrev {
+			i = slices.IndexFunc(v.group.Projects, func(p github.Project) bool { return p.Repo == prev })
 		}
-		if v.selected < 0 {
-			v.selected, v.parent, v.note = 0, false, ""
+		if i < 0 {
+			v.picked = false
+			i = 0
 		}
-	default:
-		v.group, v.err, v.selected = msg.group, msg.err, msg.selected
-	}
-	if v.selected >= len(v.group.Projects) {
-		v.selected = 0
+		v.selectProject(i)
 	}
 	if h.forge.pickerAt >= len(v.group.Projects) {
 		h.forge.pickerAt = v.selected

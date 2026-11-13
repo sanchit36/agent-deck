@@ -10,6 +10,7 @@ import (
 	"github.com/asheshgoplani/agent-deck/internal/github"
 	"github.com/asheshgoplani/agent-deck/internal/github/githubtest"
 	"github.com/asheshgoplani/agent-deck/internal/session"
+	tea "github.com/charmbracelet/bubbletea"
 )
 
 // changingLocal is a github.LocalReader whose checkouts can fail for a
@@ -177,5 +178,70 @@ func TestForgeReResolvesWhenSessionPathsChange(t *testing.T) {
 	}
 	if line := forgeProjectLine(h); !strings.Contains(line, "me/widgets ▾") {
 		t.Fatalf("Project line = %q, want me/widgets (the cursor session's)", line)
+	}
+}
+
+// TestForgeProjectFollowsCursorUntilPicked: the selector follows the cursor
+// session's Project (spec #18 §2) as the cursor moves in the group, until
+// the user picks a Project with p; that pick then stays, r included.
+func TestForgeProjectFollowsCursorUntilPicked(t *testing.T) {
+	h := forgeHome(t, 120, 30, false, nil, map[string]github.Local{
+		"/src/widgets": checkout("/src/widgets", "git@github.com:me/widgets.git"),
+		"/src/gadgets": checkout("/src/gadgets", "git@github.com:acme/gadgets.git"),
+	})
+	grp := h.groupTree.Groups["widgets"]
+	grp.DefaultPath = ""
+	grp.Sessions[1].ProjectPath = "/src/gadgets"
+
+	h = drive(t, h, altKeyMsg('i'))
+	if line := forgeProjectLine(h); !strings.Contains(line, "me/widgets ▾") {
+		t.Fatalf("cursor on the widgets session: Project line = %q", line)
+	}
+	h = drive(t, h, altKeyMsg('j'))
+	if line := forgeProjectLine(h); !strings.Contains(line, "acme/gadgets ▾") {
+		t.Fatalf("cursor moved to the gadgets session: Project line = %q, want acme/gadgets", line)
+	}
+	h = drive(t, h, altKeyMsg('k'))
+	if line := forgeProjectLine(h); !strings.Contains(line, "me/widgets ▾") {
+		t.Fatalf("cursor back on the widgets session: Project line = %q, want me/widgets", line)
+	}
+
+	// p picks acme/gadgets: the cursor no longer moves the selection.
+	h = drive(t, h, runeKey('p'))
+	h = drive(t, h, runeKey('j'))
+	h = drive(t, h, tea.KeyMsg{Type: tea.KeyEnter})
+	for _, k := range []rune{'j', 'k'} {
+		h = drive(t, h, altKeyMsg(k))
+		if line := forgeProjectLine(h); !strings.Contains(line, "acme/gadgets ▾") {
+			t.Fatalf("alt+%c after an explicit pick: Project line = %q, want acme/gadgets kept", k, line)
+		}
+	}
+	h = drive(t, h, runeKey('r'))
+	if line := forgeProjectLine(h); !strings.Contains(line, "acme/gadgets ▾") {
+		t.Fatalf("r after an explicit pick: Project line = %q, want acme/gadgets kept", line)
+	}
+}
+
+// TestForgeWorktreeSessionResolvesByMainRepo: a worktree session stands for
+// its main repository (session.GroupProjectPaths), both as a Project and
+// as the cursor session's Project.
+func TestForgeWorktreeSessionResolvesByMainRepo(t *testing.T) {
+	h := forgeHome(t, 120, 30, false, nil, map[string]github.Local{
+		"/src/widgets": checkout("/src/widgets", "git@github.com:me/widgets.git"),
+		"/src/gadgets": checkout("/src/gadgets", "git@github.com:acme/gadgets.git"),
+	})
+	grp := h.groupTree.Groups["widgets"]
+	grp.DefaultPath = ""
+	grp.Sessions[0].ProjectPath = "/src/gadgets"
+	wt := grp.Sessions[1]
+	wt.ProjectPath, wt.WorktreePath, wt.WorktreeRepoRoot = "/wt/widgets-fix", "/wt/widgets-fix", "/src/widgets"
+	h.cursor = 2 // the worktree session
+
+	h = drive(t, h, altKeyMsg('p'))
+	if line := forgeProjectLine(h); !strings.Contains(line, "me/widgets ▾") {
+		t.Fatalf("cursor on a widgets worktree: Project line = %q, want me/widgets", line)
+	}
+	if n := len(h.forgeView().group.Projects); n != 2 {
+		t.Fatalf("Projects = %d, want 2 (gadgets and the worktree's main repo)", n)
 	}
 }
