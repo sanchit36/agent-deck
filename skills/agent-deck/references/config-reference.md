@@ -26,6 +26,7 @@ All options for `$XDG_CONFIG_HOME/agent-deck/config.toml` (default `~/.config/ag
 - [[updates] Section](#updates-section)
 - [[sessions] Section](#sessions-section)
 - [[interval_hooks.*] Section](#interval_hooks-section)
+- [[prompt_templates.<name>] Section](#prompt_templatesname-section)
 - [[display] Section](#display-section)
 - [[ui] Section](#ui-section)
   - [[ui.remote_preview] Section](#uiremote_preview-section)
@@ -917,6 +918,80 @@ Notes:
 - Overlapping runs of the *same* hook are skipped: if a run is still going when the next tick fires, that tick is dropped (logged, not stacked).
 - **Live config changes:** a supervisor rescans `config.toml` about every 15s, so you can add, remove, pause (`enabled = false`), or re-enable a hook without restarting the TUI — changes take effect within one rescan. A live hook's own `command` / `interval_seconds` edits are picked up on its next tick. (No restart is required for any of these.)
 - Each run is logged: failures (non-zero exit) at WARN with truncated output, successes at INFO. A hook is never allowed to crash the TUI (each runs in a panic-recovering goroutine).
+
+## [prompt_templates.<name>] Section
+
+(behind `[github] enabled`)
+
+A Prompt Template is the first message of a session launched from a GitHub
+Issue or Pull Request: named text filled with that item's number and content.
+Each template is a named table under `[prompt_templates]`; the name is what the
+template picker shows. Templates carry text only, no launch options.
+
+```toml
+[prompt_templates.bug]
+labels = ["bug", "regression"]   # chosen for an issue carrying any of these
+text = """
+Fix bug #{number} in {repo}: {title}
+{url}
+
+{body}
+"""
+
+[prompt_templates.review]
+applies_to = "pr"
+default = true                   # fallback for PRs when no label matches
+repos = ["acme/app"]             # only for this Project
+file = "templates/review.md"     # relative to the config dir; ~ is expanded
+```
+
+| Key | Type | Default | Description |
+|-----|------|---------|-------------|
+| `applies_to` | string | `"issue"` | `"issue"` or `"pr"`. Any other value ignores the template and warns. |
+| `labels` | list | `[]` | Labels that select the template, matched exactly and case-insensitively (no globs). |
+| `default` | bool | `false` | Fallback for its kind when no label matches. |
+| `repos` | list | `[]` (all) | `owner/name` Projects the template applies to. Templates for the current Project rank ahead of global ones. |
+| `text` | string | | Inline template. Set exactly one of `text` and `file`, or the template is ignored with a warning. |
+| `file` | string | | Template file. A relative path resolves against the directory of `config.toml`, `~` is expanded, and the file is read at launch (edits need no restart). A missing file is a launch-time error, and the picker opens. |
+
+**Variables** use single braces, `{name}`, and are substituted in one pass:
+a `{title}` inside an issue body is never expanded.
+
+| Variable | Kind | Value |
+|----------|------|-------|
+| `{number}` | both | Issue or PR number |
+| `{title}` | both | Title |
+| `{body}` | both | Body (capped, see below) |
+| `{url}` | both | Web URL |
+| `{repo}` | both | `owner/name` |
+| `{labels}` | both | Labels, comma-separated |
+| `{author}` | both | Author login |
+| `{comments}` | both | Comments (capped; fetched only when the template uses it) |
+| `{head-branch}` | PR | Head branch |
+| `{base-branch}` | PR | Base branch |
+| `{review-comments}` | PR | Inline review threads with `file:line` (capped; fetched only when used) |
+
+There is no `{diff}`: the agent runs `git diff` itself. `{body}`, `{comments}`
+and `{review-comments}` are each capped at 16 KB, cut on a character boundary,
+and followed by `[truncated: run gh issue view <number> -R <repo> --comments]`
+(`gh pr view` for a PR).
+
+**Built-ins:** `issue` (work on the issue, the issue default) and `pr-review`
+(address the review comments, the PR default). A template of the same name
+replaces the built-in.
+
+**Matching**, among templates of the item's kind whose `repos` include the Project:
+
+- one label match: used without asking
+- several: the picker opens with the matches first (Project templates, then by name)
+- none: the kind's `default` (yours before the built-in, a Project default before a global one, then the first by name), otherwise the picker
+
+**Config-load warnings** (logged; the template still loads unless noted):
+an unknown variable (left as written); a PR variable in an issue template
+(renders empty); a `repos` entry that is not `owner/name`; a `file` that cannot
+be read yet; two `default` templates of one kind for the same Project (the
+first by name wins); a bad `applies_to` or not exactly one of `text`/`file`
+(the template is ignored).
 
 ## [display] Section
 
