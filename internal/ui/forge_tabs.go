@@ -660,6 +660,11 @@ func (h *Home) forgeStripSegments(width int) []forgeStripSeg {
 	if h.embeddedLayout {
 		first, short = "AGENTS", "AGT"
 	}
+	// While < / > resize the panes, the first chip flashes the sessions
+	// share, as the gate-off title does (issue #1092).
+	if pct, ok := h.splitFlashPct(); ok {
+		first = fmt.Sprintf("%s %d%%", first, 100-pct)
+	}
 	tiers := [][leftTabCount]string{
 		{first, h.forgeTabLabel(tabIssues, "ISSUES", true), h.forgeTabLabel(tabPRs, "PRS", true)},
 		{first, "ISSUES", "PRS"},
@@ -683,6 +688,15 @@ func (h *Home) forgeStripSegments(width int) []forgeStripSeg {
 		}
 	}
 	return segs
+}
+
+// splitFlashPct is the preview share while the split-ratio flash is on
+// screen; renderDualColumnLayout shows it only in the dual layout.
+func (h *Home) splitFlashPct() (int, bool) {
+	if h.getLayoutMode() != LayoutModeDual || h.previewPctOverlayAt.IsZero() || !time.Now().Before(h.previewPctOverlayAt) {
+		return 0, false
+	}
+	return h.getPreviewPct(), true
 }
 
 func (h *Home) forgeTabLabel(t leftTab, name string, withCount bool) string {
@@ -741,7 +755,8 @@ func (h *Home) renderForgeTitle(width int) string {
 }
 
 // leftPanelTitle is the left panel's title block: the tab strip with the
-// gate on, today's title with it off.
+// gate on (its first chip carries the split-ratio flash, splitFlashPct),
+// today's title with it off.
 func (h *Home) leftPanelTitle(title string, width int) string {
 	if h.forge.enabled {
 		return h.renderForgeTitle(width)

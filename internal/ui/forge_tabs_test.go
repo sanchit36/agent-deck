@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"strings"
 	"testing"
+	"time"
 
 	"github.com/asheshgoplani/agent-deck/internal/github"
 	"github.com/asheshgoplani/agent-deck/internal/github/freshness"
@@ -345,5 +346,36 @@ func TestForgeGateOffAtRuntime(t *testing.T) {
 	h = drive(t, h, runeKey(']'))
 	if h.forge.tab != tabSessions {
 		t.Fatal("] switched tabs with the gate off")
+	}
+}
+
+// TestForgeStripSplitFlash: while < / > resize the dual layout, the strip's
+// first chip carries the sessions share (SESSIONS 46%), on every tab, as
+// the gate-off title does; once the flash expires the plain label is back.
+func TestForgeStripSplitFlash(t *testing.T) {
+	for _, gate := range []string{gateOn, gateOff} {
+		for _, tab := range []leftTab{tabSessions, tabIssues} {
+			var h *Home
+			if gate == gateOff {
+				if tab != tabSessions {
+					continue // no tabs with the gate off
+				}
+				h = forgeFrameHome(t, 120, 30, false, gateOff)
+			} else {
+				h = forgeHome(t, 120, 30, false, nil, widgetsCheckout)
+			}
+			if tab == tabIssues {
+				h = drive(t, h, altKeyMsg('i'))
+			}
+			h.previewPctOverlayAt = time.Now().Add(time.Minute)
+			want := fmt.Sprintf("SESSIONS %d%%", 100-h.getPreviewPct())
+			if title := frameLines(h.View())[h.getListContentStartY()-2]; !strings.Contains(title, want) {
+				t.Fatalf("gate %q tab %v: title row lacks %q while the flash is on:\n%s", gate, tab, want, title)
+			}
+			h.previewPctOverlayAt = time.Now().Add(-time.Second)
+			if strings.Contains(stripAnsi(h.View()), want) {
+				t.Fatalf("gate %q tab %v: frame keeps %q after the flash", gate, tab, want)
+			}
+		}
 	}
 }
