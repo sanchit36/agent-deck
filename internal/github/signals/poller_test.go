@@ -144,6 +144,22 @@ func TestPollerOneQueryPerHost(t *testing.T) {
 	}
 }
 
+// TestPollerSearchesProjectHosts: a host with a resolved Project but no
+// linked item still gets its review search (one request per host).
+func TestPollerSearchesProjectHosts(t *testing.T) {
+	h := newHarness(t, githubtest.SignalsPoll, pr34)
+	h.p.cfg.Hosts = func() []string { return []string{"ghe.corp.example", "github.com", ""} }
+	h.p.Poll(context.Background())
+	var hosts []string
+	for _, c := range h.runner.graphqlCalls() {
+		hosts = append(hosts, c.Args[2])
+	}
+	slices.Sort(hosts)
+	if !slices.Equal(hosts, []string{"ghe.corp.example", "github.com"}) {
+		t.Fatalf("hosts polled = %v, want one request each for ghe.corp.example and github.com", hosts)
+	}
+}
+
 // TestPollerNoNotificationOnFirstLoad covers the acceptance line: the first
 // poll (a start, or a restart: nothing is persisted) only sets the
 // baseline, then a change raises exactly the transitions.

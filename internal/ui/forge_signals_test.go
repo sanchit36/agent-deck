@@ -286,6 +286,18 @@ func TestSignalsPollerEndToEnd(t *testing.T) {
 	}
 }
 
+// TestSignalsPollProjectHosts: the hosts of the resolved Projects reach the
+// poller, so a GHE host gets its review search before any session links an
+// item there.
+func TestSignalsPollProjectHosts(t *testing.T) {
+	h := forgeFrameHome(t, 120, 30, false, gateOn)
+	forgeShowRepo(h, github.Repo{Host: "ghe.example.com", Owner: "acme", Name: "tools"})
+	h.refreshSignalLinks()
+	if got := h.forge.signals.hosts(); !slices.Contains(got, "ghe.example.com") {
+		t.Fatalf("hosts for the poller = %q, want ghe.example.com", got)
+	}
+}
+
 // TestSignalsOffSwitch: [github] signals = false, the gate off, or
 // refresh_interval = 0 start no poller; a Home that is not running (no
 // Init) never polls.

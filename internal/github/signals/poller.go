@@ -29,6 +29,10 @@ type Config struct {
 	// Targets returns the linked items to watch. It is called on the
 	// poller goroutine and must not block.
 	Targets func() []Target
+	// Hosts returns more hosts to poll for the review search: those of
+	// the resolved Projects, which may have no linked item yet. Called
+	// on the poller goroutine; it must not block. nil means none.
+	Hosts func() []string
 	// Interval is [github] refresh_interval; 0 stops polling.
 	Interval func() time.Duration
 	// Now is the clock; nil means time.Now.
@@ -134,7 +138,8 @@ func hostKey(host string) freshness.Key {
 
 // Poll polls every host that is due, one after the other, and publishes
 // the result. github.com is always polled for the review count; other
-// hosts only while an item there is linked.
+// hosts while an item there is linked or a resolved Project is there
+// (Config.Hosts).
 func (p *Poller) Poll(ctx context.Context) {
 	interval := time.Duration(0)
 	if p.cfg.Interval != nil {
@@ -144,6 +149,16 @@ func (p *Poller) Poll(ctx context.Context) {
 		return
 	}
 	byHost := map[string][]Target{github.DefaultHost: nil}
+	if p.cfg.Hosts != nil {
+		for _, host := range p.cfg.Hosts() {
+			if host == "" {
+				host = github.DefaultHost
+			}
+			if _, ok := byHost[host]; !ok {
+				byHost[host] = nil
+			}
+		}
+	}
 	if p.cfg.Targets != nil {
 		for _, t := range p.cfg.Targets() {
 			if t.Repo.Owner == "" || t.Repo.Name == "" || t.Number <= 0 {
