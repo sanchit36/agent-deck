@@ -948,7 +948,7 @@ file = "templates/review.md"     # relative to the config dir; ~ is expanded
 | Key | Type | Default | Description |
 |-----|------|---------|-------------|
 | `applies_to` | string | `"issue"` | `"issue"` or `"pr"`. Any other value ignores the template and warns. |
-| `labels` | list | `[]` | Labels that select the template, matched exactly and case-insensitively (no globs). |
+| `labels` | list | `[]` | Labels that select the template, compared exactly and case-insensitively (no globs). |
 | `default` | bool | `false` | Fallback for its kind when no label matches. |
 | `repos` | list | `[]` (all) | `owner/name` Projects the template applies to. Templates for the current Project rank ahead of global ones. |
 | `text` | string | | Inline template. Set exactly one of `text` and `file`, or the template is ignored with a warning. |
@@ -987,7 +987,7 @@ replaces the built-in.
 - none: the kind's `default` (yours before the built-in, a Project default before a global one, then the first by name), otherwise the picker
 
 **Config-load warnings** (logged; the template still loads unless noted):
-an unknown variable (left as written); a PR variable in an issue template
+a variable name not in the list above (left as written); a PR variable in an issue template
 (renders empty); a `repos` entry that is not `owner/name`; a `file` that cannot
 be read yet; two `default` templates of one kind for the same Project (the
 first by name wins); a bad `applies_to` or not exactly one of `text`/`file`
