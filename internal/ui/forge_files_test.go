@@ -134,7 +134,7 @@ func TestForgeFilesDiffCachedByHead(t *testing.T) {
 	e, _ := h.forge.fresh.Get(dk)
 	d := e.Value.(github.PRDetail)
 	d.HeadSHA = "0000000000000000000000000000000000000001"
-	h = drive(t, h, forgeFetchedMsg{key: dk, value: d})
+	_ = drive(t, h, forgeFetchedMsg{key: dk, value: d})
 	if n := diffCalls(fake, 14927); n != 2 {
 		t.Fatalf("%d diff requests after a new head, want 2", n)
 	}

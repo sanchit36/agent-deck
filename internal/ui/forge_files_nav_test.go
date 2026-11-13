@@ -126,7 +126,7 @@ func TestForgeFilesHunks(t *testing.T) {
 	if o.files.file != 0 || o.scroll[forgeOverlayFiles].offset != 4 {
 		t.Fatalf("N: file %d offset %d, want a.go's last hunk", o.files.file, o.scroll[forgeOverlayFiles].offset)
 	}
-	h = drive(t, h, runeKey('N'))
+	_ = drive(t, h, runeKey('N'))
 	if o.scroll[forgeOverlayFiles].offset != 0 {
 		t.Fatalf("N: offset %d, want a.go's first hunk", o.scroll[forgeOverlayFiles].offset)
 	}
@@ -188,7 +188,7 @@ func TestForgeFilesFocus(t *testing.T) {
 		t.Fatalf("G on the list: file %d", o.files.file)
 	}
 	h = drive(t, h, overlayEnter())
-	h = drive(t, h, runeKey('k'))
+	_ = drive(t, h, runeKey('k'))
 	if o.files.file != 5 || o.files.listFocus {
 		t.Fatalf("enter did not hand the keys back to the diff: file %d focus %v", o.files.file, o.files.listFocus)
 	}
