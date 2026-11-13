@@ -392,6 +392,25 @@ func (h *Home) renderForgeListBody(width int) []string {
 	return out
 }
 
+// renderForgeStaleNote is the line over stale rows that says why the last
+// refetch failed, by class (spec #18 §5: "rate-limited until HH:MM",
+// "offline · retrying"); nil unless the list on screen is stale.
+func (h *Home) renderForgeStaleNote(width int) []string {
+	k, e, ok := h.forgeVisibleEntry()
+	if !ok || !e.Stale() {
+		return nil
+	}
+	f := h.forgeListFailure(k, e.Err)
+	if len(f.lines) == 0 {
+		return nil
+	}
+	style := lipgloss.NewStyle().Foreground(ColorYellow)
+	if f.empty {
+		style = lipgloss.NewStyle().Foreground(ColorTextDim)
+	}
+	return []string{style.Render(truncateDisplay(f.lines[0], max(1, width), "…"))}
+}
+
 // forgeListFailure is forgeFailureFor for err, the failure of the list on
 // screen (key k). esc resets to the starting filter, so when GitHub rejects
 // that very filter (from [github] issue_filter or pr_filter) the hint
