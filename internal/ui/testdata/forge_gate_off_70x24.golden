@@ -1,0 +1,24 @@
+ ●●○ Agent Deck [_test]  no sessions                         v1.16.10 
+  All    ● 0   ◐ 0   ○ 0   !@#& filter • 0 all • % open • …           
+SESSIONS                                                              
+──────────────────────────────────────────────────────────────────────
+  ▾ widgets (2)                                                       
+  ▶├─ ■ fix login claude                                              
+   └─ ■ review codex                                                  
+                                                                      
+                                                                      
+──────────────────────────────────────────────────────────────────────
+PREVIEW                                                               
+──────────────────────────────────────────────────────────────────────
+fix login  ■ stopped                                                  
+📁 /src/widgets                                                       
+⏱ unknown                                                             
+ claude   widgets                                                     
+───────────────────────────── Claude ─────────────────────────────    
+Status:  ○ Not connected                                              
+Model:   tool default                                                 
+                                                                      
+───────────────────────── Process Exited ─────────────────────────    
+                                                                      
+──────────────────────────────────────────────────────────────────────
+⏎ Attach n/N New o Send │    ↑↓ Nav / Search S Settings ? Help q Quit 
