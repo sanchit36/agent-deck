@@ -35,5 +35,5 @@ A recorded tie between a session and an issue or pull request. A session has at 
 _Avoid_: Association, binding
 
 **Prompt Template**:
-A user-defined text, chosen per kind of issue (bug, implementation, ...), that is filled with an issue's number and content to become the first message of a session launched from that issue.
+A named text, chosen per kind of issue or pull request (bug, implementation, review feedback, ...), that is filled with that issue's or pull request's number and content to become the first message of a session launched from it. Agent Deck ships built-in templates; a user's template of the same name replaces the built-in one.
 _Avoid_: Preset, prompt preset
