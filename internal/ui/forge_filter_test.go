@@ -422,6 +422,27 @@ func TestForgeFilterConfigStartChipTotal(t *testing.T) {
 	}
 }
 
+// TestForgeFilterConfigStartRejected: a starting filter GitHub rejects
+// does not offer esc (it is the filter esc resets to); it points at the
+// config key instead.
+func TestForgeFilterConfigStartRejected(t *testing.T) {
+	q := "repo:me/widgets is:issue is:open label:(bug sort:updated-desc"
+	h, _ := filterConfigHome(t, "issue_filter = \"is:open label:(bug\"\n", func(f *githubtest.Fake) {
+		serveSearch(f, github.IssueSearchQuery, q, githubtest.MustLoad(t, githubtest.SearchRejected))
+		serveIssueList(f, githubtest.MustLoad(t, githubtest.IssueList))
+	})
+	pane := squash(listPane(h))
+	if !strings.Contains(pane, squash("GitHub rejected the filter")) {
+		t.Fatalf("no rejection message:\n%s", listPane(h))
+	}
+	if strings.Contains(pane, "escreset") {
+		t.Fatalf("offers esc reset, which does nothing on the starting filter:\n%s", listPane(h))
+	}
+	if !strings.Contains(pane, squash("[github] issue_filter")) {
+		t.Fatalf("does not name the config key:\n%s", listPane(h))
+	}
+}
+
 // TestForgeFilterConfigDefault: issue_filter = "is:open" is the default
 // list, never a search.
 func TestForgeFilterConfigDefault(t *testing.T) {

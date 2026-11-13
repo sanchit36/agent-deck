@@ -375,7 +375,7 @@ func (h *Home) renderForgeListBody(width int) []string {
 		}
 		return nil
 	}
-	f := forgeFailureFor(e.Err, k, h.forgeNow())
+	f := h.forgeListFailure(k, e.Err)
 	style := lipgloss.NewStyle().Foreground(ColorYellow)
 	if f.empty {
 		style = dim
@@ -390,6 +390,23 @@ func (h *Home) renderForgeListBody(width int) []string {
 		}
 	}
 	return out
+}
+
+// forgeListFailure is forgeFailureFor for err, the failure of the list on
+// screen (key k). esc resets to the starting filter, so when GitHub rejects
+// that very filter (from [github] issue_filter or pr_filter) the hint
+// names the config key instead of offering esc.
+func (h *Home) forgeListFailure(k freshness.Key, err error) forgeFailure {
+	f := forgeFailureFor(err, k, h.forgeNow())
+	var qe *github.QueryError
+	if errors.As(err, &qe) && h.forgeFilterIsDefault(h.forge.tab) {
+		key := "issue_filter"
+		if h.forge.tab == tabPRs {
+			key = "pr_filter"
+		}
+		f.lines[len(f.lines)-1] = "/ edit · fix [github] " + key
+	}
+	return f
 }
 
 // forgeFailure is the message a failed fetch shows in place of its view.
