@@ -103,6 +103,64 @@ func TestLinkUnlinkSurvivesSave(t *testing.T) {
 	}
 }
 
+// Unlinking a PR opts the session out of PR auto-detect, persisted with the
+// links so a restart (or a CLI unlink read by the TUI) keeps it; an explicit
+// link of a PR clears the opt-out, and the clear survives the extras merge.
+func TestPRUnlinkOptsOutOfAutoLink(t *testing.T) {
+	s := newTestStorage(t)
+	a := linkTestInstance("a")
+	if a.PRAutoLinkOff {
+		t.Fatal("new session starts opted out")
+	}
+	a.SetLink(LinkPR, Link{Host: "github.com", Owner: "acme", Name: "app", Number: 34})
+	if err := s.SaveWithGroups([]*Instance{a}, nil); err != nil {
+		t.Fatalf("save: %v", err)
+	}
+	loaded := loadByID(t, s)["a"]
+	if loaded.PRAutoLinkOff {
+		t.Fatal("linked session is opted out")
+	}
+	loaded.ClearLink(LinkPR)
+	if !loaded.PRAutoLinkOff {
+		t.Fatal("ClearLink(pr) did not opt the session out of auto-detect")
+	}
+	if err := s.SaveWithGroups([]*Instance{loaded}, nil); err != nil {
+		t.Fatalf("save: %v", err)
+	}
+	again := loadByID(t, s)["a"]
+	if !again.PRAutoLinkOff {
+		t.Fatal("auto-link opt-out lost across save and load")
+	}
+	// An unaware writer (omits the key) keeps the opt-out.
+	merged := statedb.MergeToolDataExtras(WritePRAutoLinkOffToToolData(nil, true, false), json.RawMessage(`{}`))
+	if !ReadPRAutoLinkOffFromToolData(merged) {
+		t.Fatalf("auto-link opt-out dropped by a writer that never set it: %s", merged)
+	}
+	if got := WritePRAutoLinkOffToToolData(json.RawMessage(`{"a":1}`), false, false); string(got) != `{"a":1}` {
+		t.Fatalf("never-opted-out row gained bytes: %s", got)
+	}
+
+	// An explicit link clears it, durably.
+	again.SetLink(LinkPR, Link{Host: "github.com", Owner: "acme", Name: "app", Number: 35})
+	if again.PRAutoLinkOff {
+		t.Fatal("SetLink(pr) kept the opt-out")
+	}
+	if err := s.SaveWithGroups([]*Instance{again}, nil); err != nil {
+		t.Fatalf("save: %v", err)
+	}
+	if loadByID(t, s)["a"].PRAutoLinkOff {
+		t.Fatal("opt-out came back after an explicit link")
+	}
+
+	// An Issue unlink is not a PR opt-out.
+	b := linkTestInstance("b")
+	b.SetLink(LinkIssue, Link{Host: "github.com", Owner: "acme", Name: "app", Number: 1})
+	b.ClearLink(LinkIssue)
+	if b.PRAutoLinkOff {
+		t.Fatal("issue unlink opted out of PR auto-detect")
+	}
+}
+
 // Links are deleted with their session: the row goes, and a new session
 // that happens to reuse nothing of it starts unlinked.
 func TestLinkDeletedWithSession(t *testing.T) {

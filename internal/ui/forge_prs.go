@@ -218,7 +218,8 @@ func forgeAutoLinks(listRepo github.Repo, prs []github.PullRequest, cands []forg
 }
 
 // forgeLinkSession is a session auto-detect may link, before its Project
-// is resolved: one in a local git worktree with a branch and no PR link.
+// is resolved: one in a local git worktree with a branch, no PR link, and
+// no PR unlink by the user (PRAutoLinkOff).
 type forgeLinkSession struct {
 	id, branch, path string
 }
@@ -229,7 +230,7 @@ func (h *Home) forgeLinkSessions() []forgeLinkSession {
 	defer h.instancesMu.RUnlock()
 	var out []forgeLinkSession
 	for _, inst := range h.instances {
-		if inst == nil || inst.PRLink != nil || inst.IsSSH() || !inst.IsWorktree() || inst.WorktreeBranch == "" {
+		if inst == nil || inst.PRLink != nil || inst.PRAutoLinkOff || inst.IsSSH() || !inst.IsWorktree() || inst.WorktreeBranch == "" {
 			continue
 		}
 		p := inst.WorktreeRepoRoot
@@ -274,13 +275,14 @@ func (h *Home) forgeAutoLinkCmd(repo github.Repo, l github.PRList) tea.Cmd {
 }
 
 // applyForgeAutoLinked stores the Links auto-detect found, skipping any
-// session that gained a PR link meanwhile, and saves.
+// session that gained a PR link or was opted out by an unlink meanwhile,
+// and saves.
 func (h *Home) applyForgeAutoLinked(msg forgeAutoLinkedMsg) {
 	changed := false
 	h.instancesMu.Lock()
 	for _, al := range msg.links {
 		inst := h.instanceByID[al.id]
-		if inst == nil || inst.PRLink != nil {
+		if inst == nil || inst.PRLink != nil || inst.PRAutoLinkOff {
 			continue
 		}
 		inst.SetLink(session.LinkPR, al.link)

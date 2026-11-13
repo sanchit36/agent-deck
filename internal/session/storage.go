@@ -193,6 +193,8 @@ type InstanceData struct {
 	// extras zone, link_persist.go).
 	IssueLink *Link `json:"issue_link,omitempty"`
 	PRLink    *Link `json:"pr_link,omitempty"`
+	// PRAutoLinkOff mirrors Instance.PRAutoLinkOff (link_persist.go).
+	PRAutoLinkOff bool `json:"pr_autolink_off,omitempty"`
 
 	// IdentityInjectionDisabled mirrors Instance.IdentityInjectionDisabled.
 	// Lives in the tool_data extras zone (identity_injection_persist.go).
@@ -1170,6 +1172,7 @@ func instanceToRow(inst *Instance) (*statedb.InstanceRow, error) {
 	toolData = WriteIdleTimeoutSecsToToolData(toolData, inst.IdleTimeoutSecs)
 	toolData = WriteFavoriteToToolData(toolData, inst.Favorite, inst.favoriteCleared)
 	toolData = WriteLinksToToolData(toolData, inst.IssueLink, inst.PRLink, inst.issueLinkCleared, inst.prLinkCleared)
+	toolData = WritePRAutoLinkOffToToolData(toolData, inst.PRAutoLinkOff, inst.prAutoLinkOffCleared)
 	// #1821: subcommand_passthrough lives in the same extras zone — see
 	// Instance.SubcommandPassthrough's doc for why losing it on reload must
 	// never silently re-enable claude/codex account-routing treatment for a
@@ -1422,6 +1425,7 @@ func (s *Storage) LoadLite() ([]*InstanceData, []*GroupData, error) {
 			Supersedes:                ReadCrossHarnessSupersedesFromToolData(r.ToolData),
 		}
 		instances[i].IssueLink, instances[i].PRLink = ReadLinksFromToolData(r.ToolData)
+		instances[i].PRAutoLinkOff = ReadPRAutoLinkOffFromToolData(r.ToolData)
 	}
 
 	// Convert groups
@@ -1571,6 +1575,7 @@ func (s *Storage) LoadWithGroupsSnapshot() ([]*Instance, []*GroupData, *statedb.
 			Supersedes:                ReadCrossHarnessSupersedesFromToolData(r.ToolData),
 		}
 		data.Instances[i].IssueLink, data.Instances[i].PRLink = ReadLinksFromToolData(r.ToolData)
+		data.Instances[i].PRAutoLinkOff = ReadPRAutoLinkOffFromToolData(r.ToolData)
 	}
 
 	// Convert groups
@@ -1893,6 +1898,7 @@ func (s *Storage) convertToInstances(data *StorageData) ([]*Instance, []*GroupDa
 			Favorite:                     instData.Favorite,
 			IssueLink:                    instData.IssueLink,
 			PRLink:                       instData.PRLink,
+			PRAutoLinkOff:                instData.PRAutoLinkOff,
 			DeepSeekTask:                 instData.DeepSeekTask,
 			HermesSessionID:              instData.HermesSessionID,
 			hermesBoundAt:                instData.HermesDetectedAt,

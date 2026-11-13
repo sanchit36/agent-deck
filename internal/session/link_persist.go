@@ -37,6 +37,8 @@ type Link struct {
 const (
 	toolDataIssueLinkKey = "issue_link"
 	toolDataPRLinkKey    = "pr_link"
+	// toolDataPRAutoLinkOffKey holds Instance.PRAutoLinkOff.
+	toolDataPRAutoLinkOffKey = "pr_autolink_off"
 )
 
 // Repo is the link's repo as HOST/OWNER/NAME, the form gh's -R takes.
@@ -100,9 +102,12 @@ func (i *Instance) LinkOf(kind LinkKind) *Link {
 }
 
 // SetLink records l as the session's link of kind, replacing any earlier one.
+// Linking a PR clears the PR auto-detect opt-out a PR unlink set.
 func (i *Instance) SetLink(kind LinkKind, l Link) {
 	if kind == LinkPR {
 		i.PRLink, i.prLinkCleared = &l, false
+		i.prAutoLinkOffCleared = i.prAutoLinkOffCleared || i.PRAutoLinkOff
+		i.PRAutoLinkOff = false
 		return
 	}
 	i.IssueLink, i.issueLinkCleared = &l, false
@@ -110,11 +115,15 @@ func (i *Instance) SetLink(kind LinkKind, l Link) {
 
 // ClearLink removes the session's link of kind and reports whether there was
 // one. The next save writes an explicit null so the extras merge cannot carry
-// the stored link forward.
+// the stored link forward. Removing a PR link also opts the session out of
+// PR auto-detect (PRAutoLinkOff), so the PRs tab never re-adds it.
 func (i *Instance) ClearLink(kind LinkKind) bool {
 	if kind == LinkPR {
 		had := i.PRLink != nil
 		i.PRLink, i.prLinkCleared = nil, i.prLinkCleared || had
+		if had {
+			i.PRAutoLinkOff, i.prAutoLinkOffCleared = true, false
+		}
 		return had
 	}
 	had := i.IssueLink != nil
@@ -150,6 +159,36 @@ func putLink(m map[string]json.RawMessage, key string, l *Link, cleared bool) {
 	default:
 		delete(m, key)
 	}
+}
+
+// WritePRAutoLinkOffToToolData records the PR auto-detect opt-out. A plain
+// false leaves the blob alone (rows never opted out keep their bytes); cleared
+// writes an explicit false so the extras merge cannot carry a stored opt-out
+// forward (same protocol as WriteFavoriteToToolData).
+func WritePRAutoLinkOffToToolData(td json.RawMessage, off, cleared bool) json.RawMessage {
+	if !off && !cleared {
+		return td // fast path: most rows were never opted out
+	}
+	m := map[string]json.RawMessage{}
+	if len(td) > 0 {
+		_ = json.Unmarshal(td, &m)
+	}
+	m[toolDataPRAutoLinkOffKey] = json.RawMessage(strconv.FormatBool(off))
+	out, _ := json.Marshal(m)
+	return out
+}
+
+// ReadPRAutoLinkOffFromToolData reports the PR auto-detect opt-out; false
+// for legacy rows.
+func ReadPRAutoLinkOffFromToolData(td json.RawMessage) bool {
+	if len(td) == 0 {
+		return false
+	}
+	var blob struct {
+		Off bool `json:"pr_autolink_off"`
+	}
+	_ = json.Unmarshal(td, &blob)
+	return blob.Off
 }
 
 // ReadLinksFromToolData returns the stored Issue and PR links; nil for a

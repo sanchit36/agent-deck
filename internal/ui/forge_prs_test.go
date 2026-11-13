@@ -327,6 +327,27 @@ func TestForgePRsAutoLink(t *testing.T) {
 	}
 }
 
+// TestForgePRsAutoLinkSkipsUnlinked: a session whose PR link the user
+// removed (`session unlink <id> pr`) is never relinked by auto-detect.
+func TestForgePRsAutoLinkSkipsUnlinked(t *testing.T) {
+	unlinked := worktreeSession("u", "unlinked", "/src/widgets", "feat/x")
+	unlinked.SetLink(session.LinkPR, session.Link{Host: "github.com", Owner: "me", Name: "widgets", Number: 101})
+	unlinked.ClearLink(session.LinkPR)
+
+	h, _ := prsHome(t, 120, 30, githubtest.PRList, unlinked)
+	_ = drive(t, h, forgeFetchedMsg{key: widgetsPRs, value: prListWith("main", "feat/x")})
+	if l := unlinked.LinkOf(session.LinkPR); l != nil {
+		t.Fatalf("auto-detect relinked an unlinked session to %v", l)
+	}
+	// The apply step re-checks: a link found before the unlink is dropped.
+	h.applyForgeAutoLinked(forgeAutoLinkedMsg{links: []forgeAutoLink{{id: "u", link: session.Link{
+		Host: "github.com", Owner: "me", Name: "widgets", Number: 101,
+	}}}})
+	if l := unlinked.LinkOf(session.LinkPR); l != nil {
+		t.Fatalf("apply relinked an unlinked session to %v", l)
+	}
+}
+
 // TestForgePRsAutoLinkOffRenderPath: the list's arrival does not link in
 // the update itself: resolving the sessions' Projects runs in a command,
 // and View never resolves.

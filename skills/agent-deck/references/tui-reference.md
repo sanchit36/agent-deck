@@ -252,7 +252,8 @@ sessions are linked), on both tabs. When the PRs list arrives, a session in a
 git worktree whose branch is a PR's head branch, in the repository the
 session's Project resolves to, is linked to that PR, the most recently updated
 one if several match. A session that already has a PR link keeps it; SSH
-sessions are never linked this way. This runs in the background, never while
+sessions are never linked this way, and neither is a session whose PR link
+you removed with `session unlink <id> pr` (until you link a PR to it again). This runs in the background, never while
 the list is drawn.
 
 On the Issues and PRs tabs the right pane (the lower one in the stacked
