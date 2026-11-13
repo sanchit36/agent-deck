@@ -1006,6 +1006,9 @@ type Home struct {
 	// cadence ([interval_hooks] in config.toml). nil when none are configured.
 	intervalHookRunner *intervalhook.Runner
 
+	// forge is the Issues/PRs tab state ([github] enabled; forge_tabs.go).
+	forge forgeState
+
 	// Insert mode (#1069, feature 1): vim-style modal type-through. When
 	// active, printable runes, Space, and Enter are routed directly to the
 	// focused session's tmux pane instead of being interpreted as TUI
@@ -1222,6 +1225,7 @@ func (h *Home) saveToolVisibilityConfig() error {
 
 func (h *Home) reloadHotkeysFromConfig() {
 	h.setHotkeys(resolveHotkeys(session.GetHotkeyOverrides()))
+	h.reloadForgeFromConfig()
 }
 
 func (h *Home) detachByte() byte {
@@ -2367,6 +2371,15 @@ func (h *Home) updateInner(msg tea.Msg) (tea.Model, tea.Cmd) {
 					}
 					return h, nil
 				}
+			}
+			// A forge tab's list scrolls its own cursor.
+			if h.forgeTabActive() {
+				if msg.Button == tea.MouseButtonWheelUp {
+					h.moveForgeCursor(moveUp)
+				} else {
+					h.moveForgeCursor(moveDown)
+				}
+				return h, nil
 			}
 			// Main session list scroll (cursor movement also resets any
 			// stale preview offset so the new session starts at its tail).
@@ -4484,6 +4497,14 @@ func (h *Home) updateInner(msg tea.Msg) (tea.Model, tea.Cmd) {
 		h.previewCacheMu.Unlock()
 		return h, nil
 
+	case forgeGroupResolvedMsg:
+		h.applyForgeGroupResolved(msg)
+		return h, nil
+
+	case forgeParentResolvedMsg:
+		h.applyForgeParentResolved(msg)
+		return h, nil
+
 	case analyticsFetchedMsg:
 		// Async analytics parsing complete - update TTL cache
 		h.analyticsFetchingID = ""
@@ -5313,6 +5334,13 @@ func (h *Home) handleMouse(msg tea.MouseMsg) (tea.Model, tea.Cmd) {
 			return h, nil
 		}
 
+		// The tab strip and the forge lists ([github] enabled).
+		if h.forge.enabled {
+			if handled, cmd := h.handleForgeMouseClick(msg.X, msg.Y); handled {
+				return h, cmd
+			}
+		}
+
 		// Check if click is in the session list panel
 		if h.getLayoutMode() == LayoutModeDual {
 			leftWidth := h.sessionsPaneWidth()
@@ -5429,6 +5457,13 @@ func (h *Home) handleMainKey(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 	raw := msg.String()
 	key := h.normalizeMainKey(raw)
 	uiLog.Info("keypress", "raw", raw, "normalized", key, "type", msg.Type, "runes", string(msg.Runes))
+	// The forge key space ([github] enabled): tab keys from every tab, and
+	// on Issues/PRs the forge handler sees keys before the global switch.
+	if h.forge.enabled {
+		if handled, model, cmd := h.handleForgeKey(msg, raw, key); handled {
+			return model, cmd
+		}
+	}
 	if key == "" {
 		return h, nil
 	}

@@ -1,0 +1,30 @@
+ ●●○ Agent Deck [_test]  no sessions                                                                           v1.16.10 
+  All    ● 0   ◐ 0   ○ 0   !@#& filter • 0 all • % open • ^ archived • t view • * time                                  
+ AGENTS │ ISSUES 12 │ PRS 3        GROUPED │ PREVIEW                                                                    
+────────────────────────────────────────── │ ───────────────────────────────────────────────────────────────────────────
+  ▾ widgets (2)                            │ fix login  ■ stopped                                                       
+  ▶ ■ fix login                            │ 📁 /src/widgets                                                            
+    ╰ stopped · claude                     │ ⏱ unknown                                                                  
+    ■ review                               │  claude   widgets                                                          
+    ╰ stopped · codex                      │ ─────────────────────────────── Claude ───────────────────────────────     
+                                           │ Status:  ○ Not connected                                                   
+                                           │ Model:   tool default                                                      
+                                           │                                                                            
+                                           │ ─────────────────────────── Process Exited ───────────────────────────     
+                                           │                                                                            
+                                           │ ■ Process exited                                                           
+                                           │                                                                            
+                                           │ The process ended or was stopped.                                          
+                                           │ The session record is preserved for resuming.                              
+                                           │                                                                            
+                                           │ Actions:                                                                   
+                                           │   R Resume  - restart with session resume                                  
+                                           │   d Delete  - remove from list                                             
+                                           │   Enter - attach (will auto-start)                                         
+                                           │                                                                            
+                                           │                                                                            
+                                           │                                                                            
+                                           │                                                                            
+                                           │                                                                            
+────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────
+Session:  ⏎  Attach  n/N  New  g  Grp  R  Restart  m  MCP  v  Both  s  Skills  H  Shell …     ↑↓ Nav │ ? Help │ q Quit  

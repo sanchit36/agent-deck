@@ -206,6 +206,40 @@ Inside the search prompt, `/waiting`, `/running` and `/idle` filter by status.
 | `Alt+N` | What's new: this version's highlights and any of your reports it fixed, each with "Is it fixed for you?" (`y`/`n`, optional comment, then the exact public comment and the GitHub account that posts it; posted only after you press `y`, never while gh is not logged in). Also opens by itself on the first start after an update (`whats_new`, **rebindable**) |
 | `q` / `Ctrl+C` | Quit (**rebindable**) |
 
+### GitHub tabs
+
+(behind `[github] enabled`)
+
+With the gate on, the left panel's title row is a tab strip,
+`SESSIONS │ ISSUES n │ PRS n` (`AGENTS` in the embedded layout, where the
+`FLAT`/`GROUPED` label moves to the right end of the row). The active tab is
+the inverted chip; the counts are the open Issues and PRs once a list has
+loaded. The strip takes no extra row, and a click on a chip switches to it.
+Each tab keeps its own cursor and scroll position.
+
+The first row of the Issues and PRs tabs is the Project line: `owner/repo ▾`
+and the filter, or one line saying why the group has no GitHub Project (`not a
+git repository`, `no GitHub remote`, `remote is on gitlab.com, not GitHub`, ...).
+The Project is resolved the first time a forge tab shows the group, never while
+the list is drawn. Click the `owner/repo ▾` chip or press `p` to choose among a
+group's Projects; it starts on the selected session's Project.
+
+| Key | Action |
+|-----|--------|
+| `[` / `]` | Previous / next tab, wrapping; from every tab (**rebindable**: `forge_prev_tab`, `forge_next_tab`) |
+| `Alt+S` / `Alt+I` / `Alt+P` | Sessions / Issues / PRs tab; from every tab (**rebindable**: `forge_tab_sessions`, `forge_tab_issues`, `forge_tab_prs`) |
+| `p` | Project selector: `j`/`k` move, `Enter` selects, `Esc` closes (Issues, PRs; **rebindable**: `forge_project`) |
+| `P` | Toggle between the Project and its Parent Repository (from GitHub's fork metadata; a Project that is not a fork says so) (Issues, PRs; **rebindable**: `forge_parent`) |
+| `j`/`k`, `↑`/`↓`, `Ctrl+U/D`, `PgUp`/`PgDn`, `Ctrl+B/F`, `Home`/`End` | Move in the tab's list (Issues, PRs) |
+
+On the Issues and PRs tabs every other session key is ignored except these,
+which work as on Sessions: quit (`q`, `Ctrl+C`), help (`?`), `Esc`, group
+navigation (`Alt+J`/`Alt+K`, `1`-`9`; the tab follows the selected group),
+layout (`<` `>` `O`), settings (`S`), report a problem (`Z`), what's new
+(`Alt+N`), show me around (`Alt+W`) and reload (`Ctrl+R`). There, `?` opens a
+GitHub help section with the forge keys and these global keys, and the bottom
+bar shows the forge keys.
+
 ### Worktree Shortcuts
 
 | Key | Action |

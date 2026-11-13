@@ -366,6 +366,21 @@ type UserConfig struct {
 	// and exactly one of text or file. A name matching a built-in (issue,
 	// pr-review) replaces it. Read through BuildPromptTemplates.
 	PromptTemplates map[string]prompttemplate.Def `toml:"prompt_templates,omitempty"`
+
+	// GitHub holds the [github] settings of the TUI's Issues and PRs tabs.
+	GitHub GitHubSettings `toml:"github,omitempty"`
+}
+
+// GitHubSettings is the [github] section: the GitHub integration in the TUI.
+type GitHubSettings struct {
+	// Enabled turns on the Issues and PRs tabs, their keys and every gh call
+	// they make. Default false: no tab strip, no forge keys, no gh calls.
+	Enabled bool `toml:"enabled,omitempty"`
+}
+
+// GitHubEnabled reports whether [github] enabled is on. A nil config is off.
+func (c *UserConfig) GitHubEnabled() bool {
+	return c != nil && c.GitHub.Enabled
 }
 
 // BuildPromptTemplates merges [prompt_templates] over the built-ins and
